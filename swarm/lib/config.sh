@@ -17,6 +17,10 @@ STATE_FILE="${TRIBE_DIR}/state.json"
 BUDGET_FILE="${TRIBE_DIR}/budget.json"
 CLAUDE_MD="${TRIBE_ROOT}/CLAUDE.md"
 
+# ── Claude CLI ────────────────────────────────────────────────────
+CLAUDE_BIN="$(which claude 2>/dev/null || echo "claude")"
+export PATH="${PATH}:${HOME}/.local/bin"
+
 # ── Defaults ─────────────────────────────────────────────────────
 DEFAULT_MAX_PARALLEL=3
 DEFAULT_MAX_BUDGET=10

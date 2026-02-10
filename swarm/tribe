@@ -145,17 +145,42 @@ cmd_plan() {
         "${TEMPLATES_DIR}/task.json" \
         "sonnet")
 
-    # Validate JSON output
-    if ! echo "$architect_output" | jq empty 2>/dev/null; then
-        # Try to extract JSON from the output (agent may have wrapped it in text)
-        architect_output=$(echo "$architect_output" | grep -o '\[.*\]' | head -1)
-        if ! echo "$architect_output" | jq empty 2>/dev/null; then
-            log_error "Architect produced invalid JSON output"
-            log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
-            echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
-            exit 1
+    # Save raw output for debugging
+    echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
+
+    # Normalize output to a JSON array of tasks
+    local tasks_json=""
+
+    # Case 1: already a valid JSON array
+    if echo "$architect_output" | jq -e 'type == "array"' &>/dev/null; then
+        tasks_json="$architect_output"
+    # Case 2: JSON object — look for common wrapper keys
+    elif echo "$architect_output" | jq -e 'type == "object"' &>/dev/null; then
+        if echo "$architect_output" | jq -e '.tasks | type == "array"' &>/dev/null; then
+            tasks_json=$(echo "$architect_output" | jq '.tasks')
+        else
+            tasks_json=$(echo "$architect_output" | jq '[.[] | select(type == "array")] | .[0] // empty')
         fi
     fi
+
+    # Case 3: text with embedded JSON (possibly in ```json code fences)
+    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
+        # Strip markdown code fences and extract JSON array
+        tasks_json=$(echo "$architect_output" | sed -n '/^```/,/^```/p' | sed '/^```/d' | jq -s '.[0]' 2>/dev/null || true)
+    fi
+
+    # Case 4: brute force — find the first [ and last ] in the output
+    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
+        tasks_json=$(echo "$architect_output" | sed -n '/^\[/,/^\]/p' | jq '.' 2>/dev/null || true)
+    fi
+
+    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
+        log_error "Could not extract task array from architect output"
+        log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+        exit 1
+    fi
+
+    architect_output="$tasks_json"
 
     # Clear existing tasks
     rm -f "${TASKS_DIR}"/*.json
@@ -241,10 +266,28 @@ cmd_run() {
     local main_branch
     main_branch=$(git_current_branch)
 
-    # ── Main orchestration loop ──────────────────────────────────
-    declare -A running_pids    # task_id -> PID
-    declare -A running_outputs # task_id -> output file
+    # ── Agent tracking via files (bash 3 compatible) ───────────
+    local running_dir="${TRIBE_ROOT}/.tribe/running"
+    rm -rf "$running_dir"
+    mkdir -p "$running_dir"
+    # Each running agent: .tribe/running/{task_id}.pid (contains PID)
 
+    _running_count() {
+        local count=0
+        for f in "$running_dir"/*.pid; do
+            [[ -f "$f" ]] && ((count++))
+        done
+        echo "$count"
+    }
+
+    _running_task_ids() {
+        for f in "$running_dir"/*.pid; do
+            [[ -f "$f" ]] || continue
+            basename "$f" .pid
+        done
+    }
+
+    # ── Main orchestration loop ──────────────────────────────────
     while true; do
         # Check budget
         local spent
@@ -255,20 +298,18 @@ cmd_run() {
         fi
 
         # Check for completed agents
-        for task_id in "${!running_pids[@]}"; do
-            local pid="${running_pids[$task_id]}"
+        for pid_file in "$running_dir"/*.pid; do
+            [[ -f "$pid_file" ]] || continue
+            local task_id pid
+            task_id=$(basename "$pid_file" .pid)
+            pid=$(cat "$pid_file")
+
             if ! claude_is_running "$pid"; then
                 local exit_code=0
                 wait "$pid" 2>/dev/null || exit_code=$?
 
-                local output_file="${running_outputs[$task_id]}"
-
                 if [[ $exit_code -eq 0 ]]; then
                     log_success "Task ${task_id} agent completed"
-
-                    # Switch to task branch and run gates
-                    local task_branch
-                    task_branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json")
 
                     if gates_run "$task_id"; then
                         task_update "$task_id" "status" "done"
@@ -286,8 +327,7 @@ cmd_run() {
                 fi
 
                 # Clean up tracking
-                unset running_pids[$task_id]
-                unset running_outputs[$task_id]
+                rm -f "$pid_file"
                 task_update_raw "$task_id" "agent_pid" "null"
 
                 # Return to main branch
@@ -296,7 +336,8 @@ cmd_run() {
         done
 
         # Count running agents
-        local running_count=${#running_pids[@]}
+        local running_count
+        running_count=$(_running_count)
 
         # Find ready tasks and spawn agents
         local ready_tasks
@@ -363,8 +404,7 @@ ${TRIBE_ROOT}"
                     "$output_file" \
                     "$task_model")
 
-                running_pids[$task_id]="$pid"
-                running_outputs[$task_id]="$output_file"
+                echo "$pid" > "${running_dir}/${task_id}.pid"
 
                 task_update "$task_id" "status" "running"
                 task_update "$task_id" "started_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -384,7 +424,7 @@ ${TRIBE_ROOT}"
         # Brief status update
         local done_count pending_count failed_count
         done_count=$(task_count_by_status "done")
-        running_count=${#running_pids[@]}
+        running_count=$(_running_count)
         pending_count=$(task_count_by_status "pending")
         failed_count=$(task_count_by_status "failed")
         echo -ne "\r${DIM}[${done_count}/${total} done | ${running_count} running | ${pending_count} pending | ${failed_count} failed]${RESET}  "
@@ -395,6 +435,9 @@ ${TRIBE_ROOT}"
 
     echo ""
     echo ""
+
+    # Clean up
+    rm -rf "$running_dir"
 
     # Final state update
     jq '.status = "idle" | .agents = []' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
