@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { DM_Serif_Display, DM_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/layout/nav";
-import { Footer } from "@/components/layout/footer";
+import Nav from "@/components/layout/nav";
+import Footer from "@/components/layout/footer";
 import { GraphQLProvider } from "@/lib/graphql/provider";
 
 const dmSerifDisplay = DM_Serif_Display({
