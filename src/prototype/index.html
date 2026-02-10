@@ -97,6 +97,75 @@
       line-height: 1.65;
       font-weight: 400;
     }
+
+    .body-sm {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      font-weight: 400;
+    }
+
+    .h3 {
+      font-size: 1.375rem;
+      line-height: 1.3;
+      font-weight: 600;
+    }
+
+    .overline {
+      font-size: 0.6875rem;
+      line-height: 1.4;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    /* Avatar sizes */
+    .avatar-md {
+      width: 44px;
+      height: 44px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+    }
+
+    /* Border radius utilities */
+    .radius-sm {
+      border-radius: 6px;
+    }
+
+    .radius-lg {
+      border-radius: 12px;
+    }
+
+    /* Card hover effect */
+    .builder-card {
+      transition: transform 200ms cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .builder-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(28,25,23,0.08);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .builder-card:hover {
+        transform: none;
+      }
+    }
+
+    /* Builder Score color tiers */
+    .score-indigo {
+      color: #6366f1;
+    }
+
+    .score-blue {
+      color: #3b82f6;
+    }
+
+    .score-gray {
+      color: #a8a29e;
+    }
   </style>
 </head>
 <body>
@@ -275,10 +344,243 @@
       </div>
     </section>
 
-    <section id="builders" class="min-h-screen flex items-center justify-center">
-      <div class="text-center px-4">
-        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Builders</h2>
-        <p class="text-lg text-ink-secondary">Discover talented builders</p>
+    <!-- Builders Section -->
+    <section id="builders" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <div class="text-center mb-12">
+          <p class="overline text-ink-secondary mb-4">
+            DISCOVER BUILDERS
+          </p>
+        </div>
+
+        <!-- Builder Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <!-- Builder Card 1: Maya Chen -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-indigo-100 text-indigo-700 flex-shrink-0">
+                <span class="font-medium">MC</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Maya Chen</h3>
+                <p class="body-sm text-ink-secondary">Full-Stack Developer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Building AI-powered tools for makers. Previously led engineering at a YC-backed startup.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Python</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-indigo">72</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 2: James Okafor -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-amber-100 text-amber-700 flex-shrink-0">
+                <span class="font-medium">JO</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">James Okafor</h3>
+                <p class="body-sm text-ink-secondary">Product Designer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Crafting delightful user experiences. Design systems enthusiast. Love working with early-stage teams.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Figma</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">UI/UX</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Prototyping</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-blue">58</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 3: Priya Sharma -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-rose-100 text-rose-700 flex-shrink-0">
+                <span class="font-medium">PS</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Priya Sharma</h3>
+                <p class="body-sm text-ink-secondary">Backend Engineer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Distributed systems architect. Scaled infrastructure to millions of users. Open source contributor.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Kubernetes</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">gRPC</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-indigo">65</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 4: David Morales -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-emerald-100 text-emerald-700 flex-shrink-0">
+                <span class="font-medium">DM</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">David Morales</h3>
+                <p class="body-sm text-ink-secondary">Growth Marketer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Growth hacker turned founder. Built 0→1 go-to-market strategies. Love experimenting with new channels.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">SEO</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Analytics</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Content</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-blue">41</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 5: Sarah Kim -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-violet-100 text-violet-700 flex-shrink-0">
+                <span class="font-medium">SK</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Sarah Kim</h3>
+                <p class="body-sm text-ink-secondary">Frontend Developer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Building beautiful, performant web experiences. Accessibility advocate. Component library creator.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">TypeScript</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-blue">49</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 6: Alex Rivera -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-cyan-100 text-cyan-700 flex-shrink-0">
+                <span class="font-medium">AR</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Alex Rivera</h3>
+                <p class="body-sm text-ink-secondary">DevOps Engineer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Infrastructure automation specialist. Cloud-native enthusiast. Making deployments boring since 2019.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">AWS</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Terraform</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Docker</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-gray">35</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </section>
 
