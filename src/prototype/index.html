@@ -4,14 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="description" content="Find Your Tribe - A social network for builders">
   <title>Find Your Tribe</title>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS with custom configuration -->
+  <!-- Tailwind CSS CDN with custom configuration -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -50,9 +51,9 @@
             },
           },
           fontFamily: {
-            serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+            serif: ['Instrument Serif', 'Georgia', 'serif'],
             sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
+            mono: ['JetBrains Mono', 'monospace'],
           },
         },
       },
@@ -61,13 +62,381 @@
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Global Styles & Design System Utilities -->
+  <style>
+    /* ===== CSS CUSTOM PROPERTIES ===== */
+    :root {
+      /* Color Tokens */
+      --surface-primary: #f9f8f6;
+      --surface-secondary: #f2f0ed;
+      --surface-elevated: #ffffff;
+      --surface-inverse: #1c1917;
+
+      --text-primary: #1c1917;
+      --text-secondary: #57534e;
+      --text-tertiary: #a8a29e;
+      --text-inverse: #fafaf9;
+
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-subtle: #eef2ff;
+      --accent-muted: #a5b4fc;
+
+      --shipped: #16a34a;
+      --shipped-subtle: #f0fdf4;
+      --in-progress: #d97706;
+      --in-progress-subtle: #fffbeb;
+      --error: #dc2626;
+      --error-subtle: #fef2f2;
+
+      /* Border Radius Tokens */
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+
+      /* Shadow Tokens - Warm toned */
+      --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.03);
+      --shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.05), 0 1px 2px rgba(28, 25, 23, 0.03);
+      --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.06);
+      --shadow-lg: 0 8px 24px rgba(28, 25, 23, 0.08);
+      --shadow-xl: 0 16px 48px rgba(28, 25, 23, 0.10);
+
+      /* Transition Tokens */
+      --transition-color: 150ms ease-in-out;
+      --transition-transform: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+      --transition-layout: 250ms ease-in-out;
+    }
+
+    /* ===== BASE STYLES ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background-color: var(--surface-primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ===== TYPOGRAPHY SCALE ===== */
+    .display {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: clamp(2.25rem, 5vw, 3.5rem);
+      line-height: 1.05;
+      font-weight: 400;
+      color: var(--text-primary);
+    }
+
+    .h1 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: clamp(1.875rem, 4vw, 2.5rem);
+      line-height: 1.1;
+      font-weight: 400;
+      color: var(--text-primary);
+    }
+
+    .h2 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: clamp(1.5rem, 3vw, 1.875rem);
+      line-height: 1.2;
+      font-weight: 400;
+      color: var(--text-primary);
+    }
+
+    .h3 {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 1.375rem;
+      line-height: 1.3;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .h4 {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 1.0625rem;
+      line-height: 1.4;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .body-lg {
+      font-size: 1.125rem;
+      line-height: 1.65;
+      font-weight: 400;
+      color: var(--text-primary);
+    }
+
+    .body {
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      font-weight: 400;
+      color: var(--text-primary);
+    }
+
+    .body-sm {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    .caption {
+      font-size: 0.6875rem;
+      line-height: 1.4;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      line-height: 1.4;
+      font-weight: 400;
+    }
+
+    /* Overline Label Utility */
+    .overline {
+      font-size: 0.6875rem;
+      line-height: 1.4;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    /* ===== SHADOW UTILITIES ===== */
+    .shadow-xs {
+      box-shadow: var(--shadow-xs);
+    }
+
+    .shadow-sm {
+      box-shadow: var(--shadow-sm);
+    }
+
+    .shadow-md {
+      box-shadow: var(--shadow-md);
+    }
+
+    .shadow-lg {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .shadow-xl {
+      box-shadow: var(--shadow-xl);
+    }
+
+    /* ===== BORDER RADIUS UTILITIES ===== */
+    .radius-sm {
+      border-radius: var(--radius-sm);
+    }
+
+    .radius-md {
+      border-radius: var(--radius-md);
+    }
+
+    .radius-lg {
+      border-radius: var(--radius-lg);
+    }
+
+    .radius-xl {
+      border-radius: var(--radius-xl);
+    }
+
+    .radius-full {
+      border-radius: var(--radius-full);
+    }
+
+    /* ===== AVATAR SIZE UTILITIES ===== */
+    .avatar {
+      border-radius: var(--radius-full);
+      background-color: var(--surface-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 500;
+      color: var(--text-secondary);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .avatar-xs {
+      width: 24px;
+      height: 24px;
+      font-size: 10px;
+    }
+
+    .avatar-sm {
+      width: 32px;
+      height: 32px;
+      font-size: 12px;
+    }
+
+    .avatar-md {
+      width: 44px;
+      height: 44px;
+      font-size: 16px;
+    }
+
+    .avatar-lg {
+      width: 64px;
+      height: 64px;
+      font-size: 22px;
+    }
+
+    .avatar-xl {
+      width: 88px;
+      height: 88px;
+      font-size: 32px;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ===== TRANSITION UTILITIES ===== */
+    .transition-color {
+      transition: color var(--transition-color), background-color var(--transition-color), border-color var(--transition-color), opacity var(--transition-color);
+    }
+
+    .transition-transform {
+      transition: transform var(--transition-transform);
+    }
+
+    .transition-layout {
+      transition: width var(--transition-layout), height var(--transition-layout), max-height var(--transition-layout);
+    }
+
+    .transition-all {
+      transition: all var(--transition-transform);
+    }
+
+    /* ===== CARD HOVER ANIMATION ===== */
+    @keyframes card-lift {
+      from {
+        transform: translateY(0);
+        box-shadow: var(--shadow-md);
+      }
+      to {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+    }
+
+    .card {
+      background-color: var(--surface-elevated);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      transition: transform var(--transition-transform), box-shadow var(--transition-transform);
+      cursor: pointer;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Alternative using animation */
+    .card-hover-animated:hover {
+      animation: card-lift var(--transition-transform) cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    }
+
+    /* ===== INTERACTIVE STATES ===== */
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color var(--transition-color);
+    }
+
+    a:hover {
+      color: var(--accent-hover);
+    }
+
+    button {
+      font-family: 'Inter', system-ui, sans-serif;
+      cursor: pointer;
+      border: none;
+      background: none;
+      transition: background-color var(--transition-color), color var(--transition-color);
+    }
+
+    /* ===== REDUCED MOTION SUPPORT ===== */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
+      }
+
+      /* Preserve color transitions for accessibility */
+      .transition-color,
+      a,
+      button {
+        transition: color var(--transition-color), background-color var(--transition-color), border-color var(--transition-color), opacity var(--transition-color);
+      }
+
+      /* Remove transforms */
+      .card-hover:hover,
+      .card-hover-animated:hover {
+        transform: none;
+      }
+    }
+
+    /* ===== UTILITY CLASSES ===== */
+    .text-primary {
+      color: var(--text-primary);
+    }
+
+    .text-secondary {
+      color: var(--text-secondary);
+    }
+
+    .text-tertiary {
+      color: var(--text-tertiary);
+    }
+
+    .text-inverse {
+      color: var(--text-inverse);
+    }
+
+    .bg-surface-primary {
+      background-color: var(--surface-primary);
+    }
+
+    .bg-surface-secondary {
+      background-color: var(--surface-secondary);
+    }
+
+    .bg-surface-elevated {
+      background-color: var(--surface-elevated);
+    }
+
+    .bg-surface-inverse {
+      background-color: var(--surface-inverse);
+    }
+  </style>
 </head>
 <body class="bg-surface-primary text-ink font-sans">
 
   <!-- Content sections will be added here -->
 
+  <!-- Initialize Lucide Icons -->
   <script>
-    // Initialize Lucide icons when DOM is ready
     lucide.createIcons();
   </script>
 </body>
