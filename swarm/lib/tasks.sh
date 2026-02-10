@@ -242,20 +242,23 @@ task_print_graph() {
 }
 
 # Topological sort of tasks (returns IDs in execution order)
+# Uses file-based tracking for bash 3.2 compatibility (no associative arrays)
 task_topo_sort() {
     _ensure_jq
 
-    local -A in_degree
-    local -A adjacency
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/degree" "$tmpdir/adj"
+
     local all_ids=()
 
-    # Build graph
+    # Build graph — store in_degree and adjacency in temp files
     for f in "${TASKS_DIR}"/*.json; do
         [[ -f "$f" ]] || continue
         local id
         id=$(jq -r '.id' "$f")
         all_ids+=("$id")
-        in_degree[$id]=0
+        echo "0" > "$tmpdir/degree/$id"
     done
 
     for f in "${TASKS_DIR}"/*.json; do
@@ -266,15 +269,20 @@ task_topo_sort() {
         deps=$(jq -r '.depends_on[]' "$f" 2>/dev/null || true)
         while IFS= read -r dep; do
             [[ -z "$dep" ]] && continue
-            in_degree[$id]=$(( ${in_degree[$id]} + 1 ))
-            adjacency[$dep]="${adjacency[$dep]:-} $id"
+            local cur_deg
+            cur_deg=$(cat "$tmpdir/degree/$id" 2>/dev/null || echo 0)
+            echo "$(( cur_deg + 1 ))" > "$tmpdir/degree/$id"
+            # Append to adjacency list
+            echo "$id" >> "$tmpdir/adj/$dep"
         done <<< "$deps"
     done
 
     # Kahn's algorithm
     local queue=()
     for id in "${all_ids[@]}"; do
-        if [[ ${in_degree[$id]} -eq 0 ]]; then
+        local deg
+        deg=$(cat "$tmpdir/degree/$id" 2>/dev/null || echo 0)
+        if [[ "$deg" -eq 0 ]]; then
             queue+=("$id")
         fi
     done
@@ -285,13 +293,21 @@ task_topo_sort() {
         queue=("${queue[@]:1}")
         sorted+=("$current")
 
-        for neighbor in ${adjacency[$current]:-}; do
-            in_degree[$neighbor]=$(( ${in_degree[$neighbor]} - 1 ))
-            if [[ ${in_degree[$neighbor]} -eq 0 ]]; then
-                queue+=("$neighbor")
-            fi
-        done
+        if [[ -f "$tmpdir/adj/$current" ]]; then
+            while IFS= read -r neighbor; do
+                [[ -z "$neighbor" ]] && continue
+                local deg
+                deg=$(cat "$tmpdir/degree/$neighbor" 2>/dev/null || echo 0)
+                deg=$(( deg - 1 ))
+                echo "$deg" > "$tmpdir/degree/$neighbor"
+                if [[ "$deg" -eq 0 ]]; then
+                    queue+=("$neighbor")
+                fi
+            done < "$tmpdir/adj/$current"
+        fi
     done
+
+    rm -rf "$tmpdir"
 
     printf '%s\n' "${sorted[@]}"
 }
