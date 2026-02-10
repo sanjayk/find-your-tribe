@@ -1,0 +1,18 @@
+{
+  "id": "21",
+  "title": "GraphQL schema and queries package",
+  "description": "Create `app/graphql/queries/__init__.py` re-exporting Query from health.py. Create empty `app/graphql/mutations/__init__.py` with empty Mutation class. Implement `app/graphql/schema.py` combining Query and Mutation into Strawberry schema. Export schema object.",
+  "acceptance_criteria": "- queries/__init__.py exports Query\n- mutations/__init__.py exports empty Mutation stub\n- schema.py creates strawberry.Schema(query=Query, mutation=Mutation)\n- schema exported and importable",
+  "depends_on": [
+    "20"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-21-graphql-schema-and-queries-package",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

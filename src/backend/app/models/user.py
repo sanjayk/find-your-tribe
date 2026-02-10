@@ -165,7 +165,6 @@ class User(Base, ULIDMixin, TimestampMixin):
     owned_projects: Mapped[list["Project"]] = relationship(
         "Project",
         back_populates="owner",
-        foreign_keys="Project.owner_id",
         cascade="all, delete-orphan",
     )
     collaborated_projects: Mapped[list["Project"]] = relationship(

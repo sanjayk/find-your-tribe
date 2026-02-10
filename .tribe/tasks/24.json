@@ -1,0 +1,18 @@
+{
+  "id": "24",
+  "title": "Seed data for users",
+  "description": "Implement `app/seed/users.py` with async seed_users(session, skills_dict) function. Create exactly 10 users matching prototype: Maya Chen (Full-Stack Developer, 72, React/Python/PostgreSQL/FastAPI, open_to_tribe), James Okafor (Product Designer, 58, Figma/UI-UX/Prototyping, available_for_projects), Priya Sharma (Backend Engineer, 65, Go/Kubernetes/gRPC, open_to_tribe), David Morales (Growth Marketer, 45, SEO/Analytics/Content-Strategy, available_for_projects), Sarah Kim (ML Engineer, 71, Python/TensorFlow/Data-Engineering, open_to_tribe), Alex Rivera (Frontend Developer, 38, React/TypeScript/Next.js, just_browsing), Elena Volkov (Product Manager, 52, Roadmapping/Analytics/User-Stories, open_to_tribe), Marcus Johnson (DevOps Engineer, 61, Docker/Kubernetes/AWS/CI-CD, open_to_tribe), Aisha Patel (UX Researcher, 44, User-Research/Prototyping/Analytics, just_browsing), Tom Nakamura (Founder/Engineer, 68, Python/React/PostgreSQL/AWS, open_to_tribe). Each gets username, display_name, email, headline, bio, primary_role, availability_status, builder_score, contact_links (twitter, github_username). Create UserSkill relationships for their skills. Return user dict for lookup.",
+  "acceptance_criteria": "- Exactly 10 users created matching spec\n- All user fields populated correctly\n- Builder scores match: Maya=72, James=58, Priya=65, David=45, Sarah=71, Alex=38, Elena=52, Marcus=61, Aisha=44, Tom=68\n- Skills linked via UserSkill junction\n- contact_links JSONB includes twitter and github_username\n- Returns user dict for reference",
+  "depends_on": [
+    "23"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-24-seed-data-for-users",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

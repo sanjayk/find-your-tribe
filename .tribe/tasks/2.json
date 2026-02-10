@@ -1,0 +1,18 @@
+{
+  "id": "2",
+  "title": "Configuration and settings",
+  "description": "Implement `app/config.py` using Pydantic Settings. Define settings class with DATABASE_URL (default: postgresql+asyncpg://tribe:tribe@localhost:5432/tribe), ENVIRONMENT (default: development), and DEBUG (default: True). Load from environment variables with proper typing.",
+  "acceptance_criteria": "- `app/config.py` exists with Settings class\n- DATABASE_URL, ENVIRONMENT, DEBUG fields defined\n- Settings loads from environment variables\n- Default values match spec",
+  "depends_on": [
+    "1"
+  ],
+  "status": "done",
+  "branch": "tribe/task-2-configuration-and-settings",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:13:32Z",
+  "completed_at": "2026-02-10T23:13:39Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

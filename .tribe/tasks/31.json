@@ -1,0 +1,18 @@
+{
+  "id": "31",
+  "title": "Health query integration test",
+  "description": "Implement `tests/test_health.py` with async test_health_query(async_client). Test POSTs GraphQL query `{ health }` to /graphql endpoint. Assert response status 200. Assert response.json()['data']['health'] == 'ok'. Verify database connectivity is checked.",
+  "acceptance_criteria": "- test_health_query async function defined\n- Uses async_client fixture\n- POSTs GraphQL query to /graphql\n- Asserts status 200\n- Asserts health returns 'ok'\n- Test passes with `python -m pytest`",
+  "depends_on": [
+    "30"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-31-health-query-integration-test",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:32Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

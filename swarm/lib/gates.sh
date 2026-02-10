@@ -10,6 +10,12 @@ gates_run() {
     local results=()
     local all_passed=true
 
+    # During scaffolding, skip quality gates (validate at integration time)
+    if [[ "${SKIP_GATES:-}" == "true" ]]; then
+        log_step "Quality gates skipped (SKIP_GATES=true)"
+        return 0
+    fi
+
     log_step "Running quality gates for task ${task_id}..."
 
     # Gate 1: Syntax check — look for common syntax errors
@@ -102,7 +108,9 @@ gate_syntax_check() {
     done
 
     # Check JavaScript/TypeScript syntax (basic)
-    for f in $(git -C "$TRIBE_ROOT" diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '\.(js|ts|jsx|tsx)$' || true); do
+    # Note: node --check only works on plain .js/.ts files, NOT .jsx/.tsx (JSX is not valid JS)
+    # TSX/JSX syntax is validated by the typecheck gate (tsc --noEmit) instead
+    for f in $(git -C "$TRIBE_ROOT" diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '\.(js|ts)$' | grep -v -E '\.(jsx|tsx)$' || true); do
         local full_path="${TRIBE_ROOT}/${f}"
         [[ -f "$full_path" ]] || continue
         if command -v node &>/dev/null; then

@@ -1,6 +1,5 @@
 """Project model with collaborators."""
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
@@ -152,7 +151,6 @@ class Project(Base, ULIDMixin, TimestampMixin):
     owner: Mapped["User"] = relationship(
         "User",
         back_populates="owned_projects",
-        foreign_keys=[owner_id],
     )
     collaborators: Mapped[list["User"]] = relationship(
         "User",

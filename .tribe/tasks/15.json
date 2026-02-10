@@ -1,0 +1,18 @@
+{
+  "id": "15",
+  "title": "Strawberry GraphQL types for User and Skill",
+  "description": "Implement `app/graphql/types/user.py` with UserType Strawberry type. Fields: id, email, username, display_name, avatar_url, headline, primary_role, timezone, availability_status, builder_score, bio, contact_links, github_username, onboarding_completed, created_at. Add lazy resolver fields for skills → list[SkillType] (to be implemented later). Implement `app/graphql/types/skill.py` with SkillType. Fields: id, name, slug, category. Use @strawberry.type decorator and proper field types.",
+  "acceptance_criteria": "- UserType with all specified fields\n- SkillType with all fields\n- Field types match GraphQL schema conventions\n- Lazy fields use @strawberry.field decorator\n- Types can be imported from graphql.types",
+  "depends_on": [
+    "14"
+  ],
+  "status": "done",
+  "branch": "tribe/task-15-strawberry-graphql-types-for-user-and-sk",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:29:20Z",
+  "completed_at": "2026-02-10T23:32:42Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

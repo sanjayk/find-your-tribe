@@ -1,0 +1,18 @@
+{
+  "id": "33",
+  "title": "Integration verification and documentation",
+  "description": "Create `src/backend/README.md` with setup instructions: 1) Start PostgreSQL: `docker compose up -d`, 2) Install dependencies: `pip install -e '.[dev]'`, 3) Run migrations: `alembic upgrade head`, 4) Seed database: `python -m app.seed.run`, 5) Start server: `uvicorn app.main:app --reload`, 6) Access GraphQL Playground: http://localhost:8000/graphql, 7) Run tests: `python -m pytest`, 8) Run linter: `ruff check .`. Verify all acceptance criteria from spec are met. Test full workflow end-to-end.",
+  "acceptance_criteria": "- README.md with complete setup instructions\n- All commands documented\n- Workflow tested end-to-end:\n  - docker compose starts PostgreSQL\n  - alembic upgrade head creates all tables\n  - python -m app.seed.run populates data\n  - uvicorn starts API server\n  - /graphql returns GraphQL Playground\n  - { health } query returns 'ok'\n  - python -m pytest passes\n  - ruff check . passes with 0 errors\n- All 10 acceptance criteria from spec verified",
+  "depends_on": [
+    "32"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-33-integration-verification-and-documentati",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:32Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

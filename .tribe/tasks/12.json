@@ -1,0 +1,18 @@
+{
+  "id": "12",
+  "title": "Alembic configuration and environment",
+  "description": "Create `alembic.ini` with script_location = migrations, file_template = %%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d_%%(rev)s_%%(slug)s. Create `migrations/env.py` using async Alembic template: import engine from app.db.engine, import all models from app.models, set target_metadata = Base.metadata, implement run_async_migrations() with async engine context, register pgvector extension in context.configure(). Create `migrations/script.py.mako` template. Create empty `migrations/versions/` directory.",
+  "acceptance_criteria": "- `alembic.ini` configured with migrations/ location\n- `migrations/env.py` uses async engine\n- target_metadata points to Base.metadata\n- pgvector extension registered\n- `migrations/script.py.mako` exists\n- `migrations/versions/` directory exists",
+  "depends_on": [
+    "11"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-12-alembic-configuration-and-environment",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

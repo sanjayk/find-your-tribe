@@ -5,6 +5,7 @@ from sqlalchemy import inspect
 
 from app.db.base import Base
 from app.models.enums import AvailabilityStatus, UserRole
+from app.models.project import Project  # noqa: F401 - needed for relationship resolution
 from app.models.user import RefreshToken, User, user_skills
 
 

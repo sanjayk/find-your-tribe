@@ -1,0 +1,18 @@
+{
+  "id": "6",
+  "title": "Skill model",
+  "description": "Implement `app/models/skill.py` with Skill model. Columns: id (String(26) PK), name (String(100) unique), slug (String(100) unique indexed), category (Enum(SkillCategory)). Use ULIDMixin for id. Model should inherit from Base and mixins.",
+  "acceptance_criteria": "- `app/models/skill.py` exports Skill model\n- All columns defined with correct types\n- name and slug have unique constraints\n- slug has index\n- category uses SkillCategory enum",
+  "depends_on": [
+    "5"
+  ],
+  "status": "done",
+  "branch": "tribe/task-6-skill-model",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:26:56Z",
+  "completed_at": "2026-02-10T23:32:44Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

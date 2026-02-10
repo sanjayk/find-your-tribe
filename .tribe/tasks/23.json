@@ -1,0 +1,18 @@
+{
+  "id": "23",
+  "title": "Seed data for skills",
+  "description": "Implement `app/seed/skills.py` with async seed_skills(session) function. Create 80+ skills across 8 categories matching spec: ENGINEERING (Python, JavaScript, TypeScript, React, Next.js, Node.js, Go, Rust, PostgreSQL, FastAPI, GraphQL, Docker, Kubernetes, AWS, gRPC, Redis, etc.), DESIGN (Figma, UI/UX, Prototyping, Design Systems, User Research, Interaction Design, Visual Design, Motion Design, etc.), PRODUCT (Product Strategy, Roadmapping, User Stories, Analytics, A/B Testing, etc.), MARKETING (Content Strategy, SEO, Social Media, Brand Design, Copywriting, etc.), GROWTH (Growth Hacking, Paid Acquisition, Partnerships, Community Building, Funnel Optimization, etc.), DATA (Machine Learning, Data Engineering, Analytics, SQL, Python (Data), Visualization, etc.), OPERATIONS (Project Management, Agile, DevOps, CI/CD, Technical Writing, etc.), OTHER (Public Speaking, Fundraising, Legal, Recruiting, etc.). Each skill gets name, slug (kebab-case), category. Use bulk insert for performance.",
+  "acceptance_criteria": "- seed_skills() function creates 80+ skills\n- All 8 categories covered\n- Skills match spec list\n- Slugs are kebab-case versions of names\n- Uses session.execute with bulk insert\n- Returns skill dict for lookup by name",
+  "depends_on": [
+    "11"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-23-seed-data-for-skills",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

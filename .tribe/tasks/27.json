@@ -1,0 +1,19 @@
+{
+  "id": "27",
+  "title": "Seed data for feed events",
+  "description": "Implement `app/seed/feed_events.py` with async seed_feed_events(session, users_dict, projects_dict, tribes_dict) function. Create exactly 15 feed events in reverse chronological order matching prototype spec: 1) Maya shipped AI Resume Builder, 2) Tom created Hospitality OS tribe, 3) Alex started building project, 4) James joined Hospitality OS, 5) Sarah shipped ML Pipeline Framework, 6) David created Growth Analytics Dashboard, 7) Elena+David confirmed collaboration, 8) Tom created Hospitality OS (note: duplicate with #2, verify spec), 9) Marcus joined Creator Economy Tools, 10) Maya created Tribe Finder, 11) Priya confirmed collaboration on Tribe Finder, 12) Sarah created AI for Education tribe, 13) Alex joined as builder, 14) James shipped Design System Kit, 15) Aisha joined as builder. Each event has correct actor_id, event_type, target_type, target_id, metadata (project titles, tribe names, collaborator names, tech stacks). Use ULIDs for time-ordered ids (older events get earlier ULIDs).",
+  "acceptance_criteria": "- Exactly 15 FeedEvent records created\n- Events in reverse chronological order (newest ULID first)\n- event_type matches actions (PROJECT_SHIPPED, TRIBE_CREATED, etc.)\n- target_id points to correct project/tribe/user\n- metadata JSONB includes relevant context (titles, names, tech)\n- All actor_id references valid users",
+  "depends_on": [
+    "25",
+    "26"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-27-seed-data-for-feed-events",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:32Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}
