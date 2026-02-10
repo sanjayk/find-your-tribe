@@ -18,6 +18,9 @@ const badgeVariants = cva(
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
+        // Project-specific variants for shipped/in-progress status
+        shipped: "text-shipped border-0 bg-transparent",
+        "in-progress": "text-in-progress border-0 bg-transparent",
       },
     },
     defaultVariants: {
