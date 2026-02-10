@@ -11,6 +11,7 @@ from app.models.enums import (
     TribeStatus,
     UserRole,
 )
+from app.models.feed_event import FeedEvent
 from app.models.project import Project, project_collaborators
 from app.models.skill import Skill
 from app.models.tribe import Tribe, TribeOpenRole, tribe_members
@@ -20,6 +21,7 @@ __all__ = [
     "AvailabilityStatus",
     "CollaboratorStatus",
     "EventType",
+    "FeedEvent",
     "MemberRole",
     "MemberStatus",
     "Project",
