@@ -1,0 +1,733 @@
+#!/usr/bin/env bash
+#
+# tribe — Swarm orchestration CLI for autonomous product development
+#
+# Usage: ./swarm/tribe <command> [options]
+#
+# Commands:
+#   init                    Initialize project for swarm development
+#   plan <spec-file>        Decompose a spec into a task DAG
+#   run [options]           Execute pending tasks with parallel agents
+#   status                  Show swarm state and progress
+#   integrate               Merge completed branches into main
+#   review [--task-id ID]   Run code review on completed tasks
+#   retry [--task-id ID]    Retry a failed task
+#   help                    Show this help message
+
+set -euo pipefail
+
+# ── Bootstrap ────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${SCRIPT_DIR}/lib/config.sh"
+source "${SCRIPT_DIR}/lib/log.sh"
+source "${SCRIPT_DIR}/lib/git.sh"
+source "${SCRIPT_DIR}/lib/claude.sh"
+source "${SCRIPT_DIR}/lib/tasks.sh"
+source "${SCRIPT_DIR}/lib/gates.sh"
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+tribe_help() {
+    echo ""
+    echo -e "${BOLD}tribe${RESET} — Swarm orchestration for autonomous product development"
+    echo ""
+    echo -e "${BOLD}USAGE${RESET}"
+    echo "    ./swarm/tribe <command> [options]"
+    echo ""
+    echo -e "${BOLD}COMMANDS${RESET}"
+    echo -e "    ${CYAN}init${RESET}                        Initialize project for swarm development"
+    echo -e "    ${CYAN}plan${RESET} <spec-file>             Decompose a product spec into a task DAG"
+    echo -e "    ${CYAN}run${RESET}  [options]               Execute pending tasks with parallel agents"
+    echo -e "    ${CYAN}status${RESET}                       Show swarm state and progress"
+    echo -e "    ${CYAN}integrate${RESET}                    Merge completed branches into main"
+    echo -e "    ${CYAN}review${RESET} [--task-id ID]        Run code review on completed tasks"
+    echo -e "    ${CYAN}retry${RESET}  [--task-id ID]        Retry a failed task with optional escalation"
+    echo -e "    ${CYAN}help${RESET}                         Show this help message"
+    echo ""
+    echo -e "${BOLD}RUN OPTIONS${RESET}"
+    echo -e "    --max-parallel N            Max concurrent agents (default: ${DEFAULT_MAX_PARALLEL})"
+    echo -e "    --max-budget USD            Total budget in USD (default: ${DEFAULT_MAX_BUDGET})"
+    echo -e "    --model MODEL               Default model: sonnet|opus|haiku (default: ${DEFAULT_MODEL})"
+    echo ""
+    echo -e "${BOLD}EXAMPLES${RESET}"
+    echo "    ./swarm/tribe init"
+    echo "    ./swarm/tribe plan spec.md"
+    echo "    ./swarm/tribe run --max-parallel 3 --max-budget 10"
+    echo "    ./swarm/tribe status"
+    echo "    ./swarm/tribe integrate"
+    echo ""
+}
+
+# ── Commands ─────────────────────────────────────────────────────
+
+cmd_init() {
+    log_header "Initializing Tribe"
+
+    # 1. Git repo
+    git_ensure_repo
+    log_success "Git repository ready"
+
+    # 2. Directory structure
+    mkdir -p "$TASKS_DIR" "$LOGS_DIR" src tests
+    log_success "Directory structure created"
+
+    # 3. .gitignore
+    if ! grep -q '.tribe/logs/' "$TRIBE_ROOT/.gitignore" 2>/dev/null; then
+        cat >> "$TRIBE_ROOT/.gitignore" << 'EOF'
+
+# Tribe runtime state
+.tribe/logs/
+.tribe/state.json
+.tribe/budget.json
+EOF
+        log_success "Updated .gitignore"
+    fi
+
+    # 4. Initialize state
+    echo '{"status":"idle","agents":[],"started_at":null}' | jq '.' > "$STATE_FILE"
+    echo '{"total_budget":0,"spent":0,"per_task":{}}' | jq '.' > "$BUDGET_FILE"
+    log_success "Runtime state initialized"
+
+    # 5. CLAUDE.md
+    if [[ ! -f "$CLAUDE_MD" ]]; then
+        local project_name
+        project_name=$(basename "$TRIBE_ROOT")
+        sed "s/{{PROJECT_NAME}}/${project_name}/g" "${TEMPLATES_DIR}/claude-md.md" > "$CLAUDE_MD"
+        log_success "Created CLAUDE.md — ${DIM}customize this file!${RESET}"
+    else
+        log_info "CLAUDE.md already exists, skipping"
+    fi
+
+    # 6. Initial commit
+    (cd "$TRIBE_ROOT" && git add -A && git commit -m "tribe init: project scaffold" 2>/dev/null) || true
+
+    echo ""
+    log_success "Tribe initialized! Next steps:"
+    echo -e "  1. Edit ${CYAN}CLAUDE.md${RESET} with your project conventions"
+    echo -e "  2. Create a product spec: ${CYAN}cp swarm/templates/spec.md my-spec.md${RESET}"
+    echo -e "  3. Plan your tasks: ${CYAN}./swarm/tribe plan my-spec.md${RESET}"
+    echo ""
+}
+
+cmd_plan() {
+    local spec_file="${1:-}"
+
+    if [[ -z "$spec_file" ]]; then
+        log_error "Usage: tribe plan <spec-file>"
+        exit 1
+    fi
+
+    if [[ ! -f "$spec_file" ]]; then
+        # Try relative to TRIBE_ROOT
+        if [[ -f "${TRIBE_ROOT}/${spec_file}" ]]; then
+            spec_file="${TRIBE_ROOT}/${spec_file}"
+        else
+            log_error "Spec file not found: $spec_file"
+            exit 1
+        fi
+    fi
+
+    log_header "Planning Task DAG"
+    log_step "Reading spec: ${CYAN}${spec_file}${RESET}"
+
+    local spec_content
+    spec_content=$(cat "$spec_file")
+
+    log_step "Sending to Architect agent..."
+    echo ""
+
+    # Run architect agent
+    local architect_output
+    architect_output=$(claude_run_json \
+        "${AGENTS_DIR}/architect.md" \
+        "Here is the product specification to decompose into tasks:\n\n${spec_content}" \
+        "${TEMPLATES_DIR}/task.json" \
+        "sonnet")
+
+    # Validate JSON output
+    if ! echo "$architect_output" | jq empty 2>/dev/null; then
+        # Try to extract JSON from the output (agent may have wrapped it in text)
+        architect_output=$(echo "$architect_output" | grep -o '\[.*\]' | head -1)
+        if ! echo "$architect_output" | jq empty 2>/dev/null; then
+            log_error "Architect produced invalid JSON output"
+            log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+            echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
+            exit 1
+        fi
+    fi
+
+    # Clear existing tasks
+    rm -f "${TASKS_DIR}"/*.json
+
+    # Parse and create task files
+    local task_count
+    task_count=$(echo "$architect_output" | jq 'length')
+
+    log_step "Creating ${task_count} tasks..."
+    echo ""
+
+    local i=0
+    while [[ $i -lt $task_count ]]; do
+        local task
+        task=$(echo "$architect_output" | jq ".[$i]")
+
+        local id title description criteria depends_on model
+        id=$(echo "$task" | jq -r '.id')
+        title=$(echo "$task" | jq -r '.title')
+        description=$(echo "$task" | jq -r '.description')
+        criteria=$(echo "$task" | jq -r '.acceptance_criteria')
+        depends_on=$(echo "$task" | jq -c '.depends_on // []')
+        model=$(echo "$task" | jq -r '.agent_model // "sonnet"')
+
+        task_create "$id" "$title" "$description" "$criteria" "$depends_on" "$model"
+
+        ((i++))
+    done
+
+    log_success "Task DAG created with ${task_count} tasks"
+    echo ""
+
+    # Display task graph
+    log_header "Task Graph"
+    task_print_graph
+    echo ""
+    task_print_summary
+    echo ""
+
+    echo -e "${DIM}Review tasks in ${TASKS_DIR}/${RESET}"
+    echo -e "${DIM}When ready, run: ${CYAN}./swarm/tribe run${RESET}"
+    echo ""
+}
+
+cmd_run() {
+    local max_parallel=$DEFAULT_MAX_PARALLEL
+    local max_budget=$DEFAULT_MAX_BUDGET
+    local model=$DEFAULT_MODEL
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --max-parallel) max_parallel="$2"; shift 2 ;;
+            --max-budget)   max_budget="$2"; shift 2 ;;
+            --model)        model="$2"; shift 2 ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    log_header "Running Swarm"
+    log_info "Max parallel: ${max_parallel} | Budget: \$${max_budget} | Model: ${model}"
+
+    # Verify tasks exist
+    local total
+    total=$(task_count_total)
+    if [[ "$total" -eq 0 ]]; then
+        log_error "No tasks found. Run 'tribe plan <spec>' first."
+        exit 1
+    fi
+
+    # Initialize budget tracking
+    jq -n \
+        --arg budget "$max_budget" \
+        '{total_budget: ($budget | tonumber), spent: 0, per_task: {}}' > "$BUDGET_FILE"
+
+    # Update state
+    jq -n \
+        --arg status "running" \
+        --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '{status: $status, agents: [], started_at: $started}' > "$STATE_FILE"
+
+    # Ensure we're on main branch
+    local main_branch
+    main_branch=$(git_current_branch)
+
+    # ── Main orchestration loop ──────────────────────────────────
+    declare -A running_pids    # task_id -> PID
+    declare -A running_outputs # task_id -> output file
+
+    while true; do
+        # Check budget
+        local spent
+        spent=$(jq -r '.spent' "$BUDGET_FILE")
+        if (( $(echo "$spent >= $max_budget" | bc -l 2>/dev/null || echo 0) )); then
+            log_warn "Budget exhausted (\$${spent}/\$${max_budget}). Halting."
+            break
+        fi
+
+        # Check for completed agents
+        for task_id in "${!running_pids[@]}"; do
+            local pid="${running_pids[$task_id]}"
+            if ! claude_is_running "$pid"; then
+                local exit_code=0
+                wait "$pid" 2>/dev/null || exit_code=$?
+
+                local output_file="${running_outputs[$task_id]}"
+
+                if [[ $exit_code -eq 0 ]]; then
+                    log_success "Task ${task_id} agent completed"
+
+                    # Switch to task branch and run gates
+                    local task_branch
+                    task_branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json")
+
+                    if gates_run "$task_id"; then
+                        task_update "$task_id" "status" "done"
+                        task_update "$task_id" "completed_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                        log_success "Task ${task_id}: ${GREEN}DONE${RESET}"
+                    else
+                        task_update "$task_id" "status" "failed"
+                        task_update "$task_id" "error" "Quality gates failed"
+                        log_error "Task ${task_id}: quality gates failed"
+                    fi
+                else
+                    task_update "$task_id" "status" "failed"
+                    task_update "$task_id" "error" "Agent exited with code ${exit_code}"
+                    log_error "Task ${task_id}: agent failed (exit code ${exit_code})"
+                fi
+
+                # Clean up tracking
+                unset running_pids[$task_id]
+                unset running_outputs[$task_id]
+                task_update_raw "$task_id" "agent_pid" "null"
+
+                # Return to main branch
+                _git checkout "$main_branch" 2>/dev/null || true
+            fi
+        done
+
+        # Count running agents
+        local running_count=${#running_pids[@]}
+
+        # Find ready tasks and spawn agents
+        local ready_tasks
+        ready_tasks=$(task_list_ready)
+
+        if [[ -z "$ready_tasks" ]] && [[ $running_count -eq 0 ]]; then
+            # Nothing ready and nothing running — we're done
+            break
+        fi
+
+        if [[ -n "$ready_tasks" ]]; then
+            while IFS= read -r task_id; do
+                if [[ $running_count -ge $max_parallel ]]; then
+                    break
+                fi
+
+                # Read task details
+                local task_json
+                task_json=$(task_get "$task_id")
+                local title description criteria task_model branch
+                title=$(echo "$task_json" | jq -r '.title')
+                description=$(echo "$task_json" | jq -r '.description')
+                criteria=$(echo "$task_json" | jq -r '.acceptance_criteria')
+                task_model=$(echo "$task_json" | jq -r ".agent_model // \"${model}\"")
+                branch=$(echo "$task_json" | jq -r '.branch')
+
+                # Append review feedback if retrying
+                local feedback
+                feedback=$(echo "$task_json" | jq -r '.review_feedback // empty')
+                local extra_context=""
+                if [[ -n "$feedback" ]]; then
+                    extra_context=$'\n\n## Previous Review Feedback\n\n'"${feedback}"
+                fi
+
+                # Create branch
+                local slug
+                slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-40)
+                git_create_task_branch "$task_id" "$slug" >/dev/null 2>&1
+                _git checkout "$main_branch" 2>/dev/null || true
+
+                # Build agent message
+                local agent_message="## Task: ${title}
+
+### Description
+${description}
+
+### Acceptance Criteria
+${criteria}
+
+### Git Branch
+You are working on branch: \`${branch}\`
+First run: \`git checkout ${branch}\`
+Commit your work to this branch.${extra_context}
+
+### Working Directory
+${TRIBE_ROOT}"
+
+                # Spawn agent
+                local output_file="${LOGS_DIR}/${task_id}.log"
+                local pid
+                pid=$(claude_spawn_bg \
+                    "${AGENTS_DIR}/developer.md" \
+                    "$agent_message" \
+                    "$output_file" \
+                    "$task_model")
+
+                running_pids[$task_id]="$pid"
+                running_outputs[$task_id]="$output_file"
+
+                task_update "$task_id" "status" "running"
+                task_update "$task_id" "started_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                task_update_raw "$task_id" "agent_pid" "$pid"
+                ((running_count++))
+
+                log_step "Spawned agent for task ${task_id}: ${CYAN}${title}${RESET} (PID: ${pid}, model: ${task_model})"
+
+                # Update state file
+                jq --arg tid "$task_id" --arg pid "$pid" \
+                    '.agents += [{"task_id": $tid, "pid": ($pid | tonumber)}]' \
+                    "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+            done <<< "$ready_tasks"
+        fi
+
+        # Brief status update
+        local done_count pending_count failed_count
+        done_count=$(task_count_by_status "done")
+        running_count=${#running_pids[@]}
+        pending_count=$(task_count_by_status "pending")
+        failed_count=$(task_count_by_status "failed")
+        echo -ne "\r${DIM}[${done_count}/${total} done | ${running_count} running | ${pending_count} pending | ${failed_count} failed]${RESET}  "
+
+        # Sleep before next check
+        sleep 5
+    done
+
+    echo ""
+    echo ""
+
+    # Final state update
+    jq '.status = "idle" | .agents = []' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+    # Print final summary
+    log_header "Run Complete"
+    task_print_graph
+    echo ""
+    task_print_summary
+    echo ""
+
+    local failed_count
+    failed_count=$(task_count_by_status "failed")
+    if [[ "$failed_count" -gt 0 ]]; then
+        log_warn "${failed_count} task(s) failed. Use ${CYAN}tribe retry --task-id ID${RESET} to retry."
+    fi
+
+    local done_count
+    done_count=$(task_count_by_status "done")
+    if [[ "$done_count" -gt 0 ]]; then
+        echo -e "Next: ${CYAN}./swarm/tribe integrate${RESET} to merge completed work."
+    fi
+    echo ""
+}
+
+cmd_status() {
+    log_header "Swarm Status"
+
+    # Check if initialized
+    if [[ ! -d "$TASKS_DIR" ]]; then
+        log_error "Not initialized. Run 'tribe init' first."
+        exit 1
+    fi
+
+    local total
+    total=$(task_count_total)
+
+    if [[ "$total" -eq 0 ]]; then
+        log_info "No tasks. Run 'tribe plan <spec>' to create tasks."
+        return
+    fi
+
+    # Task graph
+    task_print_graph
+    echo ""
+    task_print_summary
+    echo ""
+
+    # State info
+    if [[ -f "$STATE_FILE" ]]; then
+        local swarm_status
+        swarm_status=$(jq -r '.status' "$STATE_FILE")
+        local agent_count
+        agent_count=$(jq '.agents | length' "$STATE_FILE")
+
+        echo -e "${BOLD}Swarm:${RESET} ${swarm_status} | Active agents: ${agent_count}"
+
+        if [[ "$agent_count" -gt 0 ]]; then
+            echo -e "${BOLD}Active Agents:${RESET}"
+            jq -r '.agents[] | "  PID \(.pid) → Task \(.task_id)"' "$STATE_FILE"
+        fi
+    fi
+
+    # Budget info
+    if [[ -f "$BUDGET_FILE" ]]; then
+        local budget spent
+        budget=$(jq -r '.total_budget' "$BUDGET_FILE")
+        spent=$(jq -r '.spent' "$BUDGET_FILE")
+        if [[ "$budget" != "0" ]]; then
+            echo -e "${BOLD}Budget:${RESET} \$${spent} / \$${budget}"
+        fi
+    fi
+
+    echo ""
+}
+
+cmd_integrate() {
+    log_header "Integrating Completed Work"
+
+    local done_tasks
+    done_tasks=$(task_list_by_status "done")
+
+    if [[ -z "$done_tasks" ]]; then
+        log_info "No completed tasks to integrate."
+        return
+    fi
+
+    # Get branches in topological order
+    local branches=()
+    local ordered_tasks
+    ordered_tasks=$(task_topo_sort)
+
+    while IFS= read -r task_id; do
+        local status
+        status=$(jq -r '.status' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
+        if [[ "$status" == "done" ]]; then
+            local branch
+            branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json")
+            if git_branch_exists "$branch"; then
+                branches+=("$branch")
+            fi
+        fi
+    done <<< "$ordered_tasks"
+
+    if [[ ${#branches[@]} -eq 0 ]]; then
+        log_info "No branches to merge."
+        return
+    fi
+
+    log_step "Merging ${#branches[@]} branches in dependency order..."
+    echo ""
+
+    # Build branch list for integrator
+    local branch_list=""
+    for b in "${branches[@]}"; do
+        branch_list+="- ${b}"$'\n'
+    done
+
+    local agent_message="## Integration Task
+
+Merge the following branches into main, in the order listed (dependency order):
+
+${branch_list}
+
+### Working Directory
+${TRIBE_ROOT}
+
+### Instructions
+1. For each branch, checkout main, then merge the branch with --no-ff
+2. If there are merge conflicts, resolve them intelligently
+3. After each merge, verify the code still works
+4. Report results as JSON"
+
+    log_step "Sending to Integrator agent..."
+
+    local output
+    output=$(claude_run \
+        "${AGENTS_DIR}/integrator.md" \
+        "$agent_message" \
+        "sonnet" \
+        "$DEFAULT_TASK_BUDGET" \
+        "Bash Read Glob Grep")
+
+    echo "$output"
+    echo ""
+
+    # Save integration log
+    echo "$output" > "${LOGS_DIR}/integration.log"
+    log_success "Integration log saved to ${LOGS_DIR}/integration.log"
+
+    echo ""
+}
+
+cmd_review() {
+    local task_id=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --task-id) task_id="$2"; shift 2 ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    log_header "Code Review"
+
+    # If no task specified, review all done tasks
+    local tasks_to_review
+    if [[ -n "$task_id" ]]; then
+        tasks_to_review="$task_id"
+    else
+        tasks_to_review=$(task_list_by_status "done")
+    fi
+
+    if [[ -z "$tasks_to_review" ]]; then
+        log_info "No completed tasks to review."
+        return
+    fi
+
+    while IFS= read -r tid; do
+        local task_json
+        task_json=$(task_get "$tid")
+        local title branch criteria
+        title=$(echo "$task_json" | jq -r '.title')
+        branch=$(echo "$task_json" | jq -r '.branch')
+        criteria=$(echo "$task_json" | jq -r '.acceptance_criteria')
+
+        log_step "Reviewing task ${tid}: ${CYAN}${title}${RESET}"
+
+        # Get the diff
+        local diff=""
+        if git_branch_exists "$branch"; then
+            diff=$(git_diff_branch "$branch" 2>/dev/null || echo "No diff available")
+        else
+            log_warn "Branch ${branch} not found, skipping"
+            continue
+        fi
+
+        local agent_message="## Review Task ${tid}: ${title}
+
+### Acceptance Criteria
+${criteria}
+
+### Git Diff (branch: ${branch})
+\`\`\`diff
+${diff}
+\`\`\`
+
+### Instructions
+Review this code against the acceptance criteria and project conventions in CLAUDE.md.
+Respond with your review as JSON."
+
+        local review_output
+        review_output=$(claude_run \
+            "${AGENTS_DIR}/reviewer.md" \
+            "$agent_message" \
+            "sonnet" \
+            "1" \
+            "Read Glob Grep")
+
+        echo ""
+        echo "$review_output"
+        echo ""
+
+        # Save review
+        echo "$review_output" > "${LOGS_DIR}/review-${tid}.json"
+
+        # Check verdict
+        local verdict
+        verdict=$(echo "$review_output" | jq -r '.verdict' 2>/dev/null || echo "unknown")
+        if [[ "$verdict" == "request_changes" ]]; then
+            log_warn "Task ${tid}: changes requested"
+            task_update "$tid" "status" "pending"
+            task_update "$tid" "review_feedback" "$review_output"
+        elif [[ "$verdict" == "approve" ]]; then
+            log_success "Task ${tid}: approved"
+        fi
+
+    done <<< "$tasks_to_review"
+
+    echo ""
+}
+
+cmd_retry() {
+    local task_id=""
+    local escalate=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --task-id)  task_id="$2"; shift 2 ;;
+            --escalate) escalate=true; shift ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    if [[ -z "$task_id" ]]; then
+        # Retry all failed tasks
+        local failed
+        failed=$(task_list_by_status "failed")
+        if [[ -z "$failed" ]]; then
+            log_info "No failed tasks to retry."
+            return
+        fi
+        task_id="$failed"
+    fi
+
+    while IFS= read -r tid; do
+        local task_json
+        task_json=$(task_get "$tid")
+        local title current_model error_msg
+        title=$(echo "$task_json" | jq -r '.title')
+        current_model=$(echo "$task_json" | jq -r '.agent_model')
+        error_msg=$(echo "$task_json" | jq -r '.error // "No error details"')
+
+        log_step "Retrying task ${tid}: ${CYAN}${title}${RESET}"
+
+        # Append failure context
+        local prev_feedback
+        prev_feedback=$(echo "$task_json" | jq -r '.review_feedback // ""')
+        local retry_context="Previous attempt failed with: ${error_msg}"
+        if [[ -n "$prev_feedback" ]]; then
+            retry_context+="\n\nPrevious review feedback:\n${prev_feedback}"
+        fi
+        task_update "$tid" "review_feedback" "$retry_context"
+
+        # Escalate model if requested
+        if $escalate; then
+            local new_model
+            case "$current_model" in
+                haiku)  new_model="sonnet" ;;
+                sonnet) new_model="opus" ;;
+                opus)   new_model="opus" ;;
+            esac
+            task_update "$tid" "agent_model" "$new_model"
+            log_info "Escalated model: ${current_model} → ${new_model}"
+        fi
+
+        # Reset status
+        task_update "$tid" "status" "pending"
+        task_update "$tid" "error" ""
+        task_update_raw "$tid" "agent_pid" "null"
+        task_update "$tid" "started_at" ""
+        task_update "$tid" "completed_at" ""
+
+        log_success "Task ${tid} reset to pending"
+
+    done <<< "$task_id"
+
+    echo ""
+    echo -e "Run ${CYAN}./swarm/tribe run${RESET} to execute retried tasks."
+    echo ""
+}
+
+# ── Main ─────────────────────────────────────────────────────────
+
+main() {
+    local command="${1:-help}"
+    shift || true
+
+    case "$command" in
+        init)      cmd_init "$@" ;;
+        plan)      cmd_plan "$@" ;;
+        run)       cmd_run "$@" ;;
+        status)    cmd_status "$@" ;;
+        integrate) cmd_integrate "$@" ;;
+        review)    cmd_review "$@" ;;
+        retry)     cmd_retry "$@" ;;
+        help|--help|-h) tribe_help ;;
+        *)
+            log_error "Unknown command: ${command}"
+            tribe_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

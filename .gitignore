@@ -1,0 +1,12 @@
+# Tribe runtime state
+.tribe/logs/
+.tribe/state.json
+.tribe/budget.json
+
+# OS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~

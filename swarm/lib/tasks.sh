@@ -1,0 +1,297 @@
+#!/usr/bin/env bash
+# tasks.sh — Task file CRUD and dependency resolution
+
+# Requires config.sh and log.sh to be sourced first
+# Requires: jq
+
+_ensure_jq() {
+    if ! command -v jq &>/dev/null; then
+        log_error "jq is required but not installed. Install with: brew install jq"
+        exit 1
+    fi
+}
+
+# Create a task file from parameters
+task_create() {
+    local id="$1"
+    local title="$2"
+    local description="$3"
+    local acceptance_criteria="$4"
+    local depends_on="$5"  # JSON array string, e.g. '["1","2"]'
+    local agent_model="${6:-$DEFAULT_MODEL}"
+
+    _ensure_jq
+
+    local slug
+    slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-40)
+
+    local task_file="${TASKS_DIR}/${id}.json"
+
+    jq -n \
+        --arg id "$id" \
+        --arg title "$title" \
+        --arg description "$description" \
+        --arg criteria "$acceptance_criteria" \
+        --argjson depends_on "${depends_on:-[]}" \
+        --arg status "pending" \
+        --arg branch "${BRANCH_PREFIX}/task-${id}-${slug}" \
+        --arg model "$agent_model" \
+        --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '{
+            id: $id,
+            title: $title,
+            description: $description,
+            acceptance_criteria: $criteria,
+            depends_on: $depends_on,
+            status: $status,
+            branch: $branch,
+            agent_model: $model,
+            created_at: $created,
+            started_at: null,
+            completed_at: null,
+            agent_pid: null,
+            error: null,
+            review_feedback: null
+        }' > "$task_file"
+
+    echo "$task_file"
+}
+
+# Read a task file
+task_get() {
+    local id="$1"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    if [[ -f "$task_file" ]]; then
+        cat "$task_file"
+    else
+        log_error "Task ${id} not found"
+        return 1
+    fi
+}
+
+# Update a field in a task
+task_update() {
+    local id="$1"
+    local field="$2"
+    local value="$3"
+
+    _ensure_jq
+
+    local task_file="${TASKS_DIR}/${id}.json"
+    if [[ ! -f "$task_file" ]]; then
+        log_error "Task ${id} not found"
+        return 1
+    fi
+
+    local tmp
+    tmp=$(mktemp)
+    jq --arg val "$value" ".${field} = \$val" "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Update a field with a raw JSON value
+task_update_raw() {
+    local id="$1"
+    local field="$2"
+    local value="$3"
+
+    _ensure_jq
+
+    local task_file="${TASKS_DIR}/${id}.json"
+    if [[ ! -f "$task_file" ]]; then
+        log_error "Task ${id} not found"
+        return 1
+    fi
+
+    local tmp
+    tmp=$(mktemp)
+    jq --argjson val "$value" ".${field} = \$val" "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Get all task IDs
+task_list_ids() {
+    _ensure_jq
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        jq -r '.id' "$f"
+    done | sort -n
+}
+
+# Get tasks by status
+task_list_by_status() {
+    local status="$1"
+    _ensure_jq
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local s
+        s=$(jq -r '.status' "$f")
+        if [[ "$s" == "$status" ]]; then
+            jq -r '.id' "$f"
+        fi
+    done | sort -n
+}
+
+# Check if all dependencies of a task are done
+task_deps_met() {
+    local id="$1"
+    _ensure_jq
+
+    local task_file="${TASKS_DIR}/${id}.json"
+    local deps
+    deps=$(jq -r '.depends_on[]' "$task_file" 2>/dev/null)
+
+    if [[ -z "$deps" ]]; then
+        return 0 # no dependencies
+    fi
+
+    while IFS= read -r dep_id; do
+        local dep_status
+        dep_status=$(jq -r '.status' "${TASKS_DIR}/${dep_id}.json" 2>/dev/null)
+        if [[ "$dep_status" != "done" ]]; then
+            return 1
+        fi
+    done <<< "$deps"
+
+    return 0
+}
+
+# Get tasks that are ready to run (pending + all deps met)
+task_list_ready() {
+    _ensure_jq
+    local pending
+    pending=$(task_list_by_status "pending")
+
+    if [[ -z "$pending" ]]; then
+        return
+    fi
+
+    while IFS= read -r id; do
+        if task_deps_met "$id"; then
+            echo "$id"
+        fi
+    done <<< "$pending"
+}
+
+# Get count of tasks by status
+task_count_by_status() {
+    local status="$1"
+    local count=0
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local s
+        s=$(jq -r '.status' "$f" 2>/dev/null)
+        if [[ "$s" == "$status" ]]; then
+            ((count++))
+        fi
+    done
+    echo "$count"
+}
+
+# Get total task count
+task_count_total() {
+    local count=0
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] && ((count++))
+    done
+    echo "$count"
+}
+
+# Print task summary table
+task_print_summary() {
+    _ensure_jq
+
+    local total done pending running failed
+    total=$(task_count_total)
+    done=$(task_count_by_status "done")
+    pending=$(task_count_by_status "pending")
+    running=$(task_count_by_status "running")
+    failed=$(task_count_by_status "failed")
+
+    echo -e "${BOLD}Tasks:${RESET} ${total} total | ${GREEN}${done} done${RESET} | ${YELLOW}${running} running${RESET} | ${DIM}${pending} pending${RESET} | ${RED}${failed} failed${RESET}"
+}
+
+# Print task graph
+task_print_graph() {
+    _ensure_jq
+
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+
+        local id title status deps
+        id=$(jq -r '.id' "$f")
+        title=$(jq -r '.title' "$f")
+        status=$(jq -r '.status' "$f")
+        deps=$(jq -r '.depends_on | join(", ")' "$f")
+
+        local status_icon status_color
+        case "$status" in
+            pending) status_icon="$SYM_PENDING"; status_color="$DIM" ;;
+            running) status_icon="$SYM_RUNNING"; status_color="$YELLOW" ;;
+            done)    status_icon="$SYM_CHECK";   status_color="$GREEN" ;;
+            failed)  status_icon="$SYM_CROSS";   status_color="$RED" ;;
+            *)       status_icon="?";            status_color="$DIM" ;;
+        esac
+
+        local dep_str=""
+        if [[ -n "$deps" ]]; then
+            dep_str=" ${DIM}(depends on: ${deps})${RESET}"
+        fi
+
+        printf "  %b%s%b  %-4s %s%s\n" "$status_color" "$status_icon" "$RESET" "$id" "$title" "$dep_str"
+    done | sort -t' ' -k4 -n
+}
+
+# Topological sort of tasks (returns IDs in execution order)
+task_topo_sort() {
+    _ensure_jq
+
+    local -A in_degree
+    local -A adjacency
+    local all_ids=()
+
+    # Build graph
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local id
+        id=$(jq -r '.id' "$f")
+        all_ids+=("$id")
+        in_degree[$id]=0
+    done
+
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local id
+        id=$(jq -r '.id' "$f")
+        local deps
+        deps=$(jq -r '.depends_on[]' "$f" 2>/dev/null || true)
+        while IFS= read -r dep; do
+            [[ -z "$dep" ]] && continue
+            in_degree[$id]=$(( ${in_degree[$id]} + 1 ))
+            adjacency[$dep]="${adjacency[$dep]:-} $id"
+        done <<< "$deps"
+    done
+
+    # Kahn's algorithm
+    local queue=()
+    for id in "${all_ids[@]}"; do
+        if [[ ${in_degree[$id]} -eq 0 ]]; then
+            queue+=("$id")
+        fi
+    done
+
+    local sorted=()
+    while [[ ${#queue[@]} -gt 0 ]]; do
+        local current="${queue[0]}"
+        queue=("${queue[@]:1}")
+        sorted+=("$current")
+
+        for neighbor in ${adjacency[$current]:-}; do
+            in_degree[$neighbor]=$(( ${in_degree[$neighbor]} - 1 ))
+            if [[ ${in_degree[$neighbor]} -eq 0 ]]; then
+                queue+=("$neighbor")
+            fi
+        done
+    done
+
+    printf '%s\n' "${sorted[@]}"
+}
