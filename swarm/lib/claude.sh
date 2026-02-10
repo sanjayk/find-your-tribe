@@ -86,26 +86,16 @@ claude_spawn_bg() {
         context="$(cat "$CLAUDE_MD")"$'\n\n---\n\n'
     fi
 
-    # Capture full path for subshell
-    local claude_cmd="$CLAUDE_BIN"
+    # Write a marker file when process completes
+    local done_marker="${output_file}.done"
+    rm -f "$done_marker"
 
-    # Wrap in subshell that captures exit code and always exits 0
-    # if the agent produced output (exit 127 from claude is often spurious)
-    (
-        "$claude_cmd" -p \
-            --model "$model" \
-            --allowedTools "$allowed_tools" \
-            --max-turns 50 \
-            "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
-            > "$output_file" 2>&1
-        ec=$?
-        # If output was produced, consider it success regardless of exit code
-        if [[ -s "$output_file" ]] && [[ $ec -ne 0 ]]; then
-            echo "[tribe] agent exited with code $ec but produced output — treating as success" >> "$output_file"
-            exit 0
-        fi
-        exit $ec
-    ) &
+    "$CLAUDE_BIN" -p \
+        --model "$model" \
+        --allowedTools "$allowed_tools" \
+        --max-turns 50 \
+        "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
+        > "$output_file" 2>&1; touch "$done_marker" &
 
     echo $!
 }
