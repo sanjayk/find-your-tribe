@@ -3,6 +3,7 @@ import { DM_Serif_Display, DM_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/layout/nav";
 import { Footer } from "@/components/layout/footer";
+import { GraphQLProvider } from "@/lib/graphql/provider";
 
 const dmSerifDisplay = DM_Serif_Display({
   weight: ["400"],
@@ -43,9 +44,11 @@ export default function RootLayout({
       } as React.CSSProperties}
     >
       <body className="font-sans">
-        <Nav />
-        {children}
-        <Footer />
+        <GraphQLProvider>
+          <Nav />
+          {children}
+          <Footer />
+        </GraphQLProvider>
       </body>
     </html>
   );

@@ -1,0 +1,1 @@
+// GraphQL queries for tribes
