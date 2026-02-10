@@ -6,6 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <meta name="description" content="Find Your Tribe - A social network for builders">
   <title>Find Your Tribe — Where Builders Find Their People</title>
+  <meta name="description" content="A social network for builders. Showcase your projects, form tribes with complementary skills, and earn reputation through proof-of-work. No content, just builds.">
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -229,6 +230,19 @@
 
     .score-gray {
       color: #a8a29e;
+    }
+
+    /* Accessibility: Focus ring styles */
+    *:focus-visible {
+      outline: 2px solid #6366f1;
+      outline-offset: 2px;
+    }
+
+    /* Override focus ring for buttons with custom focus style */
+    button:focus-visible,
+    a:focus-visible {
+      outline: 2px solid #6366f1;
+      outline-offset: 2px;
     }
   </style>
 </head>
