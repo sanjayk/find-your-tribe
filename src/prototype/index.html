@@ -762,10 +762,162 @@
       </div>
     </section>
 
-    <section id="feed" class="min-h-screen flex items-center justify-center">
-      <div class="text-center px-4">
-        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Feed</h2>
-        <p class="text-lg text-ink-secondary">Latest build activity</p>
+    <!-- Feed Section -->
+    <section id="feed" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[640px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <div class="text-center mb-8">
+          <p class="overline text-ink-secondary mb-4">
+            ACTIVITY FEED
+          </p>
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex items-center gap-2 mb-8 flex-wrap">
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-accent text-white text-sm font-medium transition-colors duration-150">
+            All
+          </button>
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
+            Projects
+          </button>
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
+            Tribes
+          </button>
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
+            Builders
+          </button>
+        </div>
+
+        <!-- Feed Events -->
+        <div class="space-y-4">
+
+          <!-- Event 1: Maya Chen shipped a project -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-indigo-100 text-indigo-700 flex-shrink-0">
+                <span class="font-medium">MC</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">Maya Chen</span>
+                  <span class="text-xs text-ink-tertiary">2 hours ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">shipped a project</p>
+              </div>
+            </div>
+
+            <!-- Embedded Mini Project Card -->
+            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
+              <!-- Project Thumbnail -->
+              <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500 radius-sm mb-3"></div>
+
+              <!-- Project Title -->
+              <h3 class="font-serif text-lg text-ink mb-2">AI Resume Builder</h3>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event 2: Alex Rivera started building a project -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-cyan-100 text-cyan-700 flex-shrink-0">
+                <span class="font-medium">AR</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">Alex Rivera</span>
+                  <span class="text-xs text-ink-tertiary">5 hours ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">started building a project</p>
+              </div>
+            </div>
+
+            <!-- Embedded Mini Project Card (No Thumbnail) -->
+            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
+              <!-- Project Title -->
+              <h3 class="font-serif text-lg text-ink mb-2">DevOps Dashboard</h3>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Node.js</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Docker</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event 3: Priya Sharma formed a tribe -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-rose-100 text-rose-700 flex-shrink-0">
+                <span class="font-medium">PS</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">Priya Sharma</span>
+                  <span class="text-xs text-ink-tertiary">1 day ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">formed a tribe</p>
+              </div>
+            </div>
+
+            <!-- Tribe Details -->
+            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
+              <!-- Tribe Name -->
+              <h3 class="font-serif text-lg text-ink mb-2">Tribe Finder Team</h3>
+
+              <!-- Open Roles -->
+              <p class="text-sm text-ink-secondary mb-2">
+                <span class="font-medium text-ink">Looking for:</span> Backend Engineer, Growth Marketer
+              </p>
+
+              <!-- Tags -->
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event 4: James Okafor joined Find Your Tribe -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-amber-100 text-amber-700 flex-shrink-0">
+                <span class="font-medium">JO</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">James Okafor</span>
+                  <span class="text-xs text-ink-tertiary">2 days ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">joined Find Your Tribe</p>
+              </div>
+            </div>
+
+            <!-- Builder Skills -->
+            <div class="ml-[56px]">
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Figma</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">UI/UX</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Prototyping</span>
+              </div>
+            </div>
+          </article>
+
+        </div>
+
       </div>
     </section>
 
