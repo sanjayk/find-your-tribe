@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Find Your Tribe</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS with custom configuration -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              primary: '#f9f8f6',
+              secondary: '#f2f0ed',
+              elevated: '#ffffff',
+              inverse: '#1c1917',
+            },
+            ink: {
+              DEFAULT: '#1c1917',
+              secondary: '#57534e',
+              tertiary: '#a8a29e',
+              inverse: '#fafaf9',
+            },
+            accent: {
+              DEFAULT: '#6366f1',
+              hover: '#4f46e5',
+              subtle: '#eef2ff',
+              muted: '#a5b4fc',
+            },
+            shipped: {
+              DEFAULT: '#16a34a',
+              subtle: '#f0fdf4'
+            },
+            'in-progress': {
+              DEFAULT: '#d97706',
+              subtle: '#fffbeb'
+            },
+            error: {
+              DEFAULT: '#dc2626',
+              subtle: '#fef2f2'
+            },
+          },
+          fontFamily: {
+            serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-surface-primary text-ink font-sans">
+
+  <!-- Content sections will be added here -->
+
+  <script>
+    // Initialize Lucide icons when DOM is ready
+    lucide.createIcons();
+  </script>
+</body>
+</html>
