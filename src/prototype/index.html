@@ -104,6 +104,12 @@
       font-weight: 400;
     }
 
+    .h2 {
+      font-size: 1.75rem;
+      line-height: 1.25;
+      font-weight: 400;
+    }
+
     .h3 {
       font-size: 1.375rem;
       line-height: 1.3;
@@ -122,6 +128,16 @@
     .avatar-md {
       width: 44px;
       height: 44px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+    }
+
+    .avatar-xs {
+      width: 24px;
+      height: 24px;
       border-radius: 9999px;
       display: flex;
       align-items: center;
@@ -584,10 +600,165 @@
       </div>
     </section>
 
-    <section id="projects" class="min-h-screen flex items-center justify-center bg-surface-secondary">
-      <div class="text-center px-4">
-        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Projects</h2>
-        <p class="text-lg text-ink-secondary">Explore shipped projects</p>
+    <!-- Projects Section -->
+    <section id="projects" class="bg-surface-secondary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <div class="text-center mb-12">
+          <p class="overline text-ink-secondary mb-4">
+            SHIPPED PROJECTS
+          </p>
+        </div>
+
+        <!-- Project Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <!-- Project Card 1: AI Resume Builder -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+            <!-- Thumbnail -->
+            <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500"></div>
+
+            <!-- Content -->
+            <div class="p-5">
+              <!-- Project Title -->
+              <h2 class="h2 font-serif text-ink mb-2">AI Resume Builder</h2>
+
+              <!-- Description -->
+              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                AI-powered resume builder that helps developers showcase their skills with beautiful, ATS-friendly templates.
+              </p>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+
+              <!-- Footer: Owner and Stats -->
+              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                <!-- Owner -->
+                <div class="flex items-center gap-2">
+                  <div class="avatar-xs bg-indigo-100 text-indigo-700">
+                    <span class="text-[10px] font-medium">MC</span>
+                  </div>
+                  <span class="body-sm text-ink-secondary">Maya Chen</span>
+                </div>
+
+                <!-- Stats -->
+                <div class="flex items-center gap-3">
+                  <!-- Star count -->
+                  <div class="flex items-center gap-1">
+                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                    <span class="body-sm text-ink-secondary">142</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                    Shipped
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Card 2: Tribe Finder -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+            <!-- Thumbnail -->
+            <div class="aspect-[16/10] bg-gradient-to-br from-emerald-400 to-teal-500"></div>
+
+            <!-- Content -->
+            <div class="p-5">
+              <!-- Project Title -->
+              <h2 class="h2 font-serif text-ink mb-2">Tribe Finder</h2>
+
+              <!-- Description -->
+              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                Platform connecting builders with complementary skills to form high-performing teams and ship products together.
+              </p>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
+              </div>
+
+              <!-- Footer: Owner and Stats -->
+              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                <!-- Owner -->
+                <div class="flex items-center gap-2">
+                  <div class="avatar-xs bg-rose-100 text-rose-700">
+                    <span class="text-[10px] font-medium">PS</span>
+                  </div>
+                  <span class="body-sm text-ink-secondary">Priya Sharma</span>
+                </div>
+
+                <!-- Stats -->
+                <div class="flex items-center gap-3">
+                  <!-- Star count -->
+                  <div class="flex items-center gap-1">
+                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                    <span class="body-sm text-ink-secondary">—</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span class="text-xs font-medium text-in-progress px-2 py-1 bg-in-progress-subtle radius-sm">
+                    In Progress
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Card 3: Open Source CRM -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+            <!-- Thumbnail -->
+            <div class="aspect-[16/10] bg-gradient-to-br from-amber-400 to-orange-500"></div>
+
+            <!-- Content -->
+            <div class="p-5">
+              <!-- Project Title -->
+              <h2 class="h2 font-serif text-ink mb-2">Open Source CRM</h2>
+
+              <!-- Description -->
+              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                Lightweight, privacy-first CRM for small teams. Self-hosted alternative to enterprise solutions with modern UX.
+              </p>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Vue</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Django</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+
+              <!-- Footer: Owner and Stats -->
+              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                <!-- Owner -->
+                <div class="flex items-center gap-2">
+                  <div class="avatar-xs bg-violet-100 text-violet-700">
+                    <span class="text-[10px] font-medium">SK</span>
+                  </div>
+                  <span class="body-sm text-ink-secondary">Sarah Kim</span>
+                </div>
+
+                <!-- Stats -->
+                <div class="flex items-center gap-3">
+                  <!-- Star count -->
+                  <div class="flex items-center gap-1">
+                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                    <span class="body-sm text-ink-secondary">89</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                    Shipped
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </section>
 
