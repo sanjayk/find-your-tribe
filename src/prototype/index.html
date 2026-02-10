@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <meta name="description" content="Find Your Tribe - A social network for builders">
-  <title>Find Your Tribe</title>
+  <title>Find Your Tribe — Where Builders Find Their People</title>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS CDN with custom configuration -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config -->
   <script>
     tailwind.config = {
       theme: {
@@ -51,9 +53,16 @@
             },
           },
           fontFamily: {
-            serif: ['Instrument Serif', 'Georgia', 'serif'],
-            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['Instrument Serif', 'serif'],
+            sans: ['Inter', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace'],
+          },
+          boxShadow: {
+            'xs': '0 1px 2px rgba(28,25,23,0.03)',
+            'sm': '0 1px 3px rgba(28,25,23,0.05), 0 1px 2px rgba(28,25,23,0.03)',
+            'md': '0 4px 12px rgba(28,25,23,0.06)',
+            'lg': '0 8px 24px rgba(28,25,23,0.08)',
+            'xl': '0 16px 48px rgba(28,25,23,0.10)',
           },
         },
       },
@@ -63,381 +72,1313 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Global Styles & Design System Utilities -->
   <style>
-    /* ===== CSS CUSTOM PROPERTIES ===== */
-    :root {
-      /* Color Tokens */
-      --surface-primary: #f9f8f6;
-      --surface-secondary: #f2f0ed;
-      --surface-elevated: #ffffff;
-      --surface-inverse: #1c1917;
-
-      --text-primary: #1c1917;
-      --text-secondary: #57534e;
-      --text-tertiary: #a8a29e;
-      --text-inverse: #fafaf9;
-
-      --accent: #6366f1;
-      --accent-hover: #4f46e5;
-      --accent-subtle: #eef2ff;
-      --accent-muted: #a5b4fc;
-
-      --shipped: #16a34a;
-      --shipped-subtle: #f0fdf4;
-      --in-progress: #d97706;
-      --in-progress-subtle: #fffbeb;
-      --error: #dc2626;
-      --error-subtle: #fef2f2;
-
-      /* Border Radius Tokens */
-      --radius-sm: 6px;
-      --radius-md: 8px;
-      --radius-lg: 12px;
-      --radius-xl: 16px;
-      --radius-full: 9999px;
-
-      /* Shadow Tokens - Warm toned */
-      --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.03);
-      --shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.05), 0 1px 2px rgba(28, 25, 23, 0.03);
-      --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.06);
-      --shadow-lg: 0 8px 24px rgba(28, 25, 23, 0.08);
-      --shadow-xl: 0 16px 48px rgba(28, 25, 23, 0.10);
-
-      /* Transition Tokens */
-      --transition-color: 150ms ease-in-out;
-      --transition-transform: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
-      --transition-layout: 250ms ease-in-out;
-    }
-
-    /* ===== BASE STYLES ===== */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 15px;
-      line-height: 1.6;
-      color: var(--text-primary);
-      background-color: var(--surface-primary);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      font-family: 'Inter', sans-serif;
+      background-color: #f9f8f6;
+      color: #1c1917;
     }
 
-    /* ===== TYPOGRAPHY SCALE ===== */
+    .font-serif {
+      font-family: 'Instrument Serif', serif;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Typography scale */
     .display {
-      font-family: 'Instrument Serif', Georgia, serif;
       font-size: clamp(2.25rem, 5vw, 3.5rem);
       line-height: 1.05;
       font-weight: 400;
-      color: var(--text-primary);
-    }
-
-    .h1 {
-      font-family: 'Instrument Serif', Georgia, serif;
-      font-size: clamp(1.875rem, 4vw, 2.5rem);
-      line-height: 1.1;
-      font-weight: 400;
-      color: var(--text-primary);
-    }
-
-    .h2 {
-      font-family: 'Instrument Serif', Georgia, serif;
-      font-size: clamp(1.5rem, 3vw, 1.875rem);
-      line-height: 1.2;
-      font-weight: 400;
-      color: var(--text-primary);
-    }
-
-    .h3 {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 1.375rem;
-      line-height: 1.3;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .h4 {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 1.0625rem;
-      line-height: 1.4;
-      font-weight: 600;
-      color: var(--text-primary);
     }
 
     .body-lg {
       font-size: 1.125rem;
       line-height: 1.65;
       font-weight: 400;
-      color: var(--text-primary);
-    }
-
-    .body {
-      font-size: 0.9375rem;
-      line-height: 1.6;
-      font-weight: 400;
-      color: var(--text-primary);
     }
 
     .body-sm {
       font-size: 0.8125rem;
       line-height: 1.5;
       font-weight: 400;
-      color: var(--text-secondary);
     }
 
-    .caption {
-      font-size: 0.6875rem;
-      line-height: 1.4;
-      font-weight: 500;
-      color: var(--text-secondary);
-    }
-
-    .mono {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8125rem;
-      line-height: 1.4;
+    .h1 {
+      font-size: clamp(1.875rem, 4vw, 2.5rem);
+      line-height: 1.1;
       font-weight: 400;
     }
 
-    /* Overline Label Utility */
+    .h2 {
+      font-size: 1.75rem;
+      line-height: 1.25;
+      font-weight: 400;
+    }
+
+    .h3 {
+      font-size: 1.375rem;
+      line-height: 1.3;
+      font-weight: 600;
+    }
+
+    .h4 {
+      font-size: 1.125rem;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+
     .overline {
       font-size: 0.6875rem;
       line-height: 1.4;
       font-weight: 500;
-      color: var(--text-secondary);
       text-transform: uppercase;
-      letter-spacing: 1.5px;
+      letter-spacing: 0.15em;
     }
 
-    /* ===== SHADOW UTILITIES ===== */
-    .shadow-xs {
-      box-shadow: var(--shadow-xs);
-    }
-
-    .shadow-sm {
-      box-shadow: var(--shadow-sm);
-    }
-
-    .shadow-md {
-      box-shadow: var(--shadow-md);
-    }
-
-    .shadow-lg {
-      box-shadow: var(--shadow-lg);
-    }
-
-    .shadow-xl {
-      box-shadow: var(--shadow-xl);
-    }
-
-    /* ===== BORDER RADIUS UTILITIES ===== */
-    .radius-sm {
-      border-radius: var(--radius-sm);
-    }
-
-    .radius-md {
-      border-radius: var(--radius-md);
-    }
-
-    .radius-lg {
-      border-radius: var(--radius-lg);
-    }
-
-    .radius-xl {
-      border-radius: var(--radius-xl);
-    }
-
-    .radius-full {
-      border-radius: var(--radius-full);
-    }
-
-    /* ===== AVATAR SIZE UTILITIES ===== */
-    .avatar {
-      border-radius: var(--radius-full);
-      background-color: var(--surface-secondary);
+    /* Avatar sizes */
+    .avatar-md {
+      width: 44px;
+      height: 44px;
+      border-radius: 9999px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: 'Inter', system-ui, sans-serif;
       font-weight: 500;
-      color: var(--text-secondary);
-      overflow: hidden;
-      flex-shrink: 0;
     }
 
     .avatar-xs {
       width: 24px;
       height: 24px;
-      font-size: 10px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
     }
 
     .avatar-sm {
       width: 32px;
       height: 32px;
-      font-size: 12px;
-    }
-
-    .avatar-md {
-      width: 44px;
-      height: 44px;
-      font-size: 16px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
     }
 
     .avatar-lg {
       width: 64px;
       height: 64px;
-      font-size: 22px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
     }
 
     .avatar-xl {
       width: 88px;
       height: 88px;
-      font-size: 32px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
     }
 
-    .avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
+    /* Border radius utilities */
+    .radius-sm {
+      border-radius: 6px;
     }
 
-    /* ===== TRANSITION UTILITIES ===== */
-    .transition-color {
-      transition: color var(--transition-color), background-color var(--transition-color), border-color var(--transition-color), opacity var(--transition-color);
+    .radius-md {
+      border-radius: 8px;
     }
 
-    .transition-transform {
-      transition: transform var(--transition-transform);
+    .radius-lg {
+      border-radius: 12px;
     }
 
-    .transition-layout {
-      transition: width var(--transition-layout), height var(--transition-layout), max-height var(--transition-layout);
+    /* Card hover effect */
+    .builder-card {
+      transition: transform 200ms cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
     }
 
-    .transition-all {
-      transition: all var(--transition-transform);
-    }
-
-    /* ===== CARD HOVER ANIMATION ===== */
-    @keyframes card-lift {
-      from {
-        transform: translateY(0);
-        box-shadow: var(--shadow-md);
-      }
-      to {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-lg);
-      }
-    }
-
-    .card {
-      background-color: var(--surface-elevated);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-      transition: transform var(--transition-transform), box-shadow var(--transition-transform);
-      cursor: pointer;
-    }
-
-    .card-hover:hover {
+    .builder-card:hover {
       transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
+      box-shadow: 0 8px 24px rgba(28,25,23,0.08);
     }
 
-    /* Alternative using animation */
-    .card-hover-animated:hover {
-      animation: card-lift var(--transition-transform) cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
-    }
-
-    /* ===== INTERACTIVE STATES ===== */
-    a {
-      color: var(--accent);
-      text-decoration: none;
-      transition: color var(--transition-color);
-    }
-
-    a:hover {
-      color: var(--accent-hover);
-    }
-
-    button {
-      font-family: 'Inter', system-ui, sans-serif;
-      cursor: pointer;
-      border: none;
-      background: none;
-      transition: background-color var(--transition-color), color var(--transition-color);
-    }
-
-    /* ===== REDUCED MOTION SUPPORT ===== */
     @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        transition-delay: 0ms !important;
-        scroll-behavior: auto !important;
-      }
-
-      /* Preserve color transitions for accessibility */
-      .transition-color,
-      a,
-      button {
-        transition: color var(--transition-color), background-color var(--transition-color), border-color var(--transition-color), opacity var(--transition-color);
-      }
-
-      /* Remove transforms */
-      .card-hover:hover,
-      .card-hover-animated:hover {
+      .builder-card:hover {
         transform: none;
       }
     }
 
-    /* ===== UTILITY CLASSES ===== */
-    .text-primary {
-      color: var(--text-primary);
+    /* Builder Score color tiers */
+    .score-indigo {
+      color: #6366f1;
     }
 
-    .text-secondary {
-      color: var(--text-secondary);
+    .score-blue {
+      color: #3b82f6;
     }
 
-    .text-tertiary {
-      color: var(--text-tertiary);
-    }
-
-    .text-inverse {
-      color: var(--text-inverse);
-    }
-
-    .bg-surface-primary {
-      background-color: var(--surface-primary);
-    }
-
-    .bg-surface-secondary {
-      background-color: var(--surface-secondary);
-    }
-
-    .bg-surface-elevated {
-      background-color: var(--surface-elevated);
-    }
-
-    .bg-surface-inverse {
-      background-color: var(--surface-inverse);
+    .score-gray {
+      color: #a8a29e;
     }
   </style>
 </head>
-<body class="bg-surface-primary text-ink font-sans">
+<body>
 
-  <!-- Content sections will be added here -->
+  <!-- Navigation -->
+  <nav id="main-nav" class="sticky top-0 z-50 bg-surface-elevated transition-shadow duration-200">
+    <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+      <div class="flex items-center justify-between h-14">
 
-  <!-- Initialize Lucide Icons -->
+        <!-- Logo -->
+        <a href="#" class="font-serif text-lg text-ink hover:text-accent transition-colors duration-150">
+          find your tribe
+        </a>
+
+        <!-- Desktop Navigation Links -->
+        <div class="hidden md:flex items-center gap-8">
+          <a href="#how-it-works" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            How It Works
+          </a>
+          <a href="#builders" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Builders
+          </a>
+          <a href="#projects" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Projects
+          </a>
+          <a href="#feed" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Feed
+          </a>
+          <a href="#profile" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Profile
+          </a>
+          <a href="#tribe" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Tribe
+          </a>
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button id="mobile-menu-btn" class="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors duration-150" aria-label="Toggle menu">
+          <i data-lucide="menu" class="w-5 h-5 text-ink-secondary"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile Menu Overlay -->
+  <div id="mobile-menu" class="fixed inset-0 z-40 bg-surface-elevated hidden">
+    <div class="flex flex-col h-full">
+
+      <!-- Mobile Menu Header -->
+      <div class="flex items-center justify-between px-4 h-14 border-b border-surface-secondary">
+        <span class="font-serif text-lg text-ink">find your tribe</span>
+        <button id="mobile-menu-close" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors duration-150" aria-label="Close menu">
+          <i data-lucide="x" class="w-5 h-5 text-ink-secondary"></i>
+        </button>
+      </div>
+
+      <!-- Mobile Menu Links -->
+      <div class="flex flex-col gap-5 p-6">
+        <a href="#how-it-works" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          How It Works
+        </a>
+        <a href="#builders" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Builders
+        </a>
+        <a href="#projects" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Projects
+        </a>
+        <a href="#feed" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Feed
+        </a>
+        <a href="#profile" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Profile
+        </a>
+        <a href="#tribe" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Tribe
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- Hero Section -->
+    <section id="hero" class="bg-surface-primary py-20 md:py-24">
+      <div class="max-w-[680px] mx-auto px-4 text-center">
+
+        <!-- Headline -->
+        <h1 class="font-serif display text-ink mb-6">
+          Where builders find their people
+        </h1>
+
+        <!-- Subtext -->
+        <p class="body-lg text-ink-secondary mb-8">
+          Clout through building, not posting. Ship projects. Form tribes. Earn your score.
+        </p>
+
+        <!-- CTA Button -->
+        <button class="inline-flex items-center gap-3 bg-accent text-white px-6 py-3 rounded-lg shadow-sm hover:bg-accent-hover transition-colors duration-200">
+          <!-- GitHub Icon -->
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          Continue with GitHub
+        </button>
+
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="bg-surface-secondary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <div class="text-center mb-12">
+          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-secondary mb-4">
+            HOW IT WORKS
+          </p>
+        </div>
+
+        <!-- Step Cards -->
+        <div class="flex flex-col lg:flex-row gap-5">
+
+          <!-- Card 1: Ship -->
+          <div class="relative bg-surface-elevated rounded-lg shadow-md p-5 flex-1 overflow-hidden">
+            <!-- Large decorative number -->
+            <span class="absolute top-2 left-2 font-serif text-8xl text-ink-tertiary opacity-20 select-none pointer-events-none">
+              01
+            </span>
+            <!-- Content -->
+            <div class="relative z-10">
+              <h3 class="font-sans font-semibold text-[22px] text-ink mb-3">
+                Ship
+              </h3>
+              <p class="text-[15px] leading-relaxed text-ink-secondary">
+                Build and launch projects that matter. Connect your GitHub to showcase real work and earn credibility through shipping.
+              </p>
+            </div>
+          </div>
+
+          <!-- Card 2: Form -->
+          <div class="relative bg-surface-elevated rounded-lg shadow-md p-5 flex-1 overflow-hidden">
+            <!-- Large decorative number -->
+            <span class="absolute top-2 left-2 font-serif text-8xl text-ink-tertiary opacity-20 select-none pointer-events-none">
+              02
+            </span>
+            <!-- Content -->
+            <div class="relative z-10">
+              <h3 class="font-sans font-semibold text-[22px] text-ink mb-3">
+                Form
+              </h3>
+              <p class="text-[15px] leading-relaxed text-ink-secondary">
+                Discover builders who share your vision. Form tribes around ideas, skills, and complementary strengths.
+              </p>
+            </div>
+          </div>
+
+          <!-- Card 3: Earn -->
+          <div class="relative bg-surface-elevated rounded-lg shadow-md p-5 flex-1 overflow-hidden">
+            <!-- Large decorative number -->
+            <span class="absolute top-2 left-2 font-serif text-8xl text-ink-tertiary opacity-20 select-none pointer-events-none">
+              03
+            </span>
+            <!-- Content -->
+            <div class="relative z-10">
+              <h3 class="font-sans font-semibold text-[22px] text-ink mb-3">
+                Earn
+              </h3>
+              <p class="text-[15px] leading-relaxed text-ink-secondary">
+                Build your reputation through consistent shipping. Your tribe score reflects real contributions, not engagement metrics.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Builders Section -->
+    <section id="builders" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <div class="text-center mb-12">
+          <p class="overline text-ink-secondary mb-4">
+            DISCOVER BUILDERS
+          </p>
+        </div>
+
+        <!-- Builder Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <!-- Builder Card 1: Maya Chen -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-indigo-100 text-indigo-700 flex-shrink-0">
+                <span class="font-medium">MC</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Maya Chen</h3>
+                <p class="body-sm text-ink-secondary">Full-Stack Developer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Building AI-powered tools for makers. Previously led engineering at a YC-backed startup.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Python</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-indigo">72</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 2: James Okafor -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-amber-100 text-amber-700 flex-shrink-0">
+                <span class="font-medium">JO</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">James Okafor</h3>
+                <p class="body-sm text-ink-secondary">Product Designer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Crafting delightful user experiences. Design systems enthusiast. Love working with early-stage teams.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Figma</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">UI/UX</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Prototyping</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-blue">58</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 3: Priya Sharma -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-rose-100 text-rose-700 flex-shrink-0">
+                <span class="font-medium">PS</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Priya Sharma</h3>
+                <p class="body-sm text-ink-secondary">Backend Engineer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Distributed systems architect. Scaled infrastructure to millions of users. Open source contributor.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Kubernetes</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">gRPC</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-indigo">65</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 4: David Morales -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-emerald-100 text-emerald-700 flex-shrink-0">
+                <span class="font-medium">DM</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">David Morales</h3>
+                <p class="body-sm text-ink-secondary">Growth Marketer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Growth hacker turned founder. Built 0→1 go-to-market strategies. Love experimenting with new channels.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">SEO</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Analytics</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Content</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-blue">41</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 5: Sarah Kim -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-violet-100 text-violet-700 flex-shrink-0">
+                <span class="font-medium">SK</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Sarah Kim</h3>
+                <p class="body-sm text-ink-secondary">Frontend Developer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Building beautiful, performant web experiences. Accessibility advocate. Component library creator.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">TypeScript</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-blue">49</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Builder Card 6: Alex Rivera -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Avatar and Name Row -->
+            <div class="flex items-start gap-3 mb-4">
+              <div class="avatar-md bg-cyan-100 text-cyan-700 flex-shrink-0">
+                <span class="font-medium">AR</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="h3 font-serif text-ink mb-1">Alex Rivera</h3>
+                <p class="body-sm text-ink-secondary">DevOps Engineer</p>
+              </div>
+            </div>
+
+            <!-- Headline/Bio -->
+            <p class="body-sm text-ink mb-4">
+              Infrastructure automation specialist. Cloud-native enthusiast. Making deployments boring since 2019.
+            </p>
+
+            <!-- Skill Tags -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">AWS</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Terraform</span>
+              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Docker</span>
+            </div>
+
+            <!-- Availability Status and Builder Score -->
+            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                Open to collaborate
+              </span>
+              <div class="text-right">
+                <div class="font-mono text-2xl font-semibold score-gray">35</div>
+                <div class="text-xs text-ink-tertiary">Builder Score</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Projects Section -->
+    <section id="projects" class="bg-surface-secondary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <div class="text-center mb-12">
+          <p class="overline text-ink-secondary mb-4">
+            SHIPPED PROJECTS
+          </p>
+        </div>
+
+        <!-- Project Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <!-- Project Card 1: AI Resume Builder -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+            <!-- Thumbnail -->
+            <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500"></div>
+
+            <!-- Content -->
+            <div class="p-5">
+              <!-- Project Title -->
+              <h2 class="h2 font-serif text-ink mb-2">AI Resume Builder</h2>
+
+              <!-- Description -->
+              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                AI-powered resume builder that helps developers showcase their skills with beautiful, ATS-friendly templates.
+              </p>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+
+              <!-- Footer: Owner and Stats -->
+              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                <!-- Owner -->
+                <div class="flex items-center gap-2">
+                  <div class="avatar-xs bg-indigo-100 text-indigo-700">
+                    <span class="text-[10px] font-medium">MC</span>
+                  </div>
+                  <span class="body-sm text-ink-secondary">Maya Chen</span>
+                </div>
+
+                <!-- Stats -->
+                <div class="flex items-center gap-3">
+                  <!-- Star count -->
+                  <div class="flex items-center gap-1">
+                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                    <span class="body-sm text-ink-secondary">142</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                    Shipped
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Card 2: Tribe Finder -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+            <!-- Thumbnail -->
+            <div class="aspect-[16/10] bg-gradient-to-br from-emerald-400 to-teal-500"></div>
+
+            <!-- Content -->
+            <div class="p-5">
+              <!-- Project Title -->
+              <h2 class="h2 font-serif text-ink mb-2">Tribe Finder</h2>
+
+              <!-- Description -->
+              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                Platform connecting builders with complementary skills to form high-performing teams and ship products together.
+              </p>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
+              </div>
+
+              <!-- Footer: Owner and Stats -->
+              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                <!-- Owner -->
+                <div class="flex items-center gap-2">
+                  <div class="avatar-xs bg-rose-100 text-rose-700">
+                    <span class="text-[10px] font-medium">PS</span>
+                  </div>
+                  <span class="body-sm text-ink-secondary">Priya Sharma</span>
+                </div>
+
+                <!-- Stats -->
+                <div class="flex items-center gap-3">
+                  <!-- Star count -->
+                  <div class="flex items-center gap-1">
+                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                    <span class="body-sm text-ink-secondary">—</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span class="text-xs font-medium text-in-progress px-2 py-1 bg-in-progress-subtle radius-sm">
+                    In Progress
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Card 3: Open Source CRM -->
+          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+            <!-- Thumbnail -->
+            <div class="aspect-[16/10] bg-gradient-to-br from-amber-400 to-orange-500"></div>
+
+            <!-- Content -->
+            <div class="p-5">
+              <!-- Project Title -->
+              <h2 class="h2 font-serif text-ink mb-2">Open Source CRM</h2>
+
+              <!-- Description -->
+              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                Lightweight, privacy-first CRM for small teams. Self-hosted alternative to enterprise solutions with modern UX.
+              </p>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Vue</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Django</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+
+              <!-- Footer: Owner and Stats -->
+              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                <!-- Owner -->
+                <div class="flex items-center gap-2">
+                  <div class="avatar-xs bg-violet-100 text-violet-700">
+                    <span class="text-[10px] font-medium">SK</span>
+                  </div>
+                  <span class="body-sm text-ink-secondary">Sarah Kim</span>
+                </div>
+
+                <!-- Stats -->
+                <div class="flex items-center gap-3">
+                  <!-- Star count -->
+                  <div class="flex items-center gap-1">
+                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                    <span class="body-sm text-ink-secondary">89</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                    Shipped
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Feed Section -->
+    <section id="feed" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[640px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <div class="text-center mb-8">
+          <p class="overline text-ink-secondary mb-4">
+            ACTIVITY FEED
+          </p>
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex items-center gap-2 mb-8 flex-wrap">
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-accent text-white text-sm font-medium transition-colors duration-150">
+            All
+          </button>
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
+            Projects
+          </button>
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
+            Tribes
+          </button>
+          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
+            Builders
+          </button>
+        </div>
+
+        <!-- Feed Events -->
+        <div class="space-y-4">
+
+          <!-- Event 1: Maya Chen shipped a project -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-indigo-100 text-indigo-700 flex-shrink-0">
+                <span class="font-medium">MC</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">Maya Chen</span>
+                  <span class="text-xs text-ink-tertiary">2 hours ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">shipped a project</p>
+              </div>
+            </div>
+
+            <!-- Embedded Mini Project Card -->
+            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
+              <!-- Project Thumbnail -->
+              <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500 radius-sm mb-3"></div>
+
+              <!-- Project Title -->
+              <h3 class="font-serif text-lg text-ink mb-2">AI Resume Builder</h3>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event 2: Alex Rivera started building a project -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-cyan-100 text-cyan-700 flex-shrink-0">
+                <span class="font-medium">AR</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">Alex Rivera</span>
+                  <span class="text-xs text-ink-tertiary">5 hours ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">started building a project</p>
+              </div>
+            </div>
+
+            <!-- Embedded Mini Project Card (No Thumbnail) -->
+            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
+              <!-- Project Title -->
+              <h3 class="font-serif text-lg text-ink mb-2">DevOps Dashboard</h3>
+
+              <!-- Tech Stack Tags -->
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Node.js</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Docker</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event 3: Priya Sharma formed a tribe -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-rose-100 text-rose-700 flex-shrink-0">
+                <span class="font-medium">PS</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">Priya Sharma</span>
+                  <span class="text-xs text-ink-tertiary">1 day ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">formed a tribe</p>
+              </div>
+            </div>
+
+            <!-- Tribe Details -->
+            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
+              <!-- Tribe Name -->
+              <h3 class="font-serif text-lg text-ink mb-2">Tribe Finder Team</h3>
+
+              <!-- Open Roles -->
+              <p class="text-sm text-ink-secondary mb-2">
+                <span class="font-medium text-ink">Looking for:</span> Backend Engineer, Growth Marketer
+              </p>
+
+              <!-- Tags -->
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event 4: James Okafor joined Find Your Tribe -->
+          <article class="bg-surface-elevated shadow-md radius-lg p-5">
+            <!-- Header: Avatar + Name + Timestamp -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="avatar-md bg-amber-100 text-amber-700 flex-shrink-0">
+                <span class="font-medium">JO</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-ink">James Okafor</span>
+                  <span class="text-xs text-ink-tertiary">2 days ago</span>
+                </div>
+                <p class="text-sm text-ink-secondary mt-1">joined Find Your Tribe</p>
+              </div>
+            </div>
+
+            <!-- Builder Skills -->
+            <div class="ml-[56px]">
+              <div class="flex flex-wrap gap-2">
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Figma</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">UI/UX</span>
+                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Prototyping</span>
+              </div>
+            </div>
+          </article>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Profile Section -->
+    <section id="profile" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Two-column layout: Sidebar + Main Content -->
+        <div class="flex flex-col md:flex-row gap-6">
+
+          <!-- Sidebar -->
+          <aside class="w-full md:w-80 flex-shrink-0">
+            <div class="bg-surface-secondary rounded-xl p-6 md:sticky md:top-24">
+
+              <!-- Avatar -->
+              <div class="flex justify-center mb-4">
+                <div class="avatar-xl bg-indigo-100 text-indigo-700">
+                  <span class="text-3xl font-medium">MC</span>
+                </div>
+              </div>
+
+              <!-- Name and Handle -->
+              <div class="text-center mb-4">
+                <h1 class="h1 font-serif text-ink mb-1">Maya Chen</h1>
+                <p class="body-sm text-ink-secondary mb-1">@mayachen</p>
+                <p class="body text-ink-secondary">Full-Stack Developer</p>
+              </div>
+
+              <!-- Builder Score Circle -->
+              <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center">
+                  <span class="font-mono text-2xl font-semibold text-accent">72</span>
+                </div>
+              </div>
+
+              <!-- Bio -->
+              <p class="body-sm text-ink-secondary mb-6 text-center">
+                Building AI tools for small teams. Passionate about simplifying complex workflows. Based in San Francisco.
+              </p>
+
+              <!-- Skill Tags -->
+              <div class="flex flex-wrap gap-2 justify-center mb-6">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Python</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+
+              <!-- Availability Badge -->
+              <div class="flex justify-center mb-4">
+                <span class="text-xs font-medium text-shipped px-3 py-1.5 bg-shipped-subtle radius-sm">
+                  Open to collaborate
+                </span>
+              </div>
+
+              <!-- Timezone -->
+              <p class="body-sm text-ink-tertiary text-center mb-6">
+                PST • San Francisco
+              </p>
+
+              <!-- Social Links -->
+              <div class="flex justify-center gap-4">
+                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
+                  <i data-lucide="github" class="w-5 h-5"></i>
+                </a>
+                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
+                  <i data-lucide="twitter" class="w-5 h-5"></i>
+                </a>
+                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
+                  <i data-lucide="globe" class="w-5 h-5"></i>
+                </a>
+              </div>
+
+            </div>
+          </aside>
+
+          <!-- Main Content -->
+          <main class="flex-1 bg-surface-primary">
+
+            <!-- Shipped Projects -->
+            <div class="mb-12">
+              <p class="overline text-ink-secondary mb-6">
+                SHIPPED PROJECTS
+              </p>
+
+              <div class="space-y-5">
+
+                <!-- Project Card 1: AI Resume Builder -->
+                <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+                  <!-- Thumbnail -->
+                  <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500"></div>
+
+                  <!-- Content -->
+                  <div class="p-5">
+                    <!-- Project Title -->
+                    <h2 class="h2 font-serif text-ink mb-2">AI Resume Builder</h2>
+
+                    <!-- Description -->
+                    <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                      AI-powered resume builder that helps developers showcase their skills with beautiful, ATS-friendly templates.
+                    </p>
+
+                    <!-- Tech Stack Tags -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+                    </div>
+
+                    <!-- Footer: Owner and Stats -->
+                    <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                      <!-- Owner -->
+                      <div class="flex items-center gap-2">
+                        <div class="avatar-xs bg-indigo-100 text-indigo-700">
+                          <span class="text-[10px] font-medium">MC</span>
+                        </div>
+                        <span class="body-sm text-ink-secondary">Maya Chen</span>
+                      </div>
+
+                      <!-- Stats -->
+                      <div class="flex items-center gap-3">
+                        <!-- Star count -->
+                        <div class="flex items-center gap-1">
+                          <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                          <span class="body-sm text-ink-secondary">142</span>
+                        </div>
+                        <!-- Status badge -->
+                        <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                          Shipped
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Project Card 2: Tribe Finder -->
+                <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+                  <!-- Thumbnail -->
+                  <div class="aspect-[16/10] bg-gradient-to-br from-emerald-400 to-teal-500"></div>
+
+                  <!-- Content -->
+                  <div class="p-5">
+                    <!-- Project Title -->
+                    <h2 class="h2 font-serif text-ink mb-2">Tribe Finder</h2>
+
+                    <!-- Description -->
+                    <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                      Connect builders with complementary skills to form powerful teams. AI-powered matching based on expertise and goals.
+                    </p>
+
+                    <!-- Tech Stack Tags -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
+                    </div>
+
+                    <!-- Footer: Owner and Stats -->
+                    <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                      <!-- Owner -->
+                      <div class="flex items-center gap-2">
+                        <div class="avatar-xs bg-indigo-100 text-indigo-700">
+                          <span class="text-[10px] font-medium">MC</span>
+                        </div>
+                        <span class="body-sm text-ink-secondary">Maya Chen</span>
+                      </div>
+
+                      <!-- Stats -->
+                      <div class="flex items-center gap-3">
+                        <!-- Star count -->
+                        <div class="flex items-center gap-1">
+                          <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                          <span class="body-sm text-ink-secondary">89</span>
+                        </div>
+                        <!-- Status badge -->
+                        <span class="text-xs font-medium text-in-progress px-2 py-1 bg-in-progress-subtle radius-sm">
+                          In Progress
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Collaborators -->
+            <div>
+              <p class="overline text-ink-secondary mb-6">
+                COLLABORATORS
+              </p>
+
+              <div class="space-y-4">
+
+                <!-- Collaborator 1: James -->
+                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
+                  <div class="avatar-sm bg-amber-100 text-amber-700">
+                    <span class="text-sm font-medium">JO</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-ink">James Okafor</div>
+                    <div class="body-sm text-ink-secondary">Product Designer</div>
+                  </div>
+                </div>
+
+                <!-- Collaborator 2: Priya -->
+                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
+                  <div class="avatar-sm bg-rose-100 text-rose-700">
+                    <span class="text-sm font-medium">PS</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-ink">Priya Sharma</div>
+                    <div class="body-sm text-ink-secondary">Backend Engineer</div>
+                  </div>
+                </div>
+
+                <!-- Collaborator 3: Alex -->
+                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
+                  <div class="avatar-sm bg-cyan-100 text-cyan-700">
+                    <span class="text-sm font-medium">AR</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-ink">Alex Rivera</div>
+                    <div class="body-sm text-ink-secondary">DevOps Engineer</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </main>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Tribe Section -->
+    <section id="tribe" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <p class="overline text-ink-secondary mb-4">
+          OPEN TRIBE
+        </p>
+
+        <!-- Tribe Name -->
+        <h1 class="font-serif h1 text-ink mb-6">
+          Hospitality OS
+        </h1>
+
+        <!-- Mission Text -->
+        <p class="body-lg text-ink-secondary mb-12 max-w-3xl">
+          Building the operating system for modern hospitality businesses. We're creating tools that help hotels, restaurants, and service providers deliver exceptional experiences while running efficient operations. Our mission is to make hospitality technology as elegant as the experiences it enables.
+        </p>
+
+        <!-- Two-column layout -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+          <!-- Left Column: Members -->
+          <div>
+            <h3 class="h4 text-ink mb-6">Members</h3>
+
+            <div class="space-y-5">
+
+              <!-- Member Card 1: Maya Chen (Owner) -->
+              <div class="flex items-start gap-4">
+                <div class="avatar-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
+                  <span class="text-xl font-medium">MC</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="h3 font-serif text-ink mb-1">Maya Chen</h3>
+                  <p class="body-sm text-ink-secondary mb-2">Full-Stack Developer</p>
+                  <span class="inline-flex items-center px-2 py-1 bg-accent-subtle text-accent text-xs font-medium radius-sm">
+                    Owner
+                  </span>
+                </div>
+              </div>
+
+              <!-- Member Card 2: James Okafor -->
+              <div class="flex items-start gap-4">
+                <div class="avatar-lg bg-amber-100 text-amber-700 flex-shrink-0">
+                  <span class="text-xl font-medium">JO</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="h3 font-serif text-ink mb-1">James Okafor</h3>
+                  <p class="body-sm text-ink-secondary">Designer</p>
+                </div>
+              </div>
+
+              <!-- Member Card 3: Priya Sharma -->
+              <div class="flex items-start gap-4">
+                <div class="avatar-lg bg-rose-100 text-rose-700 flex-shrink-0">
+                  <span class="text-xl font-medium">PS</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="h3 font-serif text-ink mb-1">Priya Sharma</h3>
+                  <p class="body-sm text-ink-secondary">Engineer</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Right Column: Open Roles -->
+          <div>
+            <h3 class="h4 text-ink mb-6">Open Roles</h3>
+
+            <div class="space-y-5">
+
+              <!-- Role Card 1: Backend Engineer -->
+              <div class="bg-surface-elevated shadow-md radius-lg p-5">
+                <h4 class="h4 font-serif text-ink mb-3">Backend Engineer</h4>
+                <p class="body-sm text-ink-secondary mb-4">
+                  We need an experienced backend engineer to help architect our core platform. You'll work on API design, database optimization, and building scalable microservices.
+                </p>
+                <button class="inline-flex items-center justify-center w-full bg-accent text-white px-4 py-2.5 radius-md font-medium transition-colors duration-200 hover:bg-accent-hover">
+                  Request to Join
+                </button>
+              </div>
+
+              <!-- Role Card 2: Growth Marketer -->
+              <div class="bg-surface-elevated shadow-md radius-lg p-5">
+                <h4 class="h4 font-serif text-ink mb-3">Growth Marketer</h4>
+                <p class="body-sm text-ink-secondary mb-4">
+                  Help us bring Hospitality OS to the world. You'll own our go-to-market strategy, build partnerships with hospitality businesses, and drive user acquisition.
+                </p>
+                <button class="inline-flex items-center justify-center w-full bg-accent text-white px-4 py-2.5 radius-md font-medium transition-colors duration-200 hover:bg-accent-hover">
+                  Request to Join
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
   <script>
+    // Initialize Lucide icons
     lucide.createIcons();
+
+    // Mobile menu toggle
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const mobileMenuClose = document.getElementById('mobile-menu-close');
+    const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+
+    function openMobileMenu() {
+      mobileMenu.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileMenu() {
+      mobileMenu.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    mobileMenuBtn.addEventListener('click', openMobileMenu);
+    mobileMenuClose.addEventListener('click', closeMobileMenu);
+
+    // Close mobile menu when clicking a link
+    mobileNavLinks.forEach(link => {
+      link.addEventListener('click', closeMobileMenu);
+    });
+
+    // Add shadow to nav on scroll
+    const nav = document.getElementById('main-nav');
+    let lastScrollY = window.scrollY;
+
+    function updateNavShadow() {
+      if (window.scrollY > 0) {
+        nav.classList.add('shadow-xs');
+      } else {
+        nav.classList.remove('shadow-xs');
+      }
+    }
+
+    window.addEventListener('scroll', updateNavShadow);
+    updateNavShadow(); // Initial check
+
+    // Active link state based on scroll position
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    function updateActiveLink() {
+      const scrollY = window.scrollY;
+
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop - 100;
+        const sectionHeight = section.offsetHeight;
+        const sectionId = section.getAttribute('id');
+
+        if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+          navLinks.forEach(link => {
+            link.classList.remove('text-ink', 'border-b-2', 'border-accent');
+            link.classList.add('text-ink-secondary');
+
+            if (link.getAttribute('href') === `#${sectionId}`) {
+              link.classList.remove('text-ink-secondary');
+              link.classList.add('text-ink', 'border-b-2', 'border-accent');
+            }
+          });
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink);
+    updateActiveLink(); // Initial check
   </script>
+
 </body>
 </html>
