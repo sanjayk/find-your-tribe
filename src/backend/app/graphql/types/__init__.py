@@ -2,11 +2,15 @@
 
 from app.graphql.types.project import CollaboratorType, ProjectType
 from app.graphql.types.skill import SkillType
+from app.graphql.types.tribe import OpenRoleType, TribeMemberType, TribeType
 from app.graphql.types.user import UserType
 
 __all__ = [
     "CollaboratorType",
+    "OpenRoleType",
     "ProjectType",
     "SkillType",
+    "TribeMemberType",
+    "TribeType",
     "UserType",
 ]
