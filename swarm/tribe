@@ -584,7 +584,7 @@ ${TRIBE_ROOT}
         "$agent_message" \
         "sonnet" \
         "$DEFAULT_TASK_BUDGET" \
-        "Bash Read Glob Grep")
+        "Bash Edit Read Write Glob Grep")
 
     echo "$output"
     echo ""
