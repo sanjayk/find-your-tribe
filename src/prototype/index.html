@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Find Your Tribe — Where Builders Find Their People</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              primary: '#f9f8f6',
+              secondary: '#f2f0ed',
+              elevated: '#ffffff',
+              inverse: '#1c1917',
+            },
+            ink: {
+              DEFAULT: '#1c1917',
+              secondary: '#57534e',
+              tertiary: '#a8a29e',
+              inverse: '#fafaf9',
+            },
+            accent: {
+              DEFAULT: '#6366f1',
+              hover: '#4f46e5',
+              subtle: '#eef2ff',
+              muted: '#a5b4fc',
+            },
+            shipped: {
+              DEFAULT: '#16a34a',
+              subtle: '#f0fdf4'
+            },
+            'in-progress': {
+              DEFAULT: '#d97706',
+              subtle: '#fffbeb'
+            },
+            error: {
+              DEFAULT: '#dc2626',
+              subtle: '#fef2f2'
+            },
+          },
+          fontFamily: {
+            serif: ['Instrument Serif', 'serif'],
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          boxShadow: {
+            'xs': '0 1px 2px rgba(28,25,23,0.03)',
+            'sm': '0 1px 3px rgba(28,25,23,0.05), 0 1px 2px rgba(28,25,23,0.03)',
+            'md': '0 4px 12px rgba(28,25,23,0.06)',
+            'lg': '0 8px 24px rgba(28,25,23,0.08)',
+            'xl': '0 16px 48px rgba(28,25,23,0.10)',
+          },
+        },
+      },
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f9f8f6;
+      color: #1c1917;
+    }
+
+    .font-serif {
+      font-family: 'Instrument Serif', serif;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav id="main-nav" class="sticky top-0 z-50 bg-surface-elevated transition-shadow duration-200">
+    <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+      <div class="flex items-center justify-between h-14">
+
+        <!-- Logo -->
+        <a href="#" class="font-serif text-lg text-ink hover:text-accent transition-colors duration-150">
+          find your tribe
+        </a>
+
+        <!-- Desktop Navigation Links -->
+        <div class="hidden md:flex items-center gap-8">
+          <a href="#how-it-works" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            How It Works
+          </a>
+          <a href="#builders" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Builders
+          </a>
+          <a href="#projects" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Projects
+          </a>
+          <a href="#feed" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Feed
+          </a>
+          <a href="#profile" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Profile
+          </a>
+          <a href="#tribe" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
+            Tribe
+          </a>
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button id="mobile-menu-btn" class="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors duration-150" aria-label="Toggle menu">
+          <i data-lucide="menu" class="w-5 h-5 text-ink-secondary"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile Menu Overlay -->
+  <div id="mobile-menu" class="fixed inset-0 z-40 bg-surface-elevated hidden">
+    <div class="flex flex-col h-full">
+
+      <!-- Mobile Menu Header -->
+      <div class="flex items-center justify-between px-4 h-14 border-b border-surface-secondary">
+        <span class="font-serif text-lg text-ink">find your tribe</span>
+        <button id="mobile-menu-close" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors duration-150" aria-label="Close menu">
+          <i data-lucide="x" class="w-5 h-5 text-ink-secondary"></i>
+        </button>
+      </div>
+
+      <!-- Mobile Menu Links -->
+      <div class="flex flex-col gap-5 p-6">
+        <a href="#how-it-works" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          How It Works
+        </a>
+        <a href="#builders" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Builders
+        </a>
+        <a href="#projects" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Projects
+        </a>
+        <a href="#feed" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Feed
+        </a>
+        <a href="#profile" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Profile
+        </a>
+        <a href="#tribe" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
+          Tribe
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- Placeholder Sections (for navigation testing) -->
+    <section id="hero" class="min-h-screen flex items-center justify-center">
+      <div class="text-center px-4">
+        <h1 class="font-serif text-5xl md:text-7xl text-ink mb-6">
+          Where builders find their people
+        </h1>
+        <p class="text-lg md:text-xl text-ink-secondary max-w-2xl mx-auto mb-8">
+          Clout through building, not posting. Ship projects. Form tribes. Earn your score.
+        </p>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="min-h-screen flex items-center justify-center bg-surface-secondary">
+      <div class="text-center px-4">
+        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">How It Works</h2>
+        <p class="text-lg text-ink-secondary">Ship, Form, Earn</p>
+      </div>
+    </section>
+
+    <section id="builders" class="min-h-screen flex items-center justify-center">
+      <div class="text-center px-4">
+        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Builders</h2>
+        <p class="text-lg text-ink-secondary">Discover talented builders</p>
+      </div>
+    </section>
+
+    <section id="projects" class="min-h-screen flex items-center justify-center bg-surface-secondary">
+      <div class="text-center px-4">
+        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Projects</h2>
+        <p class="text-lg text-ink-secondary">Explore shipped projects</p>
+      </div>
+    </section>
+
+    <section id="feed" class="min-h-screen flex items-center justify-center">
+      <div class="text-center px-4">
+        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Feed</h2>
+        <p class="text-lg text-ink-secondary">Latest build activity</p>
+      </div>
+    </section>
+
+    <section id="profile" class="min-h-screen flex items-center justify-center bg-surface-secondary">
+      <div class="text-center px-4">
+        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Profile</h2>
+        <p class="text-lg text-ink-secondary">Builder portfolios</p>
+      </div>
+    </section>
+
+    <section id="tribe" class="min-h-screen flex items-center justify-center">
+      <div class="text-center px-4">
+        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Tribe</h2>
+        <p class="text-lg text-ink-secondary">Form your team</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Mobile menu toggle
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const mobileMenuClose = document.getElementById('mobile-menu-close');
+    const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+
+    function openMobileMenu() {
+      mobileMenu.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileMenu() {
+      mobileMenu.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    mobileMenuBtn.addEventListener('click', openMobileMenu);
+    mobileMenuClose.addEventListener('click', closeMobileMenu);
+
+    // Close mobile menu when clicking a link
+    mobileNavLinks.forEach(link => {
+      link.addEventListener('click', closeMobileMenu);
+    });
+
+    // Add shadow to nav on scroll
+    const nav = document.getElementById('main-nav');
+    let lastScrollY = window.scrollY;
+
+    function updateNavShadow() {
+      if (window.scrollY > 0) {
+        nav.classList.add('shadow-xs');
+      } else {
+        nav.classList.remove('shadow-xs');
+      }
+    }
+
+    window.addEventListener('scroll', updateNavShadow);
+    updateNavShadow(); // Initial check
+
+    // Active link state based on scroll position
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    function updateActiveLink() {
+      const scrollY = window.scrollY;
+
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop - 100;
+        const sectionHeight = section.offsetHeight;
+        const sectionId = section.getAttribute('id');
+
+        if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+          navLinks.forEach(link => {
+            link.classList.remove('text-ink', 'border-b-2', 'border-accent');
+            link.classList.add('text-ink-secondary');
+
+            if (link.getAttribute('href') === `#${sectionId}`) {
+              link.classList.remove('text-ink-secondary');
+              link.classList.add('text-ink', 'border-b-2', 'border-accent');
+            }
+          });
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink);
+    updateActiveLink(); // Initial check
+  </script>
+
+</body>
+</html>
