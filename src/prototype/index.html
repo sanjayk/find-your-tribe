@@ -104,6 +104,12 @@
       font-weight: 400;
     }
 
+    .h1 {
+      font-size: clamp(1.875rem, 4vw, 2.5rem);
+      line-height: 1.1;
+      font-weight: 400;
+    }
+
     .h2 {
       font-size: 1.75rem;
       line-height: 1.25;
@@ -138,6 +144,26 @@
     .avatar-xs {
       width: 24px;
       height: 24px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+    }
+
+    .avatar-sm {
+      width: 32px;
+      height: 32px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+    }
+
+    .avatar-xl {
+      width: 88px;
+      height: 88px;
       border-radius: 9999px;
       display: flex;
       align-items: center;
@@ -921,10 +947,236 @@
       </div>
     </section>
 
-    <section id="profile" class="min-h-screen flex items-center justify-center bg-surface-secondary">
-      <div class="text-center px-4">
-        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Profile</h2>
-        <p class="text-lg text-ink-secondary">Builder portfolios</p>
+    <!-- Profile Section -->
+    <section id="profile" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Two-column layout: Sidebar + Main Content -->
+        <div class="flex flex-col md:flex-row gap-6">
+
+          <!-- Sidebar -->
+          <aside class="w-full md:w-80 flex-shrink-0">
+            <div class="bg-surface-secondary rounded-xl p-6 md:sticky md:top-24">
+
+              <!-- Avatar -->
+              <div class="flex justify-center mb-4">
+                <div class="avatar-xl bg-indigo-100 text-indigo-700">
+                  <span class="text-3xl font-medium">MC</span>
+                </div>
+              </div>
+
+              <!-- Name and Handle -->
+              <div class="text-center mb-4">
+                <h1 class="h1 font-serif text-ink mb-1">Maya Chen</h1>
+                <p class="body-sm text-ink-secondary mb-1">@mayachen</p>
+                <p class="body text-ink-secondary">Full-Stack Developer</p>
+              </div>
+
+              <!-- Builder Score Circle -->
+              <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center">
+                  <span class="font-mono text-2xl font-semibold text-accent">72</span>
+                </div>
+              </div>
+
+              <!-- Bio -->
+              <p class="body-sm text-ink-secondary mb-6 text-center">
+                Building AI tools for small teams. Passionate about simplifying complex workflows. Based in San Francisco.
+              </p>
+
+              <!-- Skill Tags -->
+              <div class="flex flex-wrap gap-2 justify-center mb-6">
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Python</span>
+                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              </div>
+
+              <!-- Availability Badge -->
+              <div class="flex justify-center mb-4">
+                <span class="text-xs font-medium text-shipped px-3 py-1.5 bg-shipped-subtle radius-sm">
+                  Open to collaborate
+                </span>
+              </div>
+
+              <!-- Timezone -->
+              <p class="body-sm text-ink-tertiary text-center mb-6">
+                PST • San Francisco
+              </p>
+
+              <!-- Social Links -->
+              <div class="flex justify-center gap-4">
+                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
+                  <i data-lucide="github" class="w-5 h-5"></i>
+                </a>
+                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
+                  <i data-lucide="twitter" class="w-5 h-5"></i>
+                </a>
+                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
+                  <i data-lucide="globe" class="w-5 h-5"></i>
+                </a>
+              </div>
+
+            </div>
+          </aside>
+
+          <!-- Main Content -->
+          <main class="flex-1 bg-surface-primary">
+
+            <!-- Shipped Projects -->
+            <div class="mb-12">
+              <p class="overline text-ink-secondary mb-6">
+                SHIPPED PROJECTS
+              </p>
+
+              <div class="space-y-5">
+
+                <!-- Project Card 1: AI Resume Builder -->
+                <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+                  <!-- Thumbnail -->
+                  <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500"></div>
+
+                  <!-- Content -->
+                  <div class="p-5">
+                    <!-- Project Title -->
+                    <h2 class="h2 font-serif text-ink mb-2">AI Resume Builder</h2>
+
+                    <!-- Description -->
+                    <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                      AI-powered resume builder that helps developers showcase their skills with beautiful, ATS-friendly templates.
+                    </p>
+
+                    <!-- Tech Stack Tags -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+                    </div>
+
+                    <!-- Footer: Owner and Stats -->
+                    <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                      <!-- Owner -->
+                      <div class="flex items-center gap-2">
+                        <div class="avatar-xs bg-indigo-100 text-indigo-700">
+                          <span class="text-[10px] font-medium">MC</span>
+                        </div>
+                        <span class="body-sm text-ink-secondary">Maya Chen</span>
+                      </div>
+
+                      <!-- Stats -->
+                      <div class="flex items-center gap-3">
+                        <!-- Star count -->
+                        <div class="flex items-center gap-1">
+                          <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                          <span class="body-sm text-ink-secondary">142</span>
+                        </div>
+                        <!-- Status badge -->
+                        <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
+                          Shipped
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Project Card 2: Tribe Finder -->
+                <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
+                  <!-- Thumbnail -->
+                  <div class="aspect-[16/10] bg-gradient-to-br from-emerald-400 to-teal-500"></div>
+
+                  <!-- Content -->
+                  <div class="p-5">
+                    <!-- Project Title -->
+                    <h2 class="h2 font-serif text-ink mb-2">Tribe Finder</h2>
+
+                    <!-- Description -->
+                    <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
+                      Connect builders with complementary skills to form powerful teams. AI-powered matching based on expertise and goals.
+                    </p>
+
+                    <!-- Tech Stack Tags -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
+                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
+                    </div>
+
+                    <!-- Footer: Owner and Stats -->
+                    <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
+                      <!-- Owner -->
+                      <div class="flex items-center gap-2">
+                        <div class="avatar-xs bg-indigo-100 text-indigo-700">
+                          <span class="text-[10px] font-medium">MC</span>
+                        </div>
+                        <span class="body-sm text-ink-secondary">Maya Chen</span>
+                      </div>
+
+                      <!-- Stats -->
+                      <div class="flex items-center gap-3">
+                        <!-- Star count -->
+                        <div class="flex items-center gap-1">
+                          <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
+                          <span class="body-sm text-ink-secondary">89</span>
+                        </div>
+                        <!-- Status badge -->
+                        <span class="text-xs font-medium text-in-progress px-2 py-1 bg-in-progress-subtle radius-sm">
+                          In Progress
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Collaborators -->
+            <div>
+              <p class="overline text-ink-secondary mb-6">
+                COLLABORATORS
+              </p>
+
+              <div class="space-y-4">
+
+                <!-- Collaborator 1: James -->
+                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
+                  <div class="avatar-sm bg-amber-100 text-amber-700">
+                    <span class="text-sm font-medium">JO</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-ink">James Okafor</div>
+                    <div class="body-sm text-ink-secondary">Product Designer</div>
+                  </div>
+                </div>
+
+                <!-- Collaborator 2: Priya -->
+                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
+                  <div class="avatar-sm bg-rose-100 text-rose-700">
+                    <span class="text-sm font-medium">PS</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-ink">Priya Sharma</div>
+                    <div class="body-sm text-ink-secondary">Backend Engineer</div>
+                  </div>
+                </div>
+
+                <!-- Collaborator 3: Alex -->
+                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
+                  <div class="avatar-sm bg-cyan-100 text-cyan-700">
+                    <span class="text-sm font-medium">AR</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-ink">Alex Rivera</div>
+                    <div class="body-sm text-ink-secondary">DevOps Engineer</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </main>
+
+        </div>
+
       </div>
     </section>
 
