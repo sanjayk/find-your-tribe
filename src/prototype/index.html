@@ -122,6 +122,12 @@
       font-weight: 600;
     }
 
+    .h4 {
+      font-size: 1.125rem;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+
     .overline {
       font-size: 0.6875rem;
       line-height: 1.4;
@@ -161,6 +167,16 @@
       font-weight: 500;
     }
 
+    .avatar-lg {
+      width: 64px;
+      height: 64px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+    }
+
     .avatar-xl {
       width: 88px;
       height: 88px;
@@ -174,6 +190,10 @@
     /* Border radius utilities */
     .radius-sm {
       border-radius: 6px;
+    }
+
+    .radius-md {
+      border-radius: 8px;
     }
 
     .radius-lg {
@@ -1180,10 +1200,106 @@
       </div>
     </section>
 
-    <section id="tribe" class="min-h-screen flex items-center justify-center">
-      <div class="text-center px-4">
-        <h2 class="font-serif text-4xl md:text-5xl text-ink mb-4">Tribe</h2>
-        <p class="text-lg text-ink-secondary">Form your team</p>
+    <!-- Tribe Section -->
+    <section id="tribe" class="bg-surface-primary py-16 md:py-24">
+      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+
+        <!-- Overline -->
+        <p class="overline text-ink-secondary mb-4">
+          OPEN TRIBE
+        </p>
+
+        <!-- Tribe Name -->
+        <h1 class="font-serif h1 text-ink mb-6">
+          Hospitality OS
+        </h1>
+
+        <!-- Mission Text -->
+        <p class="body-lg text-ink-secondary mb-12 max-w-3xl">
+          Building the operating system for modern hospitality businesses. We're creating tools that help hotels, restaurants, and service providers deliver exceptional experiences while running efficient operations. Our mission is to make hospitality technology as elegant as the experiences it enables.
+        </p>
+
+        <!-- Two-column layout -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+          <!-- Left Column: Members -->
+          <div>
+            <h3 class="h4 text-ink mb-6">Members</h3>
+
+            <div class="space-y-5">
+
+              <!-- Member Card 1: Maya Chen (Owner) -->
+              <div class="flex items-start gap-4">
+                <div class="avatar-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
+                  <span class="text-xl font-medium">MC</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="h3 font-serif text-ink mb-1">Maya Chen</h3>
+                  <p class="body-sm text-ink-secondary mb-2">Full-Stack Developer</p>
+                  <span class="inline-flex items-center px-2 py-1 bg-accent-subtle text-accent text-xs font-medium radius-sm">
+                    Owner
+                  </span>
+                </div>
+              </div>
+
+              <!-- Member Card 2: James Okafor -->
+              <div class="flex items-start gap-4">
+                <div class="avatar-lg bg-amber-100 text-amber-700 flex-shrink-0">
+                  <span class="text-xl font-medium">JO</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="h3 font-serif text-ink mb-1">James Okafor</h3>
+                  <p class="body-sm text-ink-secondary">Designer</p>
+                </div>
+              </div>
+
+              <!-- Member Card 3: Priya Sharma -->
+              <div class="flex items-start gap-4">
+                <div class="avatar-lg bg-rose-100 text-rose-700 flex-shrink-0">
+                  <span class="text-xl font-medium">PS</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="h3 font-serif text-ink mb-1">Priya Sharma</h3>
+                  <p class="body-sm text-ink-secondary">Engineer</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Right Column: Open Roles -->
+          <div>
+            <h3 class="h4 text-ink mb-6">Open Roles</h3>
+
+            <div class="space-y-5">
+
+              <!-- Role Card 1: Backend Engineer -->
+              <div class="bg-surface-elevated shadow-md radius-lg p-5">
+                <h4 class="h4 font-serif text-ink mb-3">Backend Engineer</h4>
+                <p class="body-sm text-ink-secondary mb-4">
+                  We need an experienced backend engineer to help architect our core platform. You'll work on API design, database optimization, and building scalable microservices.
+                </p>
+                <button class="inline-flex items-center justify-center w-full bg-accent text-white px-4 py-2.5 radius-md font-medium transition-colors duration-200 hover:bg-accent-hover">
+                  Request to Join
+                </button>
+              </div>
+
+              <!-- Role Card 2: Growth Marketer -->
+              <div class="bg-surface-elevated shadow-md radius-lg p-5">
+                <h4 class="h4 font-serif text-ink mb-3">Growth Marketer</h4>
+                <p class="body-sm text-ink-secondary mb-4">
+                  Help us bring Hospitality OS to the world. You'll own our go-to-market strategy, build partnerships with hospitality businesses, and drive user acquisition.
+                </p>
+                <button class="inline-flex items-center justify-center w-full bg-accent text-white px-4 py-2.5 radius-md font-medium transition-colors duration-200 hover:bg-accent-hover">
+                  Request to Join
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
       </div>
     </section>
 
