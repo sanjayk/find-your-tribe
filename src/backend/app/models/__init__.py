@@ -12,6 +12,7 @@ from app.models.enums import (
     UserRole,
 )
 from app.models.skill import Skill
+from app.models.user import RefreshToken, User, user_skills
 
 __all__ = [
     "AvailabilityStatus",
@@ -20,8 +21,11 @@ __all__ = [
     "MemberRole",
     "MemberStatus",
     "ProjectStatus",
+    "RefreshToken",
     "Skill",
     "SkillCategory",
     "TribeStatus",
+    "User",
     "UserRole",
+    "user_skills",
 ]
