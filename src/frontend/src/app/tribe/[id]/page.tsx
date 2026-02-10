@@ -5,7 +5,7 @@ interface TribePageProps {
 }
 
 export default async function TribePage({ params }: TribePageProps) {
-  const { id } = await params;
+  await params;
 
   return (
     <div className="mx-auto max-w-[1120px] px-6 py-16">

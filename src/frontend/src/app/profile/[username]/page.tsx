@@ -5,7 +5,7 @@ interface ProfilePageProps {
 }
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
-  const { username } = await params;
+  await params;
 
   return (
     <div className="mx-auto max-w-[1120px] px-6 py-16">

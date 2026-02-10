@@ -5,7 +5,7 @@ interface ProjectPageProps {
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
-  const { id } = await params;
+  await params;
 
   return (
     <div className="mx-auto max-w-[1120px] px-6 py-16">
