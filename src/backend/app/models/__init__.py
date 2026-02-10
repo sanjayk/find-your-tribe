@@ -13,6 +13,7 @@ from app.models.enums import (
 )
 from app.models.project import Project, project_collaborators
 from app.models.skill import Skill
+from app.models.tribe import Tribe, TribeOpenRole, tribe_members
 from app.models.user import RefreshToken, User, user_skills
 
 __all__ = [
@@ -26,9 +27,12 @@ __all__ = [
     "RefreshToken",
     "Skill",
     "SkillCategory",
+    "Tribe",
+    "TribeOpenRole",
     "TribeStatus",
     "User",
     "UserRole",
     "project_collaborators",
+    "tribe_members",
     "user_skills",
 ]
