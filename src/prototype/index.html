@@ -3,20 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <meta name="description" content="Find Your Tribe - A social network for builders">
   <title>Find Your Tribe — Where Builders Find Their People</title>
-  <meta name="description" content="A social network for builders. Showcase your projects, form tribes with complementary skills, and earn reputation through proof-of-work. No content, just builds.">
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Tailwind Config -->
   <script>
     tailwind.config = {
       theme: {
@@ -40,23 +35,14 @@
               subtle: '#eef2ff',
               muted: '#a5b4fc',
             },
-            shipped: {
-              DEFAULT: '#16a34a',
-              subtle: '#f0fdf4'
-            },
-            'in-progress': {
-              DEFAULT: '#d97706',
-              subtle: '#fffbeb'
-            },
-            error: {
-              DEFAULT: '#dc2626',
-              subtle: '#fef2f2'
-            },
+            shipped: { DEFAULT: '#16a34a', subtle: '#f0fdf4' },
+            'in-progress': { DEFAULT: '#d97706', subtle: '#fffbeb' },
+            error: { DEFAULT: '#dc2626', subtle: '#fef2f2' },
           },
           fontFamily: {
-            serif: ['Instrument Serif', 'serif'],
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
+            serif: ['"DM Serif Display"', 'serif'],
+            sans: ['"DM Sans"', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'monospace'],
           },
           boxShadow: {
             'xs': '0 1px 2px rgba(28,25,23,0.03)',
@@ -75,1239 +61,910 @@
 
   <style>
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'DM Sans', sans-serif;
       background-color: #f9f8f6;
       color: #1c1917;
+      -webkit-font-smoothing: antialiased;
     }
 
-    .font-serif {
-      font-family: 'Instrument Serif', serif;
-    }
-
-    .font-mono {
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Typography scale */
+    /* Type scale */
     .display {
-      font-size: clamp(2.25rem, 5vw, 3.5rem);
-      line-height: 1.05;
-      font-weight: 400;
+      font-size: clamp(3rem, 7vw, 4.5rem);
+      line-height: 1.0;
+      letter-spacing: -0.02em;
     }
-
+    .h1 {
+      font-size: clamp(2rem, 4.5vw, 2.75rem);
+      line-height: 1.08;
+      letter-spacing: -0.015em;
+    }
+    .h2 {
+      font-size: clamp(1.5rem, 3vw, 1.875rem);
+      line-height: 1.15;
+    }
     .body-lg {
       font-size: 1.125rem;
-      line-height: 1.65;
-      font-weight: 400;
+      line-height: 1.7;
     }
-
     .body-sm {
       font-size: 0.8125rem;
-      line-height: 1.5;
-      font-weight: 400;
+      line-height: 1.55;
     }
-
-    .h1 {
-      font-size: clamp(1.875rem, 4vw, 2.5rem);
-      line-height: 1.1;
-      font-weight: 400;
-    }
-
-    .h2 {
-      font-size: 1.75rem;
-      line-height: 1.25;
-      font-weight: 400;
-    }
-
-    .h3 {
-      font-size: 1.375rem;
-      line-height: 1.3;
-      font-weight: 600;
-    }
-
-    .h4 {
-      font-size: 1.125rem;
-      line-height: 1.4;
-      font-weight: 600;
-    }
-
     .overline {
-      font-size: 0.6875rem;
-      line-height: 1.4;
+      font-size: 0.75rem;
       font-weight: 500;
       text-transform: uppercase;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.04em;
     }
 
-    /* Avatar sizes */
-    .avatar-md {
-      width: 44px;
-      height: 44px;
-      border-radius: 9999px;
-      display: flex;
+    /* Avatars */
+    .avatar { border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 500; flex-shrink: 0; }
+    .avatar-xs { width: 24px; height: 24px; }
+    .avatar-sm { width: 32px; height: 32px; }
+    .avatar-md { width: 44px; height: 44px; }
+    .avatar-lg { width: 64px; height: 64px; }
+    .avatar-xl { width: 96px; height: 96px; }
+
+    /* Card lift */
+    .card-lift {
+      transition: transform 200ms cubic-bezier(0.25,0.1,0.25,1), box-shadow 200ms cubic-bezier(0.25,0.1,0.25,1);
+    }
+    .card-lift:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(28,25,23,0.10);
+    }
+
+    /* Decorative accent line */
+    .accent-line::before {
+      content: '';
+      display: block;
+      width: 40px;
+      height: 3px;
+      background: #6366f1;
+      margin-bottom: 20px;
+      border-radius: 2px;
+    }
+
+    /* Score ring */
+    .score-ring {
+      position: relative;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-weight: 500;
+    }
+    .score-ring svg {
+      transform: rotate(-90deg);
     }
 
-    .avatar-xs {
-      width: 24px;
-      height: 24px;
-      border-radius: 9999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 500;
-    }
-
-    .avatar-sm {
-      width: 32px;
-      height: 32px;
-      border-radius: 9999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 500;
-    }
-
-    .avatar-lg {
-      width: 64px;
-      height: 64px;
-      border-radius: 9999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 500;
-    }
-
-    .avatar-xl {
-      width: 88px;
-      height: 88px;
-      border-radius: 9999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 500;
-    }
-
-    /* Border radius utilities */
-    .radius-sm {
-      border-radius: 6px;
-    }
-
-    .radius-md {
-      border-radius: 8px;
-    }
-
-    .radius-lg {
-      border-radius: 12px;
-    }
-
-    /* Card hover effect */
-    .builder-card {
-      transition: transform 200ms cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
-    }
-
-    .builder-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(28,25,23,0.08);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .builder-card:hover {
-        transform: none;
-      }
-    }
-
-    /* Builder Score color tiers */
-    .score-indigo {
-      color: #6366f1;
-    }
-
-    .score-blue {
-      color: #3b82f6;
-    }
-
-    .score-gray {
-      color: #a8a29e;
-    }
-
-    /* Accessibility: Focus ring styles */
+    /* Focus ring */
     *:focus-visible {
       outline: 2px solid #6366f1;
       outline-offset: 2px;
     }
 
-    /* Override focus ring for buttons with custom focus style */
-    button:focus-visible,
-    a:focus-visible {
-      outline: 2px solid #6366f1;
-      outline-offset: 2px;
+    @media (prefers-reduced-motion: reduce) {
+      .card-lift:hover { transform: none; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Navigation -->
-  <nav id="main-nav" class="sticky top-0 z-50 bg-surface-elevated transition-shadow duration-200">
-    <div class="max-w-[1120px] mx-auto px-4 md:px-6">
-      <div class="flex items-center justify-between h-14">
-
-        <!-- Logo -->
-        <a href="#" class="font-serif text-lg text-ink hover:text-accent transition-colors duration-150">
-          find your tribe
-        </a>
-
-        <!-- Desktop Navigation Links -->
-        <div class="hidden md:flex items-center gap-8">
-          <a href="#how-it-works" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
-            How It Works
-          </a>
-          <a href="#builders" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
-            Builders
-          </a>
-          <a href="#projects" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
-            Projects
-          </a>
-          <a href="#feed" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
-            Feed
-          </a>
-          <a href="#profile" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
-            Profile
-          </a>
-          <a href="#tribe" class="nav-link text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">
-            Tribe
-          </a>
+  <!-- ─── Navigation ─── -->
+  <nav id="main-nav" class="sticky top-0 z-50 bg-surface-primary">
+    <div class="max-w-[1120px] mx-auto px-5 md:px-6">
+      <div class="flex items-center justify-between h-16">
+        <a href="#" class="font-serif text-xl tracking-tight text-ink">find your tribe</a>
+        <div class="hidden md:flex items-center gap-1">
+          <a href="#how-it-works" class="nav-link px-3 py-2 text-[13px] font-medium text-ink-secondary hover:text-ink rounded-md hover:bg-surface-secondary/60 transition-all duration-150">How It Works</a>
+          <a href="#builders" class="nav-link px-3 py-2 text-[13px] font-medium text-ink-secondary hover:text-ink rounded-md hover:bg-surface-secondary/60 transition-all duration-150">Builders</a>
+          <a href="#projects" class="nav-link px-3 py-2 text-[13px] font-medium text-ink-secondary hover:text-ink rounded-md hover:bg-surface-secondary/60 transition-all duration-150">Projects</a>
+          <a href="#feed" class="nav-link px-3 py-2 text-[13px] font-medium text-ink-secondary hover:text-ink rounded-md hover:bg-surface-secondary/60 transition-all duration-150">Feed</a>
         </div>
-
-        <!-- Mobile Menu Button -->
-        <button id="mobile-menu-btn" class="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors duration-150" aria-label="Toggle menu">
+        <div class="hidden md:flex items-center gap-3">
+          <a href="#" class="text-[13px] font-medium text-ink-secondary hover:text-ink transition-colors duration-150">Sign in</a>
+          <button class="bg-ink text-ink-inverse text-[13px] font-medium px-4 py-2 rounded-lg hover:bg-ink/90 transition-colors duration-150">
+            Join the waitlist
+          </button>
+        </div>
+        <button id="mobile-menu-btn" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors" aria-label="Menu">
           <i data-lucide="menu" class="w-5 h-5 text-ink-secondary"></i>
         </button>
       </div>
     </div>
   </nav>
 
-  <!-- Mobile Menu Overlay -->
+  <!-- ─── Mobile Menu ─── -->
   <div id="mobile-menu" class="fixed inset-0 z-40 bg-surface-elevated hidden">
-    <div class="flex flex-col h-full">
-
-      <!-- Mobile Menu Header -->
-      <div class="flex items-center justify-between px-4 h-14 border-b border-surface-secondary">
-        <span class="font-serif text-lg text-ink">find your tribe</span>
-        <button id="mobile-menu-close" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors duration-150" aria-label="Close menu">
+    <div class="flex flex-col h-full px-6 py-5">
+      <div class="flex items-center justify-between mb-12">
+        <span class="font-serif text-xl text-ink">find your tribe</span>
+        <button id="mobile-menu-close" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors" aria-label="Close">
           <i data-lucide="x" class="w-5 h-5 text-ink-secondary"></i>
         </button>
       </div>
-
-      <!-- Mobile Menu Links -->
-      <div class="flex flex-col gap-5 p-6">
-        <a href="#how-it-works" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
-          How It Works
-        </a>
-        <a href="#builders" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
-          Builders
-        </a>
-        <a href="#projects" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
-          Projects
-        </a>
-        <a href="#feed" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
-          Feed
-        </a>
-        <a href="#profile" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
-          Profile
-        </a>
-        <a href="#tribe" class="mobile-nav-link font-serif text-3xl text-ink-secondary hover:text-accent transition-colors duration-150">
-          Tribe
-        </a>
+      <div class="flex flex-col gap-2">
+        <a href="#how-it-works" class="mobile-nav-link font-serif text-4xl text-ink-tertiary hover:text-ink transition-colors py-2">How It Works</a>
+        <a href="#builders" class="mobile-nav-link font-serif text-4xl text-ink-tertiary hover:text-ink transition-colors py-2">Builders</a>
+        <a href="#projects" class="mobile-nav-link font-serif text-4xl text-ink-tertiary hover:text-ink transition-colors py-2">Projects</a>
+        <a href="#feed" class="mobile-nav-link font-serif text-4xl text-ink-tertiary hover:text-ink transition-colors py-2">Feed</a>
+      </div>
+      <div class="mt-auto pb-8">
+        <button class="w-full bg-ink text-ink-inverse text-[15px] font-medium px-5 py-3.5 rounded-lg">Join the waitlist</button>
       </div>
     </div>
   </div>
 
-  <!-- Main Content -->
   <main>
 
-    <!-- Hero Section -->
-    <section id="hero" class="bg-surface-primary py-20 md:py-24">
-      <div class="max-w-[680px] mx-auto px-4 text-center">
+    <!-- ═══════════════════════════════════════════════════════════════
+         HERO — Light, editorial, manifesto
+         ═══════════════════════════════════════════════════════════════ -->
+    <section id="hero" class="bg-surface-primary">
+      <div class="max-w-[1120px] mx-auto px-5 md:px-6 pt-20 pb-24 md:pt-28 md:pb-32">
 
-        <!-- Headline -->
-        <h1 class="font-serif display text-ink mb-6">
-          Where builders find their people
+        <p class="text-[12px] font-medium text-accent uppercase mb-6">For builders who ship</p>
+
+        <h1 class="font-serif display text-ink max-w-[820px] mb-8">
+          Your reputation is<br class="hidden md:block"> what you <em class="text-accent">build,</em><br class="hidden md:block"> not what you post.
         </h1>
 
         <!-- Subtext -->
-        <p class="body-lg text-ink-secondary mb-8">
-          Clout through building, not posting. Ship projects. Form tribes. Earn your score.
+        <p class="body-lg text-ink-secondary max-w-[520px] mb-12">
+          A social network where clout comes from shipping. Connect your GitHub, form a tribe, and let your work speak.
         </p>
 
-        <!-- CTA Button -->
-        <button class="inline-flex items-center gap-3 bg-accent text-white px-6 py-3 rounded-lg shadow-sm hover:bg-accent-hover transition-colors duration-200">
-          <!-- GitHub Icon -->
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-          </svg>
-          Continue with GitHub
-        </button>
-
-      </div>
-    </section>
-
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="bg-surface-secondary py-16 md:py-24">
-      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
-
-        <!-- Overline -->
-        <div class="text-center mb-12">
-          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-secondary mb-4">
-            HOW IT WORKS
-          </p>
-        </div>
-
-        <!-- Step Cards -->
-        <div class="flex flex-col lg:flex-row gap-5">
-
-          <!-- Card 1: Ship -->
-          <div class="relative bg-surface-elevated rounded-lg shadow-md p-5 flex-1 overflow-hidden">
-            <!-- Large decorative number -->
-            <span class="absolute top-2 left-2 font-serif text-8xl text-ink-tertiary opacity-20 select-none pointer-events-none">
-              01
-            </span>
-            <!-- Content -->
-            <div class="relative z-10">
-              <h3 class="font-sans font-semibold text-[22px] text-ink mb-3">
-                Ship
-              </h3>
-              <p class="text-[15px] leading-relaxed text-ink-secondary">
-                Build and launch projects that matter. Connect your GitHub to showcase real work and earn credibility through shipping.
-              </p>
-            </div>
-          </div>
-
-          <!-- Card 2: Form -->
-          <div class="relative bg-surface-elevated rounded-lg shadow-md p-5 flex-1 overflow-hidden">
-            <!-- Large decorative number -->
-            <span class="absolute top-2 left-2 font-serif text-8xl text-ink-tertiary opacity-20 select-none pointer-events-none">
-              02
-            </span>
-            <!-- Content -->
-            <div class="relative z-10">
-              <h3 class="font-sans font-semibold text-[22px] text-ink mb-3">
-                Form
-              </h3>
-              <p class="text-[15px] leading-relaxed text-ink-secondary">
-                Discover builders who share your vision. Form tribes around ideas, skills, and complementary strengths.
-              </p>
-            </div>
-          </div>
-
-          <!-- Card 3: Earn -->
-          <div class="relative bg-surface-elevated rounded-lg shadow-md p-5 flex-1 overflow-hidden">
-            <!-- Large decorative number -->
-            <span class="absolute top-2 left-2 font-serif text-8xl text-ink-tertiary opacity-20 select-none pointer-events-none">
-              03
-            </span>
-            <!-- Content -->
-            <div class="relative z-10">
-              <h3 class="font-sans font-semibold text-[22px] text-ink mb-3">
-                Earn
-              </h3>
-              <p class="text-[15px] leading-relaxed text-ink-secondary">
-                Build your reputation through consistent shipping. Your tribe score reflects real contributions, not engagement metrics.
-              </p>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <!-- Builders Section -->
-    <section id="builders" class="bg-surface-primary py-16 md:py-24">
-      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
-
-        <!-- Overline -->
-        <div class="text-center mb-12">
-          <p class="overline text-ink-secondary mb-4">
-            DISCOVER BUILDERS
-          </p>
-        </div>
-
-        <!-- Builder Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-
-          <!-- Builder Card 1: Maya Chen -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Avatar and Name Row -->
-            <div class="flex items-start gap-3 mb-4">
-              <div class="avatar-md bg-indigo-100 text-indigo-700 flex-shrink-0">
-                <span class="font-medium">MC</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="h3 font-serif text-ink mb-1">Maya Chen</h3>
-                <p class="body-sm text-ink-secondary">Full-Stack Developer</p>
-              </div>
-            </div>
-
-            <!-- Headline/Bio -->
-            <p class="body-sm text-ink mb-4">
-              Building AI-powered tools for makers. Previously led engineering at a YC-backed startup.
-            </p>
-
-            <!-- Skill Tags -->
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Python</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
-            </div>
-
-            <!-- Availability Status and Builder Score -->
-            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                Open to collaborate
-              </span>
-              <div class="text-right">
-                <div class="font-mono text-2xl font-semibold score-indigo">72</div>
-                <div class="text-xs text-ink-tertiary">Builder Score</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Builder Card 2: James Okafor -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Avatar and Name Row -->
-            <div class="flex items-start gap-3 mb-4">
-              <div class="avatar-md bg-amber-100 text-amber-700 flex-shrink-0">
-                <span class="font-medium">JO</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="h3 font-serif text-ink mb-1">James Okafor</h3>
-                <p class="body-sm text-ink-secondary">Product Designer</p>
-              </div>
-            </div>
-
-            <!-- Headline/Bio -->
-            <p class="body-sm text-ink mb-4">
-              Crafting delightful user experiences. Design systems enthusiast. Love working with early-stage teams.
-            </p>
-
-            <!-- Skill Tags -->
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Figma</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">UI/UX</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Prototyping</span>
-            </div>
-
-            <!-- Availability Status and Builder Score -->
-            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                Open to collaborate
-              </span>
-              <div class="text-right">
-                <div class="font-mono text-2xl font-semibold score-blue">58</div>
-                <div class="text-xs text-ink-tertiary">Builder Score</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Builder Card 3: Priya Sharma -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Avatar and Name Row -->
-            <div class="flex items-start gap-3 mb-4">
-              <div class="avatar-md bg-rose-100 text-rose-700 flex-shrink-0">
-                <span class="font-medium">PS</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="h3 font-serif text-ink mb-1">Priya Sharma</h3>
-                <p class="body-sm text-ink-secondary">Backend Engineer</p>
-              </div>
-            </div>
-
-            <!-- Headline/Bio -->
-            <p class="body-sm text-ink mb-4">
-              Distributed systems architect. Scaled infrastructure to millions of users. Open source contributor.
-            </p>
-
-            <!-- Skill Tags -->
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Kubernetes</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">gRPC</span>
-            </div>
-
-            <!-- Availability Status and Builder Score -->
-            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                Open to collaborate
-              </span>
-              <div class="text-right">
-                <div class="font-mono text-2xl font-semibold score-indigo">65</div>
-                <div class="text-xs text-ink-tertiary">Builder Score</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Builder Card 4: David Morales -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Avatar and Name Row -->
-            <div class="flex items-start gap-3 mb-4">
-              <div class="avatar-md bg-emerald-100 text-emerald-700 flex-shrink-0">
-                <span class="font-medium">DM</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="h3 font-serif text-ink mb-1">David Morales</h3>
-                <p class="body-sm text-ink-secondary">Growth Marketer</p>
-              </div>
-            </div>
-
-            <!-- Headline/Bio -->
-            <p class="body-sm text-ink mb-4">
-              Growth hacker turned founder. Built 0→1 go-to-market strategies. Love experimenting with new channels.
-            </p>
-
-            <!-- Skill Tags -->
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">SEO</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Analytics</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Content</span>
-            </div>
-
-            <!-- Availability Status and Builder Score -->
-            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                Open to collaborate
-              </span>
-              <div class="text-right">
-                <div class="font-mono text-2xl font-semibold score-blue">41</div>
-                <div class="text-xs text-ink-tertiary">Builder Score</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Builder Card 5: Sarah Kim -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Avatar and Name Row -->
-            <div class="flex items-start gap-3 mb-4">
-              <div class="avatar-md bg-violet-100 text-violet-700 flex-shrink-0">
-                <span class="font-medium">SK</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="h3 font-serif text-ink mb-1">Sarah Kim</h3>
-                <p class="body-sm text-ink-secondary">Frontend Developer</p>
-              </div>
-            </div>
-
-            <!-- Headline/Bio -->
-            <p class="body-sm text-ink mb-4">
-              Building beautiful, performant web experiences. Accessibility advocate. Component library creator.
-            </p>
-
-            <!-- Skill Tags -->
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">TypeScript</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
-            </div>
-
-            <!-- Availability Status and Builder Score -->
-            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                Open to collaborate
-              </span>
-              <div class="text-right">
-                <div class="font-mono text-2xl font-semibold score-blue">49</div>
-                <div class="text-xs text-ink-tertiary">Builder Score</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Builder Card 6: Alex Rivera -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Avatar and Name Row -->
-            <div class="flex items-start gap-3 mb-4">
-              <div class="avatar-md bg-cyan-100 text-cyan-700 flex-shrink-0">
-                <span class="font-medium">AR</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="h3 font-serif text-ink mb-1">Alex Rivera</h3>
-                <p class="body-sm text-ink-secondary">DevOps Engineer</p>
-              </div>
-            </div>
-
-            <!-- Headline/Bio -->
-            <p class="body-sm text-ink mb-4">
-              Infrastructure automation specialist. Cloud-native enthusiast. Making deployments boring since 2019.
-            </p>
-
-            <!-- Skill Tags -->
-            <div class="flex flex-wrap gap-2 mb-4">
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">AWS</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Terraform</span>
-              <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Docker</span>
-            </div>
-
-            <!-- Availability Status and Builder Score -->
-            <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-              <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                Open to collaborate
-              </span>
-              <div class="text-right">
-                <div class="font-mono text-2xl font-semibold score-gray">35</div>
-                <div class="text-xs text-ink-tertiary">Builder Score</div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <!-- Projects Section -->
-    <section id="projects" class="bg-surface-secondary py-16 md:py-24">
-      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
-
-        <!-- Overline -->
-        <div class="text-center mb-12">
-          <p class="overline text-ink-secondary mb-4">
-            SHIPPED PROJECTS
-          </p>
-        </div>
-
-        <!-- Project Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-
-          <!-- Project Card 1: AI Resume Builder -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
-            <!-- Thumbnail -->
-            <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500"></div>
-
-            <!-- Content -->
-            <div class="p-5">
-              <!-- Project Title -->
-              <h2 class="h2 font-serif text-ink mb-2">AI Resume Builder</h2>
-
-              <!-- Description -->
-              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
-                AI-powered resume builder that helps developers showcase their skills with beautiful, ATS-friendly templates.
-              </p>
-
-              <!-- Tech Stack Tags -->
-              <div class="flex flex-wrap gap-2 mb-4">
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
-              </div>
-
-              <!-- Footer: Owner and Stats -->
-              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-                <!-- Owner -->
-                <div class="flex items-center gap-2">
-                  <div class="avatar-xs bg-indigo-100 text-indigo-700">
-                    <span class="text-[10px] font-medium">MC</span>
-                  </div>
-                  <span class="body-sm text-ink-secondary">Maya Chen</span>
-                </div>
-
-                <!-- Stats -->
-                <div class="flex items-center gap-3">
-                  <!-- Star count -->
-                  <div class="flex items-center gap-1">
-                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
-                    <span class="body-sm text-ink-secondary">142</span>
-                  </div>
-                  <!-- Status badge -->
-                  <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                    Shipped
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Project Card 2: Tribe Finder -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
-            <!-- Thumbnail -->
-            <div class="aspect-[16/10] bg-gradient-to-br from-emerald-400 to-teal-500"></div>
-
-            <!-- Content -->
-            <div class="p-5">
-              <!-- Project Title -->
-              <h2 class="h2 font-serif text-ink mb-2">Tribe Finder</h2>
-
-              <!-- Description -->
-              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
-                Platform connecting builders with complementary skills to form high-performing teams and ship products together.
-              </p>
-
-              <!-- Tech Stack Tags -->
-              <div class="flex flex-wrap gap-2 mb-4">
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
-              </div>
-
-              <!-- Footer: Owner and Stats -->
-              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-                <!-- Owner -->
-                <div class="flex items-center gap-2">
-                  <div class="avatar-xs bg-rose-100 text-rose-700">
-                    <span class="text-[10px] font-medium">PS</span>
-                  </div>
-                  <span class="body-sm text-ink-secondary">Priya Sharma</span>
-                </div>
-
-                <!-- Stats -->
-                <div class="flex items-center gap-3">
-                  <!-- Star count -->
-                  <div class="flex items-center gap-1">
-                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
-                    <span class="body-sm text-ink-secondary">—</span>
-                  </div>
-                  <!-- Status badge -->
-                  <span class="text-xs font-medium text-in-progress px-2 py-1 bg-in-progress-subtle radius-sm">
-                    In Progress
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Project Card 3: Open Source CRM -->
-          <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
-            <!-- Thumbnail -->
-            <div class="aspect-[16/10] bg-gradient-to-br from-amber-400 to-orange-500"></div>
-
-            <!-- Content -->
-            <div class="p-5">
-              <!-- Project Title -->
-              <h2 class="h2 font-serif text-ink mb-2">Open Source CRM</h2>
-
-              <!-- Description -->
-              <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
-                Lightweight, privacy-first CRM for small teams. Self-hosted alternative to enterprise solutions with modern UX.
-              </p>
-
-              <!-- Tech Stack Tags -->
-              <div class="flex flex-wrap gap-2 mb-4">
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Vue</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Django</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
-              </div>
-
-              <!-- Footer: Owner and Stats -->
-              <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-                <!-- Owner -->
-                <div class="flex items-center gap-2">
-                  <div class="avatar-xs bg-violet-100 text-violet-700">
-                    <span class="text-[10px] font-medium">SK</span>
-                  </div>
-                  <span class="body-sm text-ink-secondary">Sarah Kim</span>
-                </div>
-
-                <!-- Stats -->
-                <div class="flex items-center gap-3">
-                  <!-- Star count -->
-                  <div class="flex items-center gap-1">
-                    <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
-                    <span class="body-sm text-ink-secondary">89</span>
-                  </div>
-                  <!-- Status badge -->
-                  <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                    Shipped
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <!-- Feed Section -->
-    <section id="feed" class="bg-surface-primary py-16 md:py-24">
-      <div class="max-w-[640px] mx-auto px-4 md:px-6">
-
-        <!-- Overline -->
-        <div class="text-center mb-8">
-          <p class="overline text-ink-secondary mb-4">
-            ACTIVITY FEED
-          </p>
-        </div>
-
-        <!-- Filter Pills -->
-        <div class="flex items-center gap-2 mb-8 flex-wrap">
-          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-accent text-white text-sm font-medium transition-colors duration-150">
-            All
+        <!-- CTA row -->
+        <div class="flex flex-col sm:flex-row items-start gap-4">
+          <button class="inline-flex items-center gap-3 bg-ink text-ink-inverse text-[15px] font-medium px-6 py-3.5 rounded-lg hover:bg-ink/90 transition-colors duration-150">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            Continue with GitHub
           </button>
-          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
-            Projects
-          </button>
-          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
-            Tribes
-          </button>
-          <button class="inline-flex items-center px-3 py-1.5 rounded-full bg-surface-secondary text-ink-secondary hover:bg-accent-subtle text-sm font-medium transition-colors duration-150">
-            Builders
-          </button>
+          <a href="#how-it-works" class="inline-flex items-center gap-2 text-[15px] text-ink-tertiary hover:text-ink-secondary transition-colors duration-150 py-3.5">
+            See how it works
+            <i data-lucide="arrow-down" class="w-4 h-4"></i>
+          </a>
         </div>
 
-        <!-- Feed Events -->
-        <div class="space-y-4">
+        <!-- Social proof strip -->
+        <div class="mt-16 pt-8 border-t border-ink/8 flex flex-wrap items-center gap-8 md:gap-12">
+          <div>
+            <div class="font-mono text-2xl font-medium text-ink">2,847</div>
+            <div class="text-[12px] text-ink-tertiary mt-1">builders joined</div>
+          </div>
+          <div>
+            <div class="font-mono text-2xl font-medium text-ink">612</div>
+            <div class="text-[12px] text-ink-tertiary mt-1">projects shipped</div>
+          </div>
+          <div>
+            <div class="font-mono text-2xl font-medium text-ink">184</div>
+            <div class="text-[12px] text-ink-tertiary mt-1">active tribes</div>
+          </div>
+        </div>
 
-          <!-- Event 1: Maya Chen shipped a project -->
-          <article class="bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Header: Avatar + Name + Timestamp -->
-            <div class="flex items-start gap-3 mb-3">
-              <div class="avatar-md bg-indigo-100 text-indigo-700 flex-shrink-0">
-                <span class="font-medium">MC</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 flex-wrap">
-                  <span class="font-medium text-ink">Maya Chen</span>
-                  <span class="text-xs text-ink-tertiary">2 hours ago</span>
-                </div>
-                <p class="text-sm text-ink-secondary mt-1">shipped a project</p>
-              </div>
-            </div>
+      </div>
+    </section>
 
-            <!-- Embedded Mini Project Card -->
-            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
-              <!-- Project Thumbnail -->
-              <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500 radius-sm mb-3"></div>
+    <!-- ═══════════════════════════════════════════════════════════════
+         HOW IT WORKS — Editorial numbered sections, not cards
+         ═══════════════════════════════════════════════════════════════ -->
+    <section id="how-it-works" class="py-20 md:py-28">
+      <div class="max-w-[1120px] mx-auto px-5 md:px-6">
 
-              <!-- Project Title -->
-              <h3 class="font-serif text-lg text-ink mb-2">AI Resume Builder</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
 
-              <!-- Tech Stack Tags -->
-              <div class="flex flex-wrap gap-2">
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
-              </div>
-            </div>
-          </article>
+          <!-- Step 1 -->
+          <div class="relative">
+            <div class="font-mono text-[clamp(1.25rem,2.5vw,1.75rem)] font-medium text-accent mb-4">01</div>
+            <h3 class="font-serif text-[28px] leading-[1.15] text-ink mb-4">Ship your work</h3>
+            <p class="text-[15px] leading-relaxed text-ink-secondary">
+              Connect GitHub. Import projects. Every commit, deploy, and release builds your reputation automatically. No writing threads about it.
+            </p>
+          </div>
 
-          <!-- Event 2: Alex Rivera started building a project -->
-          <article class="bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Header: Avatar + Name + Timestamp -->
-            <div class="flex items-start gap-3 mb-3">
-              <div class="avatar-md bg-cyan-100 text-cyan-700 flex-shrink-0">
-                <span class="font-medium">AR</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 flex-wrap">
-                  <span class="font-medium text-ink">Alex Rivera</span>
-                  <span class="text-xs text-ink-tertiary">5 hours ago</span>
-                </div>
-                <p class="text-sm text-ink-secondary mt-1">started building a project</p>
-              </div>
-            </div>
+          <!-- Step 2 -->
+          <div class="relative">
+            <div class="font-mono text-[clamp(1.25rem,2.5vw,1.75rem)] font-medium text-accent mb-4">02</div>
+            <h3 class="font-serif text-[28px] leading-[1.15] text-ink mb-4">Form your tribe</h3>
+            <p class="text-[15px] leading-relaxed text-ink-secondary">
+              Find builders with complementary skills. A designer looking for an engineer. A founder looking for a growth lead. Tribes ship together.
+            </p>
+          </div>
 
-            <!-- Embedded Mini Project Card (No Thumbnail) -->
-            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
-              <!-- Project Title -->
-              <h3 class="font-serif text-lg text-ink mb-2">DevOps Dashboard</h3>
-
-              <!-- Tech Stack Tags -->
-              <div class="flex flex-wrap gap-2">
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Node.js</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Docker</span>
-              </div>
-            </div>
-          </article>
-
-          <!-- Event 3: Priya Sharma formed a tribe -->
-          <article class="bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Header: Avatar + Name + Timestamp -->
-            <div class="flex items-start gap-3 mb-3">
-              <div class="avatar-md bg-rose-100 text-rose-700 flex-shrink-0">
-                <span class="font-medium">PS</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 flex-wrap">
-                  <span class="font-medium text-ink">Priya Sharma</span>
-                  <span class="text-xs text-ink-tertiary">1 day ago</span>
-                </div>
-                <p class="text-sm text-ink-secondary mt-1">formed a tribe</p>
-              </div>
-            </div>
-
-            <!-- Tribe Details -->
-            <div class="ml-[56px] bg-surface-secondary radius-lg p-4 shadow-xs">
-              <!-- Tribe Name -->
-              <h3 class="font-serif text-lg text-ink mb-2">Tribe Finder Team</h3>
-
-              <!-- Open Roles -->
-              <p class="text-sm text-ink-secondary mb-2">
-                <span class="font-medium text-ink">Looking for:</span> Backend Engineer, Growth Marketer
-              </p>
-
-              <!-- Tags -->
-              <div class="flex flex-wrap gap-2">
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
-              </div>
-            </div>
-          </article>
-
-          <!-- Event 4: James Okafor joined Find Your Tribe -->
-          <article class="bg-surface-elevated shadow-md radius-lg p-5">
-            <!-- Header: Avatar + Name + Timestamp -->
-            <div class="flex items-start gap-3 mb-3">
-              <div class="avatar-md bg-amber-100 text-amber-700 flex-shrink-0">
-                <span class="font-medium">JO</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 flex-wrap">
-                  <span class="font-medium text-ink">James Okafor</span>
-                  <span class="text-xs text-ink-tertiary">2 days ago</span>
-                </div>
-                <p class="text-sm text-ink-secondary mt-1">joined Find Your Tribe</p>
-              </div>
-            </div>
-
-            <!-- Builder Skills -->
-            <div class="ml-[56px]">
-              <div class="flex flex-wrap gap-2">
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Figma</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">UI/UX</span>
-                <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Prototyping</span>
-              </div>
-            </div>
-          </article>
+          <!-- Step 3 -->
+          <div class="relative">
+            <div class="font-mono text-[clamp(1.25rem,2.5vw,1.75rem)] font-medium text-accent mb-4">03</div>
+            <h3 class="font-serif text-[28px] leading-[1.15] text-ink mb-4">Earn your score</h3>
+            <p class="text-[15px] leading-relaxed text-ink-secondary">
+              Your Builder Score reflects real contributions — code shipped, projects completed, collaboration consistency. Not followers. Not likes.
+            </p>
+          </div>
 
         </div>
 
       </div>
     </section>
 
-    <!-- Profile Section -->
-    <section id="profile" class="bg-surface-primary py-16 md:py-24">
-      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
+    <!-- ═══════════════════════════════════════════════════════════════
+         BUILDERS — Featured + Grid, not uniform cards
+         ═══════════════════════════════════════════════════════════════ -->
+    <section id="builders" class="bg-surface-secondary py-20 md:py-28">
+      <div class="max-w-[1120px] mx-auto px-5 md:px-6">
 
-        <!-- Two-column layout: Sidebar + Main Content -->
-        <div class="flex flex-col md:flex-row gap-6">
+        <div class="flex items-baseline justify-between mb-12">
+          <div>
+            <p class="text-[12px] font-medium text-accent uppercase mb-3">Discover</p>
+            <h2 class="font-serif h1 text-ink">Builders</h2>
+          </div>
+          <a href="#" class="hidden md:inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-secondary hover:text-accent transition-colors">
+            View all <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
 
-          <!-- Sidebar -->
-          <aside class="w-full md:w-80 flex-shrink-0">
-            <div class="bg-surface-secondary rounded-xl p-6 md:sticky md:top-24">
+        <!-- Featured builder (wide) + 2 regular -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-              <!-- Avatar -->
-              <div class="flex justify-center mb-4">
-                <div class="avatar-xl bg-indigo-100 text-indigo-700">
-                  <span class="text-3xl font-medium">MC</span>
+          <!-- Featured: Maya Chen -->
+          <div class="lg:col-span-5 card-lift bg-surface-elevated rounded-xl p-6 md:p-8 shadow-md">
+            <div class="flex items-center gap-4 mb-6">
+              <div class="avatar avatar-lg bg-indigo-100 text-indigo-700">
+                <span class="text-xl">MC</span>
+              </div>
+              <div>
+                <h3 class="font-serif text-[24px] leading-tight text-ink">Maya Chen</h3>
+                <p class="text-[13px] text-ink-tertiary mt-0.5">Full-Stack Developer</p>
+              </div>
+            </div>
+            <p class="text-[15px] leading-relaxed text-ink-secondary mb-6">
+              Building AI-powered tools for makers. Previously led engineering at a YC startup. Believes the best products are built by small, opinionated teams.
+            </p>
+            <div class="flex flex-wrap gap-1.5 mb-8">
+              <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">React</span>
+              <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">Python</span>
+              <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">PostgreSQL</span>
+              <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">FastAPI</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="inline-flex items-center gap-1.5 text-[12px] font-medium text-shipped">
+                <span class="w-1.5 h-1.5 rounded-full bg-shipped"></span>
+                Open to collaborate
+              </span>
+              <div class="flex items-baseline gap-1.5">
+                <span class="font-mono text-[32px] font-medium text-accent leading-none">72</span>
+                <span class="text-[11px] text-ink-tertiary">score</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column: stacked cards -->
+          <div class="lg:col-span-7 flex flex-col gap-5">
+
+            <!-- James Okafor -->
+            <div class="pb-5 border-b border-ink/5">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="avatar avatar-md bg-amber-100 text-amber-700">
+                  <span class="text-sm">JO</span>
                 </div>
-              </div>
-
-              <!-- Name and Handle -->
-              <div class="text-center mb-4">
-                <h1 class="h1 font-serif text-ink mb-1">Maya Chen</h1>
-                <p class="body-sm text-ink-secondary mb-1">@mayachen</p>
-                <p class="body text-ink-secondary">Full-Stack Developer</p>
-              </div>
-
-              <!-- Builder Score Circle -->
-              <div class="flex justify-center mb-6">
-                <div class="w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center">
-                  <span class="font-mono text-2xl font-semibold text-accent">72</span>
+                <div class="flex-1">
+                  <h3 class="font-serif text-lg leading-tight text-ink">James Okafor</h3>
+                  <p class="text-[12px] text-ink-tertiary">Product Designer</p>
                 </div>
+                <span class="font-mono text-[22px] font-medium text-accent/80">58</span>
               </div>
-
-              <!-- Bio -->
-              <p class="body-sm text-ink-secondary mb-6 text-center">
-                Building AI tools for small teams. Passionate about simplifying complex workflows. Based in San Francisco.
+              <p class="text-[13px] leading-relaxed text-ink-secondary mb-3">
+                Design systems enthusiast. Crafts delightful experiences for early-stage teams.
               </p>
-
-              <!-- Skill Tags -->
-              <div class="flex flex-wrap gap-2 justify-center mb-6">
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">React</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">Python</span>
-                <span class="font-mono text-xs bg-surface-elevated text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              <div class="flex items-center justify-between">
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="font-mono text-[11px] text-ink-tertiary">Figma</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">UI/UX</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">Prototyping</span>
+                </div>
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-shipped">
+                  <span class="w-1.5 h-1.5 rounded-full bg-shipped"></span>
+                  Collaborating
+                </span>
               </div>
+            </div>
 
-              <!-- Availability Badge -->
-              <div class="flex justify-center mb-4">
-                <span class="text-xs font-medium text-shipped px-3 py-1.5 bg-shipped-subtle radius-sm">
+            <!-- Priya Sharma -->
+            <div class="pb-5 border-b border-ink/5">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="avatar avatar-md bg-rose-100 text-rose-700">
+                  <span class="text-sm">PS</span>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-serif text-lg leading-tight text-ink">Priya Sharma</h3>
+                  <p class="text-[12px] text-ink-tertiary">Backend Engineer</p>
+                </div>
+                <span class="font-mono text-[22px] font-medium text-accent/80">65</span>
+              </div>
+              <p class="text-[13px] leading-relaxed text-ink-secondary mb-3">
+                Distributed systems at scale. Open source contributor. Infrastructure that doesn't keep you up at night.
+              </p>
+              <div class="flex items-center justify-between">
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="font-mono text-[11px] text-ink-tertiary">Go</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">Kubernetes</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">gRPC</span>
+                </div>
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-shipped">
+                  <span class="w-1.5 h-1.5 rounded-full bg-shipped"></span>
                   Open to collaborate
                 </span>
               </div>
+            </div>
 
-              <!-- Timezone -->
-              <p class="body-sm text-ink-tertiary text-center mb-6">
-                PST • San Francisco
+            <!-- David Morales -->
+            <div class="pb-5 border-b border-ink/5">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="avatar avatar-md bg-emerald-100 text-emerald-700">
+                  <span class="text-sm">DM</span>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-serif text-lg leading-tight text-ink">David Morales</h3>
+                  <p class="text-[12px] text-ink-tertiary">Growth Marketer</p>
+                </div>
+                <span class="font-mono text-[22px] font-medium text-ink-tertiary">41</span>
+              </div>
+              <p class="text-[13px] leading-relaxed text-ink-secondary mb-3">
+                Growth hacker turned founder. 0-to-1 go-to-market. Loves experimenting with new channels.
+              </p>
+              <div class="flex items-center justify-between">
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="font-mono text-[11px] text-ink-tertiary">SEO</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">Analytics</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">Content</span>
+                </div>
+                <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-tertiary">
+                  <span class="w-1.5 h-1.5 rounded-full bg-ink-tertiary"></span>
+                  Heads down
+                </span>
+              </div>
+            </div>
+
+            <!-- Sarah Kim -->
+            <div class="pb-5">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="avatar avatar-md bg-violet-100 text-violet-700">
+                  <span class="text-sm">SK</span>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-serif text-lg leading-tight text-ink">Sarah Kim</h3>
+                  <p class="text-[12px] text-ink-tertiary">Frontend Developer</p>
+                </div>
+                <span class="font-mono text-[22px] font-medium text-accent/80">49</span>
+              </div>
+              <p class="text-[13px] leading-relaxed text-ink-secondary mb-3">
+                Accessibility advocate. Component library creator. Beautiful, performant web experiences.
+              </p>
+              <div class="flex items-center justify-between">
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="font-mono text-[11px] text-ink-tertiary">React</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">TypeScript</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">Next.js</span>
+                </div>
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-shipped">
+                  <span class="w-1.5 h-1.5 rounded-full bg-shipped"></span>
+                  Open to collaborate
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         PROJECTS — Magazine layout: one hero + supporting
+         ═══════════════════════════════════════════════════════════════ -->
+    <section id="projects" class="py-20 md:py-28">
+      <div class="max-w-[1120px] mx-auto px-5 md:px-6">
+
+        <div class="flex items-baseline justify-between mb-12">
+          <div>
+            <p class="text-[12px] font-medium text-accent uppercase mb-3">Recently shipped</p>
+            <h2 class="font-serif h1 text-ink">Projects</h2>
+          </div>
+          <a href="#" class="hidden md:inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-secondary hover:text-accent transition-colors">
+            Browse all <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+          <!-- Hero project card -->
+          <div class="lg:col-span-7 card-lift bg-surface-elevated rounded-xl overflow-hidden shadow-md group">
+            <!-- Thumbnail — abstract pattern -->
+            <div class="aspect-[16/9] relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600"></div>
+              <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 30% 50%, white 1px, transparent 1px), radial-gradient(circle at 70% 80%, white 1px, transparent 1px); background-size: 40px 40px;"></div>
+              <div class="absolute bottom-4 left-5 right-5 flex items-center justify-between">
+                <span class="text-[12px] font-medium text-white/70 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full">Shipped 2 weeks ago</span>
+                <div class="flex items-center gap-1.5 text-white/70 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <i data-lucide="star" class="w-3.5 h-3.5"></i>
+                  <span class="text-[12px] font-medium">142</span>
+                </div>
+              </div>
+            </div>
+            <div class="p-6 md:p-8">
+              <h3 class="font-serif text-[28px] leading-tight text-ink mb-3">AI Resume Builder</h3>
+              <p class="text-[15px] leading-relaxed text-ink-secondary mb-5">
+                AI-powered resume builder that helps developers showcase their skills with beautiful, ATS-friendly templates. Generates tailored content from your GitHub profile.
+              </p>
+              <div class="flex flex-wrap gap-1.5 mb-6">
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">React</span>
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">FastAPI</span>
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">PostgreSQL</span>
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">GPT-4</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="avatar avatar-sm bg-indigo-100 text-indigo-700">
+                  <span class="text-[11px]">MC</span>
+                </div>
+                <span class="text-[13px] text-ink-secondary">Maya Chen</span>
+                <span class="text-ink-tertiary">+</span>
+                <div class="avatar avatar-sm bg-amber-100 text-amber-700">
+                  <span class="text-[11px]">JO</span>
+                </div>
+                <span class="text-[13px] text-ink-secondary">James Okafor</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Supporting project cards (stacked) -->
+          <div class="lg:col-span-5 flex flex-col gap-5">
+
+            <!-- Tribe Finder -->
+            <div class="card-lift bg-surface-elevated rounded-xl overflow-hidden shadow-md flex-1">
+              <div class="aspect-[16/7] relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600"></div>
+                <div class="absolute inset-0 opacity-10" style="background-image: linear-gradient(45deg, white 25%, transparent 25%, transparent 75%, white 75%), linear-gradient(45deg, white 25%, transparent 25%, transparent 75%, white 75%); background-size: 20px 20px; background-position: 0 0, 10px 10px;"></div>
+                <div class="absolute top-3 right-3">
+                  <span class="text-[11px] font-medium text-white/80 bg-black/20 backdrop-blur-sm px-2.5 py-1 rounded-full">In Progress</span>
+                </div>
+              </div>
+              <div class="p-5">
+                <h3 class="font-serif text-xl leading-tight text-ink mb-2">Tribe Finder</h3>
+                <p class="text-[13px] leading-relaxed text-ink-secondary mb-4">
+                  AI-powered matching to connect builders with complementary skills.
+                </p>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="avatar avatar-xs bg-rose-100 text-rose-700"><span class="text-[9px]">PS</span></div>
+                    <span class="text-[12px] text-ink-tertiary">Priya Sharma</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span class="font-mono text-[10px] text-ink-tertiary">Next.js</span>
+                    <span class="text-ink-tertiary/30">/</span>
+                    <span class="font-mono text-[10px] text-ink-tertiary">Go</span>
+                    <span class="text-ink-tertiary/30">/</span>
+                    <span class="font-mono text-[10px] text-ink-tertiary">Redis</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Open Source CRM -->
+            <div class="card-lift bg-surface-elevated rounded-xl overflow-hidden shadow-md flex-1">
+              <div class="aspect-[16/7] relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500"></div>
+                <div class="absolute inset-0 opacity-15" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 8px, white 8px, white 9px);"></div>
+                <div class="absolute bottom-3 left-4 flex items-center gap-1.5 text-white/70 bg-black/20 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                  <i data-lucide="star" class="w-3 h-3"></i>
+                  <span class="text-[11px] font-medium">89</span>
+                </div>
+              </div>
+              <div class="p-5">
+                <h3 class="font-serif text-xl leading-tight text-ink mb-2">Open Source CRM</h3>
+                <p class="text-[13px] leading-relaxed text-ink-secondary mb-4">
+                  Privacy-first CRM for small teams. Self-hosted, modern UX.
+                </p>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="avatar avatar-xs bg-violet-100 text-violet-700"><span class="text-[9px]">SK</span></div>
+                    <span class="text-[12px] text-ink-tertiary">Sarah Kim</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span class="font-mono text-[10px] text-ink-tertiary">Vue</span>
+                    <span class="text-ink-tertiary/30">/</span>
+                    <span class="font-mono text-[10px] text-ink-tertiary">Django</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         FEED — Narrow editorial column
+         ═══════════════════════════════════════════════════════════════ -->
+    <section id="feed" class="bg-surface-secondary py-20 md:py-28">
+      <div class="max-w-[620px] mx-auto px-5 md:px-6">
+
+        <div class="mb-10">
+          <p class="text-[12px] font-medium text-accent uppercase mb-3">What's happening</p>
+          <h2 class="font-serif h1 text-ink">Feed</h2>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="flex items-center gap-1 mb-8 p-1 bg-surface-primary rounded-lg w-fit">
+          <button class="px-4 py-2 text-[13px] font-medium bg-surface-elevated text-ink rounded-md shadow-sm">All</button>
+          <button class="px-4 py-2 text-[13px] font-medium text-ink-tertiary hover:text-ink-secondary rounded-md transition-colors">Ships</button>
+          <button class="px-4 py-2 text-[13px] font-medium text-ink-tertiary hover:text-ink-secondary rounded-md transition-colors">Tribes</button>
+          <button class="px-4 py-2 text-[13px] font-medium text-ink-tertiary hover:text-ink-secondary rounded-md transition-colors">People</button>
+        </div>
+
+        <!-- Events -->
+        <div class="divide-y divide-ink/5">
+
+          <!-- Event: Maya shipped -->
+          <article class="py-5 first:pt-0">
+            <div class="flex items-start gap-3.5">
+              <div class="avatar avatar-md bg-indigo-100 text-indigo-700">
+                <span class="text-sm">MC</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 mb-0.5">
+                  <span class="text-[14px] font-medium text-ink">Maya Chen</span>
+                  <span class="text-[12px] text-ink-tertiary">shipped</span>
+                  <span class="ml-auto text-[11px] text-ink-tertiary">2h</span>
+                </div>
+
+                <!-- Embedded project — keeps its card since it's a distinct object -->
+                <div class="mt-3 bg-surface-elevated rounded-lg overflow-hidden shadow-sm">
+                  <div class="aspect-[3/1] bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 relative">
+                    <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 30% 50%, white 1px, transparent 1px); background-size: 30px 30px;"></div>
+                  </div>
+                  <div class="p-4">
+                    <div class="flex items-center justify-between">
+                      <span class="font-serif text-[16px] text-ink">AI Resume Builder</span>
+                      <div class="flex items-center gap-1 text-ink-tertiary">
+                        <i data-lucide="star" class="w-3.5 h-3.5"></i>
+                        <span class="font-mono text-[12px]">142</span>
+                      </div>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                      <span class="font-mono text-[10px] text-ink-tertiary">React</span>
+                      <span class="font-mono text-[10px] text-ink-tertiary">FastAPI</span>
+                      <span class="font-mono text-[10px] text-ink-tertiary">PostgreSQL</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event: Priya formed a tribe -->
+          <article class="py-5">
+            <div class="flex items-start gap-3.5">
+              <div class="avatar avatar-md bg-rose-100 text-rose-700">
+                <span class="text-sm">PS</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 mb-0.5">
+                  <span class="text-[14px] font-medium text-ink">Priya Sharma</span>
+                  <span class="text-[12px] text-ink-tertiary">formed a tribe</span>
+                  <span class="ml-auto text-[11px] text-ink-tertiary">1d</span>
+                </div>
+                <div class="mt-3">
+                  <div class="font-serif text-[16px] text-ink mb-1.5">Tribe Finder Team</div>
+                  <p class="text-[12px] text-ink-secondary mb-3">3 members. Looking for a backend engineer and growth marketer.</p>
+                  <div class="flex -space-x-2">
+                    <div class="avatar avatar-sm bg-rose-100 text-rose-700 ring-2 ring-surface-secondary"><span class="text-[10px]">PS</span></div>
+                    <div class="avatar avatar-sm bg-indigo-100 text-indigo-700 ring-2 ring-surface-secondary"><span class="text-[10px]">MC</span></div>
+                    <div class="avatar avatar-sm bg-amber-100 text-amber-700 ring-2 ring-surface-secondary"><span class="text-[10px]">JO</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event: Alex started building -->
+          <article class="py-5">
+            <div class="flex items-start gap-3.5">
+              <div class="avatar avatar-md bg-cyan-100 text-cyan-700">
+                <span class="text-sm">AR</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2">
+                  <span class="text-[14px] font-medium text-ink">Alex Rivera</span>
+                  <span class="text-[12px] text-ink-tertiary">started building</span>
+                  <span class="ml-auto text-[11px] text-ink-tertiary">5h</span>
+                </div>
+                <div class="mt-3 flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="terminal" class="w-5 h-5 text-white/70"></i>
+                  </div>
+                  <div>
+                    <div class="font-serif text-[15px] text-ink">DevOps Dashboard</div>
+                    <div class="flex gap-2 mt-0.5">
+                      <span class="font-mono text-[10px] text-ink-tertiary">React</span>
+                      <span class="text-ink-tertiary/30">/</span>
+                      <span class="font-mono text-[10px] text-ink-tertiary">Node.js</span>
+                      <span class="text-ink-tertiary/30">/</span>
+                      <span class="font-mono text-[10px] text-ink-tertiary">Docker</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Event: James joined -->
+          <article class="py-5">
+            <div class="flex items-start gap-3.5">
+              <div class="avatar avatar-md bg-amber-100 text-amber-700">
+                <span class="text-sm">JO</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2">
+                  <span class="text-[14px] font-medium text-ink">James Okafor</span>
+                  <span class="text-[12px] text-ink-tertiary">joined Find Your Tribe</span>
+                  <span class="ml-auto text-[11px] text-ink-tertiary">2d</span>
+                </div>
+                <div class="flex gap-1.5 mt-3">
+                  <span class="font-mono text-[11px] text-ink-tertiary">Figma</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">UI/UX</span>
+                  <span class="text-ink-tertiary/30">/</span>
+                  <span class="font-mono text-[11px] text-ink-tertiary">Prototyping</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         PROFILE — Editorial magazine-style profile
+         ═══════════════════════════════════════════════════════════════ -->
+    <section id="profile" class="py-20 md:py-28">
+      <div class="max-w-[1120px] mx-auto px-5 md:px-6">
+
+        <p class="text-[12px] font-medium text-accent uppercase mb-8">Builder profile</p>
+
+        <div class="flex flex-col md:flex-row gap-10 md:gap-16">
+
+          <!-- Sidebar -->
+          <aside class="w-full md:w-[280px] flex-shrink-0">
+            <div class="md:sticky md:top-24">
+
+              <div class="avatar avatar-xl bg-indigo-100 text-indigo-700 mb-6">
+                <span class="text-3xl">MC</span>
+              </div>
+
+              <h2 class="font-serif text-[32px] leading-none text-ink mb-1">Maya Chen</h2>
+              <p class="font-mono text-[13px] text-ink-tertiary mb-4">@mayachen</p>
+
+              <!-- Builder Score — prominent -->
+              <div class="flex items-baseline gap-2 mb-6">
+                <span class="font-mono text-[48px] font-medium text-accent leading-none">72</span>
+                <span class="text-[12px] text-ink-tertiary leading-none">builder<br>score</span>
+              </div>
+
+              <p class="text-[15px] leading-relaxed text-ink-secondary mb-6">
+                Building AI tools for small teams. Passionate about simplifying complex workflows. Based in San Francisco.
               </p>
 
-              <!-- Social Links -->
-              <div class="flex justify-center gap-4">
-                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
-                  <i data-lucide="github" class="w-5 h-5"></i>
-                </a>
-                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
-                  <i data-lucide="twitter" class="w-5 h-5"></i>
-                </a>
-                <a href="#" class="text-ink-tertiary hover:text-accent transition-colors duration-150">
-                  <i data-lucide="globe" class="w-5 h-5"></i>
-                </a>
+              <div class="flex flex-wrap gap-1.5 mb-6">
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">React</span>
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">Python</span>
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">PostgreSQL</span>
+                <span class="font-mono text-[11px] bg-surface-secondary text-ink-secondary px-2.5 py-1 rounded-md">TypeScript</span>
+              </div>
+
+              <div class="flex items-center gap-1.5 mb-6">
+                <span class="w-2 h-2 rounded-full bg-shipped"></span>
+                <span class="text-[13px] font-medium text-shipped">Open to collaborate</span>
+              </div>
+
+              <div class="flex items-center gap-4 text-ink-tertiary">
+                <a href="#" class="hover:text-ink transition-colors"><i data-lucide="github" class="w-[18px] h-[18px]"></i></a>
+                <a href="#" class="hover:text-ink transition-colors"><i data-lucide="twitter" class="w-[18px] h-[18px]"></i></a>
+                <a href="#" class="hover:text-ink transition-colors"><i data-lucide="globe" class="w-[18px] h-[18px]"></i></a>
+              </div>
+
+              <div class="mt-6 pt-6 border-t border-surface-secondary">
+                <div class="text-[12px] text-ink-tertiary">
+                  <div class="flex justify-between mb-2"><span>Projects shipped</span><span class="font-mono text-ink">4</span></div>
+                  <div class="flex justify-between mb-2"><span>Tribes</span><span class="font-mono text-ink">2</span></div>
+                  <div class="flex justify-between"><span>Joined</span><span class="font-mono text-ink">Mar 2024</span></div>
+                </div>
               </div>
 
             </div>
           </aside>
 
-          <!-- Main Content -->
-          <main class="flex-1 bg-surface-primary">
+          <!-- Main content -->
+          <div class="flex-1 min-w-0">
 
             <!-- Shipped Projects -->
-            <div class="mb-12">
-              <p class="overline text-ink-secondary mb-6">
-                SHIPPED PROJECTS
-              </p>
+            <div class="mb-14">
+              <h3 class="text-[12px] font-medium text-accent uppercase mb-6">Shipped projects</h3>
 
-              <div class="space-y-5">
-
-                <!-- Project Card 1: AI Resume Builder -->
-                <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
-                  <!-- Thumbnail -->
-                  <div class="aspect-[16/10] bg-gradient-to-br from-indigo-400 to-purple-500"></div>
-
-                  <!-- Content -->
-                  <div class="p-5">
-                    <!-- Project Title -->
-                    <h2 class="h2 font-serif text-ink mb-2">AI Resume Builder</h2>
-
-                    <!-- Description -->
-                    <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
-                      AI-powered resume builder that helps developers showcase their skills with beautiful, ATS-friendly templates.
-                    </p>
-
-                    <!-- Tech Stack Tags -->
-                    <div class="flex flex-wrap gap-2 mb-4">
-                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">React</span>
-                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">FastAPI</span>
-                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">PostgreSQL</span>
+              <div class="space-y-4">
+                <!-- Project 1 -->
+                <div class="card-lift bg-surface-elevated rounded-xl overflow-hidden shadow-md">
+                  <div class="flex flex-col sm:flex-row">
+                    <div class="sm:w-48 aspect-[16/10] sm:aspect-auto bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 relative flex-shrink-0">
+                      <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 30% 50%, white 1px, transparent 1px); background-size: 30px 30px;"></div>
                     </div>
-
-                    <!-- Footer: Owner and Stats -->
-                    <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-                      <!-- Owner -->
-                      <div class="flex items-center gap-2">
-                        <div class="avatar-xs bg-indigo-100 text-indigo-700">
-                          <span class="text-[10px] font-medium">MC</span>
-                        </div>
-                        <span class="body-sm text-ink-secondary">Maya Chen</span>
+                    <div class="p-5 flex-1">
+                      <div class="flex items-start justify-between mb-2">
+                        <h4 class="font-serif text-xl leading-tight text-ink">AI Resume Builder</h4>
+                        <span class="text-[11px] font-medium text-shipped bg-shipped-subtle px-2 py-0.5 rounded-full ml-3 flex-shrink-0">Shipped</span>
                       </div>
-
-                      <!-- Stats -->
+                      <p class="text-[13px] text-ink-secondary mb-3">AI-powered resume builder with ATS-friendly templates.</p>
                       <div class="flex items-center gap-3">
-                        <!-- Star count -->
-                        <div class="flex items-center gap-1">
-                          <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
-                          <span class="body-sm text-ink-secondary">142</span>
+                        <div class="flex gap-1.5">
+                          <span class="font-mono text-[10px] text-ink-tertiary">React</span>
+                          <span class="text-ink-tertiary/30">/</span>
+                          <span class="font-mono text-[10px] text-ink-tertiary">FastAPI</span>
+                          <span class="text-ink-tertiary/30">/</span>
+                          <span class="font-mono text-[10px] text-ink-tertiary">PostgreSQL</span>
                         </div>
-                        <!-- Status badge -->
-                        <span class="text-xs font-medium text-shipped px-2 py-1 bg-shipped-subtle radius-sm">
-                          Shipped
-                        </span>
+                        <div class="ml-auto flex items-center gap-1 text-ink-tertiary">
+                          <i data-lucide="star" class="w-3.5 h-3.5"></i>
+                          <span class="font-mono text-[12px]">142</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Project Card 2: Tribe Finder -->
-                <div class="builder-card bg-surface-elevated shadow-md radius-lg overflow-hidden">
-                  <!-- Thumbnail -->
-                  <div class="aspect-[16/10] bg-gradient-to-br from-emerald-400 to-teal-500"></div>
-
-                  <!-- Content -->
-                  <div class="p-5">
-                    <!-- Project Title -->
-                    <h2 class="h2 font-serif text-ink mb-2">Tribe Finder</h2>
-
-                    <!-- Description -->
-                    <p class="body-sm text-ink-secondary mb-4 line-clamp-2">
-                      Connect builders with complementary skills to form powerful teams. AI-powered matching based on expertise and goals.
-                    </p>
-
-                    <!-- Tech Stack Tags -->
-                    <div class="flex flex-wrap gap-2 mb-4">
-                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Next.js</span>
-                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Go</span>
-                      <span class="font-mono text-xs bg-surface-secondary text-ink px-2 py-1 radius-sm shadow-xs">Redis</span>
+                <!-- Project 2 -->
+                <div class="card-lift bg-surface-elevated rounded-xl overflow-hidden shadow-md">
+                  <div class="flex flex-col sm:flex-row">
+                    <div class="sm:w-48 aspect-[16/10] sm:aspect-auto bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600 relative flex-shrink-0">
+                      <div class="absolute inset-0 opacity-10" style="background-image: linear-gradient(45deg, white 25%, transparent 25%, transparent 75%, white 75%); background-size: 16px 16px;"></div>
                     </div>
-
-                    <!-- Footer: Owner and Stats -->
-                    <div class="flex items-center justify-between pt-4 border-t border-surface-secondary">
-                      <!-- Owner -->
-                      <div class="flex items-center gap-2">
-                        <div class="avatar-xs bg-indigo-100 text-indigo-700">
-                          <span class="text-[10px] font-medium">MC</span>
-                        </div>
-                        <span class="body-sm text-ink-secondary">Maya Chen</span>
+                    <div class="p-5 flex-1">
+                      <div class="flex items-start justify-between mb-2">
+                        <h4 class="font-serif text-xl leading-tight text-ink">Tribe Finder</h4>
+                        <span class="text-[11px] font-medium text-in-progress bg-in-progress-subtle px-2 py-0.5 rounded-full ml-3 flex-shrink-0">In Progress</span>
                       </div>
-
-                      <!-- Stats -->
+                      <p class="text-[13px] text-ink-secondary mb-3">AI-powered matching for builder teams.</p>
                       <div class="flex items-center gap-3">
-                        <!-- Star count -->
-                        <div class="flex items-center gap-1">
-                          <i data-lucide="star" class="w-4 h-4 text-ink-tertiary"></i>
-                          <span class="body-sm text-ink-secondary">89</span>
+                        <div class="flex gap-1.5">
+                          <span class="font-mono text-[10px] text-ink-tertiary">Next.js</span>
+                          <span class="text-ink-tertiary/30">/</span>
+                          <span class="font-mono text-[10px] text-ink-tertiary">Go</span>
+                          <span class="text-ink-tertiary/30">/</span>
+                          <span class="font-mono text-[10px] text-ink-tertiary">Redis</span>
                         </div>
-                        <!-- Status badge -->
-                        <span class="text-xs font-medium text-in-progress px-2 py-1 bg-in-progress-subtle radius-sm">
-                          In Progress
-                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
 
             <!-- Collaborators -->
             <div>
-              <p class="overline text-ink-secondary mb-6">
-                COLLABORATORS
-              </p>
+              <h3 class="text-[12px] font-medium text-accent uppercase mb-6">Frequent collaborators</h3>
+              <div class="flex flex-wrap gap-4">
+                <div class="flex items-center gap-3 bg-surface-elevated rounded-xl px-4 py-3 shadow-sm">
+                  <div class="avatar avatar-sm bg-amber-100 text-amber-700"><span class="text-[11px]">JO</span></div>
+                  <div>
+                    <div class="text-[14px] font-medium text-ink">James Okafor</div>
+                    <div class="text-[11px] text-ink-tertiary">Designer</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 bg-surface-elevated rounded-xl px-4 py-3 shadow-sm">
+                  <div class="avatar avatar-sm bg-rose-100 text-rose-700"><span class="text-[11px]">PS</span></div>
+                  <div>
+                    <div class="text-[14px] font-medium text-ink">Priya Sharma</div>
+                    <div class="text-[11px] text-ink-tertiary">Backend Engineer</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 bg-surface-elevated rounded-xl px-4 py-3 shadow-sm">
+                  <div class="avatar avatar-sm bg-cyan-100 text-cyan-700"><span class="text-[11px]">AR</span></div>
+                  <div>
+                    <div class="text-[14px] font-medium text-ink">Alex Rivera</div>
+                    <div class="text-[11px] text-ink-tertiary">DevOps</div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         TRIBE — Team feature article
+         ═══════════════════════════════════════════════════════════════ -->
+    <section id="tribe" class="bg-surface-secondary py-20 md:py-28">
+      <div class="max-w-[1120px] mx-auto px-5 md:px-6">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+
+          <!-- Left: Tribe info -->
+          <div class="lg:col-span-7">
+            <p class="text-[12px] font-medium text-accent uppercase mb-4">Open tribe</p>
+            <h2 class="font-serif text-[clamp(2rem,5vw,3rem)] leading-[1.05] text-ink mb-6">Hospitality OS</h2>
+
+            <p class="body-lg text-ink-secondary mb-10 max-w-[540px]">
+              Building the operating system for modern hospitality. Tools that help hotels, restaurants, and service providers deliver exceptional experiences while running efficient operations.
+            </p>
+
+            <!-- Members -->
+            <div class="mb-10">
+              <h4 class="text-[12px] font-medium text-accent uppercase mb-5">Team</h4>
               <div class="space-y-4">
-
-                <!-- Collaborator 1: James -->
-                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
-                  <div class="avatar-sm bg-amber-100 text-amber-700">
-                    <span class="text-sm font-medium">JO</span>
+                <div class="flex items-center gap-4">
+                  <div class="avatar avatar-md bg-indigo-100 text-indigo-700"><span class="text-sm">MC</span></div>
+                  <div class="flex-1">
+                    <div class="text-[15px] font-medium text-ink">Maya Chen</div>
+                    <div class="text-[12px] text-ink-tertiary">Full-Stack Developer</div>
                   </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="font-medium text-ink">James Okafor</div>
-                    <div class="body-sm text-ink-secondary">Product Designer</div>
+                  <span class="text-[11px] font-medium text-accent bg-accent-subtle px-2.5 py-1 rounded-full">Owner</span>
+                </div>
+                <div class="flex items-center gap-4">
+                  <div class="avatar avatar-md bg-amber-100 text-amber-700"><span class="text-sm">JO</span></div>
+                  <div class="flex-1">
+                    <div class="text-[15px] font-medium text-ink">James Okafor</div>
+                    <div class="text-[12px] text-ink-tertiary">Product Designer</div>
                   </div>
                 </div>
-
-                <!-- Collaborator 2: Priya -->
-                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
-                  <div class="avatar-sm bg-rose-100 text-rose-700">
-                    <span class="text-sm font-medium">PS</span>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="font-medium text-ink">Priya Sharma</div>
-                    <div class="body-sm text-ink-secondary">Backend Engineer</div>
+                <div class="flex items-center gap-4">
+                  <div class="avatar avatar-md bg-rose-100 text-rose-700"><span class="text-sm">PS</span></div>
+                  <div class="flex-1">
+                    <div class="text-[15px] font-medium text-ink">Priya Sharma</div>
+                    <div class="text-[12px] text-ink-tertiary">Backend Engineer</div>
                   </div>
                 </div>
-
-                <!-- Collaborator 3: Alex -->
-                <div class="flex items-center gap-3 p-4 bg-surface-elevated shadow-sm radius-lg">
-                  <div class="avatar-sm bg-cyan-100 text-cyan-700">
-                    <span class="text-sm font-medium">AR</span>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="font-medium text-ink">Alex Rivera</div>
-                    <div class="body-sm text-ink-secondary">DevOps Engineer</div>
-                  </div>
-                </div>
-
               </div>
             </div>
 
-          </main>
-
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Tribe Section -->
-    <section id="tribe" class="bg-surface-primary py-16 md:py-24">
-      <div class="max-w-[1120px] mx-auto px-4 md:px-6">
-
-        <!-- Overline -->
-        <p class="overline text-ink-secondary mb-4">
-          OPEN TRIBE
-        </p>
-
-        <!-- Tribe Name -->
-        <h1 class="font-serif h1 text-ink mb-6">
-          Hospitality OS
-        </h1>
-
-        <!-- Mission Text -->
-        <p class="body-lg text-ink-secondary mb-12 max-w-3xl">
-          Building the operating system for modern hospitality businesses. We're creating tools that help hotels, restaurants, and service providers deliver exceptional experiences while running efficient operations. Our mission is to make hospitality technology as elegant as the experiences it enables.
-        </p>
-
-        <!-- Two-column layout -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-          <!-- Left Column: Members -->
-          <div>
-            <h3 class="h4 text-ink mb-6">Members</h3>
-
-            <div class="space-y-5">
-
-              <!-- Member Card 1: Maya Chen (Owner) -->
-              <div class="flex items-start gap-4">
-                <div class="avatar-lg bg-indigo-100 text-indigo-700 flex-shrink-0">
-                  <span class="text-xl font-medium">MC</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h3 class="h3 font-serif text-ink mb-1">Maya Chen</h3>
-                  <p class="body-sm text-ink-secondary mb-2">Full-Stack Developer</p>
-                  <span class="inline-flex items-center px-2 py-1 bg-accent-subtle text-accent text-xs font-medium radius-sm">
-                    Owner
-                  </span>
-                </div>
-              </div>
-
-              <!-- Member Card 2: James Okafor -->
-              <div class="flex items-start gap-4">
-                <div class="avatar-lg bg-amber-100 text-amber-700 flex-shrink-0">
-                  <span class="text-xl font-medium">JO</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h3 class="h3 font-serif text-ink mb-1">James Okafor</h3>
-                  <p class="body-sm text-ink-secondary">Designer</p>
-                </div>
-              </div>
-
-              <!-- Member Card 3: Priya Sharma -->
-              <div class="flex items-start gap-4">
-                <div class="avatar-lg bg-rose-100 text-rose-700 flex-shrink-0">
-                  <span class="text-xl font-medium">PS</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h3 class="h3 font-serif text-ink mb-1">Priya Sharma</h3>
-                  <p class="body-sm text-ink-secondary">Engineer</p>
-                </div>
-              </div>
-
+            <!-- Tech stack -->
+            <div class="flex flex-wrap gap-2">
+              <span class="font-mono text-[11px] text-ink-secondary bg-surface-elevated px-2.5 py-1 rounded-md shadow-xs">Next.js</span>
+              <span class="font-mono text-[11px] text-ink-secondary bg-surface-elevated px-2.5 py-1 rounded-md shadow-xs">Go</span>
+              <span class="font-mono text-[11px] text-ink-secondary bg-surface-elevated px-2.5 py-1 rounded-md shadow-xs">Redis</span>
+              <span class="font-mono text-[11px] text-ink-secondary bg-surface-elevated px-2.5 py-1 rounded-md shadow-xs">PostgreSQL</span>
+              <span class="font-mono text-[11px] text-ink-secondary bg-surface-elevated px-2.5 py-1 rounded-md shadow-xs">Tailwind</span>
             </div>
           </div>
 
-          <!-- Right Column: Open Roles -->
-          <div>
-            <h3 class="h4 text-ink mb-6">Open Roles</h3>
+          <!-- Right: Open roles -->
+          <div class="lg:col-span-5">
+            <h4 class="text-[12px] font-medium text-accent uppercase mb-5">Open roles</h4>
 
-            <div class="space-y-5">
+            <div class="space-y-4">
 
-              <!-- Role Card 1: Backend Engineer -->
-              <div class="bg-surface-elevated shadow-md radius-lg p-5">
-                <h4 class="h4 font-serif text-ink mb-3">Backend Engineer</h4>
-                <p class="body-sm text-ink-secondary mb-4">
-                  We need an experienced backend engineer to help architect our core platform. You'll work on API design, database optimization, and building scalable microservices.
+              <div class="bg-surface-elevated rounded-xl p-6 shadow-md">
+                <h4 class="font-serif text-xl text-ink mb-2">Backend Engineer</h4>
+                <p class="text-[13px] text-ink-secondary mb-5 leading-relaxed">
+                  Help architect the core platform. API design, database optimization, scalable microservices. Experience with Go or Rust preferred.
                 </p>
-                <button class="inline-flex items-center justify-center w-full bg-accent text-white px-4 py-2.5 radius-md font-medium transition-colors duration-200 hover:bg-accent-hover">
-                  Request to Join
+                <button class="w-full bg-ink text-ink-inverse text-[13px] font-medium px-4 py-2.5 rounded-lg hover:bg-ink/90 transition-colors">
+                  Request to join
                 </button>
               </div>
 
-              <!-- Role Card 2: Growth Marketer -->
-              <div class="bg-surface-elevated shadow-md radius-lg p-5">
-                <h4 class="h4 font-serif text-ink mb-3">Growth Marketer</h4>
-                <p class="body-sm text-ink-secondary mb-4">
-                  Help us bring Hospitality OS to the world. You'll own our go-to-market strategy, build partnerships with hospitality businesses, and drive user acquisition.
+              <div class="bg-surface-elevated rounded-xl p-6 shadow-md">
+                <h4 class="font-serif text-xl text-ink mb-2">Growth Marketer</h4>
+                <p class="text-[13px] text-ink-secondary mb-5 leading-relaxed">
+                  Own go-to-market strategy. Build partnerships with hospitality businesses. Drive user acquisition from zero.
                 </p>
-                <button class="inline-flex items-center justify-center w-full bg-accent text-white px-4 py-2.5 radius-md font-medium transition-colors duration-200 hover:bg-accent-hover">
-                  Request to Join
+                <button class="w-full bg-ink text-ink-inverse text-[13px] font-medium px-4 py-2.5 rounded-lg hover:bg-ink/90 transition-colors">
+                  Request to join
                 </button>
               </div>
 
@@ -1315,9 +972,27 @@
           </div>
 
         </div>
-
       </div>
     </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         FOOTER — Minimal
+         ═══════════════════════════════════════════════════════════════ -->
+    <footer class="py-12 md:py-16">
+      <div class="max-w-[1120px] mx-auto px-5 md:px-6">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <span class="font-serif text-lg text-ink">find your tribe</span>
+            <p class="text-[12px] text-ink-tertiary mt-1">Clout through building, not posting.</p>
+          </div>
+          <div class="flex items-center gap-6 text-[13px] text-ink-tertiary">
+            <a href="#" class="hover:text-ink transition-colors">About</a>
+            <a href="#" class="hover:text-ink transition-colors">GitHub</a>
+            <a href="#" class="hover:text-ink transition-colors">Twitter</a>
+          </div>
+        </div>
+      </div>
+    </footer>
 
   </main>
 
@@ -1325,73 +1000,30 @@
     // Initialize Lucide icons
     lucide.createIcons();
 
-    // Mobile menu toggle
+    // Mobile menu
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
     const mobileMenu = document.getElementById('mobile-menu');
     const mobileMenuClose = document.getElementById('mobile-menu-close');
     const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
 
-    function openMobileMenu() {
+    mobileMenuBtn.addEventListener('click', () => {
       mobileMenu.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
-    }
+    });
 
-    function closeMobileMenu() {
+    function closeMobile() {
       mobileMenu.classList.add('hidden');
       document.body.style.overflow = '';
     }
 
-    mobileMenuBtn.addEventListener('click', openMobileMenu);
-    mobileMenuClose.addEventListener('click', closeMobileMenu);
+    mobileMenuClose.addEventListener('click', closeMobile);
+    mobileNavLinks.forEach(l => l.addEventListener('click', closeMobile));
 
-    // Close mobile menu when clicking a link
-    mobileNavLinks.forEach(link => {
-      link.addEventListener('click', closeMobileMenu);
-    });
-
-    // Add shadow to nav on scroll
+    // Nav shadow on scroll
     const nav = document.getElementById('main-nav');
-    let lastScrollY = window.scrollY;
-
-    function updateNavShadow() {
-      if (window.scrollY > 0) {
-        nav.classList.add('shadow-xs');
-      } else {
-        nav.classList.remove('shadow-xs');
-      }
-    }
-
-    window.addEventListener('scroll', updateNavShadow);
-    updateNavShadow(); // Initial check
-
-    // Active link state based on scroll position
-    const sections = document.querySelectorAll('section[id]');
-    const navLinks = document.querySelectorAll('.nav-link');
-
-    function updateActiveLink() {
-      const scrollY = window.scrollY;
-
-      sections.forEach(section => {
-        const sectionTop = section.offsetTop - 100;
-        const sectionHeight = section.offsetHeight;
-        const sectionId = section.getAttribute('id');
-
-        if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
-          navLinks.forEach(link => {
-            link.classList.remove('text-ink', 'border-b-2', 'border-accent');
-            link.classList.add('text-ink-secondary');
-
-            if (link.getAttribute('href') === `#${sectionId}`) {
-              link.classList.remove('text-ink-secondary');
-              link.classList.add('text-ink', 'border-b-2', 'border-accent');
-            }
-          });
-        }
-      });
-    }
-
-    window.addEventListener('scroll', updateActiveLink);
-    updateActiveLink(); // Initial check
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('shadow-sm', window.scrollY > 10);
+    });
   </script>
 
 </body>

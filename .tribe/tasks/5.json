@@ -1,0 +1,18 @@
+{
+  "id": "5",
+  "title": "Define all enums",
+  "description": "Create `app/models/enums.py` defining all enums: UserRole (ENGINEER, DESIGNER, PM, MARKETER, GROWTH, FOUNDER, OTHER), AvailabilityStatus (OPEN_TO_TRIBE, AVAILABLE_FOR_PROJECTS, JUST_BROWSING), ProjectStatus (SHIPPED, IN_PROGRESS, ARCHIVED), CollaboratorStatus (PENDING, CONFIRMED, DECLINED), TribeStatus (OPEN, ACTIVE, ALUMNI), MemberRole (OWNER, MEMBER), MemberStatus (ACTIVE, PENDING, REJECTED), EventType (PROJECT_CREATED, PROJECT_SHIPPED, COLLABORATION_CONFIRMED, TRIBE_CREATED, MEMBER_JOINED_TRIBE, BUILDER_JOINED), SkillCategory (ENGINEERING, DESIGN, PRODUCT, MARKETING, GROWTH, DATA, OPERATIONS, OTHER). All should inherit from str and Enum.",
+  "acceptance_criteria": "- `app/models/enums.py` exports all 8 enum classes\n- Each enum has all specified values\n- All enums inherit from (str, Enum)\n- Values use uppercase snake_case for names, lowercase for values",
+  "depends_on": [
+    "4"
+  ],
+  "status": "done",
+  "branch": "tribe/task-5-define-all-enums",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:22:08Z",
+  "completed_at": "2026-02-10T23:24:22Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

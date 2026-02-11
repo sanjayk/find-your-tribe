@@ -1,0 +1,18 @@
+{
+  "id": "28",
+  "title": "Seed runner and main function",
+  "description": "Implement `app/seed/run.py` with async main() function. Import all seed functions. Drop all tables via Base.metadata.drop_all(), then recreate via Base.metadata.create_all(). Create async session and call seed functions in order: seed_skills, seed_users, seed_projects, seed_tribes, seed_feed_events. Commit session. Print success message. Add `if __name__ == '__main__': asyncio.run(main())` entrypoint. Make module runnable via `python -m app.seed.run`.",
+  "acceptance_criteria": "- run.py drops and recreates all tables\n- Calls all seed functions in correct order\n- Handles async session properly\n- Commits at end\n- Prints success message\n- Runnable via `python -m app.seed.run`\n- Idempotent (can run multiple times)",
+  "depends_on": [
+    "27"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-28-seed-runner-and-main-function",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:32Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

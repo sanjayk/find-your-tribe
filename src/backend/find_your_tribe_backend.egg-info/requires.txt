@@ -1,0 +1,15 @@
+fastapi[standard]
+strawberry-graphql[fastapi]
+sqlalchemy[asyncio]>=2.0
+asyncpg
+alembic
+pgvector
+python-ulid
+pydantic-settings
+uvicorn[standard]
+
+[dev]
+pytest
+pytest-asyncio
+httpx
+ruff

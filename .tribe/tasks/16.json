@@ -1,0 +1,18 @@
+{
+  "id": "16",
+  "title": "Strawberry GraphQL types for Project",
+  "description": "Implement `app/graphql/types/project.py` with ProjectType and CollaboratorType. ProjectType fields: id, title, description, status, role, thumbnail_url, links, tech_stack, impact_metrics, github_repo_full_name, github_stars, created_at, updated_at. Lazy fields: owner → UserType, collaborators → list[CollaboratorType]. CollaboratorType fields: user → UserType, role, status, invited_at, confirmed_at.",
+  "acceptance_criteria": "- ProjectType with all fields\n- CollaboratorType with all fields\n- Lazy resolvers for owner and collaborators\n- Types reference UserType correctly\n- JSON fields (links, tech_stack, impact_metrics) mapped correctly",
+  "depends_on": [
+    "15"
+  ],
+  "status": "done",
+  "branch": "tribe/task-16-strawberry-graphql-types-for-project",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:41:19Z",
+  "completed_at": "2026-02-10T23:45:01Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

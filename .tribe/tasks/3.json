@@ -1,0 +1,18 @@
+{
+  "id": "3",
+  "title": "Database engine and session factory",
+  "description": "Implement `app/db/engine.py` with async SQLAlchemy engine setup. Create `create_async_engine(DATABASE_URL)` with pool_pre_ping=True and reasonable pool settings (pool_size=5, max_overflow=10). Create `async_sessionmaker` with expire_on_commit=False. Implement `get_session()` async generator for dependency injection that yields AsyncSession and ensures proper cleanup.",
+  "acceptance_criteria": "- `app/db/engine.py` exports engine and async_sessionmaker\n- `get_session()` async generator yields AsyncSession\n- Pool settings configured properly\n- expire_on_commit=False set",
+  "depends_on": [
+    "2"
+  ],
+  "status": "done",
+  "branch": "tribe/task-3-database-engine-and-session-factory",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:16:51Z",
+  "completed_at": "2026-02-10T23:16:57Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

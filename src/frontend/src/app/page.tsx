@@ -239,56 +239,57 @@ export default function Home() {
   return (
     <main>
       {/* ─── Hero ─── */}
-      <section id="hero" className="bg-surface-primary">
-        <div className="max-w-[1120px] mx-auto px-5 md:px-6 pt-20 pb-24 md:pt-28 md:pb-32">
-          <p className="text-[12px] font-medium text-accent uppercase mb-6">
-            For builders who ship
-          </p>
+      <section id="hero" className="bg-surface-primary bg-topo min-h-[calc(100svh-4rem)]">
+        <div className="max-w-[1120px] mx-auto px-5 md:px-6 flex flex-col min-h-[calc(100svh-4rem)]">
+          <div className="flex-1 flex flex-col justify-center py-12 md:py-16">
+            <p className="text-[12px] font-medium text-accent uppercase mb-6">
+              For builders who ship
+            </p>
 
-          <h1 className="font-serif display text-ink max-w-[820px] mb-8">
-            Your reputation is<br className="hidden md:block" /> what you{" "}
-            <em className="text-accent">build,</em>
-            <br className="hidden md:block" /> not what you post.
-          </h1>
+            <h1 className="font-serif display text-ink max-w-[820px] mb-8">
+              Your reputation is<br className="hidden md:block" /> what you{" "}
+              <em className="text-accent">build,</em>
+              <br className="hidden md:block" /> not what you post.
+            </h1>
 
-          <p className="body-lg text-ink-secondary max-w-[520px] mb-12">
-            A social network where clout comes from shipping. Connect your
-            GitHub, form a tribe, and let your work speak.
-          </p>
+            <p className="body-lg text-ink-secondary max-w-[520px] mb-12">
+              A social network where clout comes from shipping. Connect your
+              GitHub, form a tribe, and let your work speak.
+            </p>
 
-          <div className="flex flex-col sm:flex-row items-start gap-4">
-            <button className="inline-flex items-center gap-3 bg-ink text-ink-inverse text-[15px] font-medium px-6 py-3.5 rounded-lg hover:bg-ink/90 transition-colors duration-150">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <button className="inline-flex items-center gap-3 bg-ink text-ink-inverse text-[15px] font-medium px-6 py-3.5 rounded-lg hover:bg-ink/90 transition-colors duration-150">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+                Continue with GitHub
+              </button>
+              <a
+                href="#how-it-works"
+                className="inline-flex items-center gap-2 text-[15px] text-ink-tertiary hover:text-ink-secondary transition-colors duration-150 py-3.5"
               >
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-              </svg>
-              Continue with GitHub
-            </button>
-            <a
-              href="#how-it-works"
-              className="inline-flex items-center gap-2 text-[15px] text-ink-tertiary hover:text-ink-secondary transition-colors duration-150 py-3.5"
-            >
-              See how it works
-              <ArrowDown className="w-4 h-4" />
-            </a>
-          </div>
+                See how it works
+                <ArrowDown className="w-4 h-4" />
+              </a>
+            </div>
 
-          <div className="mt-16 pt-8 border-t border-ink/8 flex flex-wrap items-center gap-8 md:gap-12">
-            {SOCIAL_PROOF.map((stat) => (
-              <div key={stat.label}>
-                <div className="font-mono text-2xl font-medium text-ink">
-                  {stat.value}
+            <div className="mt-8 flex flex-wrap items-center gap-5">
+              {SOCIAL_PROOF.map((stat, i) => (
+                <div key={stat.label} className="flex items-center gap-5">
+                  {i > 0 && <div className="h-4 w-px bg-ink/10" />}
+                  <p className="text-[13px] text-ink-tertiary">
+                    <span className="font-mono font-medium text-ink-secondary">{stat.value}</span>{" "}
+                    {stat.label}
+                  </p>
                 </div>
-                <div className="text-[12px] text-ink-tertiary mt-1">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -334,7 +335,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Featured: Maya Chen */}
-            <div className="lg:col-span-5 card-lift bg-surface-elevated rounded-xl p-6 md:p-8 shadow-md">
+            <div className="lg:col-span-5 card-lift bg-surface-elevated bg-dots rounded-xl p-6 md:p-8 shadow-md">
               <div className="flex items-center gap-4 mb-6">
                 <div
                   className={`avatar avatar-lg ${FEATURED_BUILDER.avatarBg} ${FEATURED_BUILDER.avatarText}`}
@@ -474,7 +475,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Hero project card */}
-            <div className="lg:col-span-7 card-lift bg-surface-elevated rounded-xl overflow-hidden shadow-md group">
+            <div className="lg:col-span-7 card-lift bg-surface-elevated bg-dots rounded-xl overflow-hidden shadow-md group">
               <div className="aspect-[16/9] relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600" />
                 <div
@@ -1039,7 +1040,7 @@ export default function Home() {
                 {TRIBE.openRoles.map((role) => (
                   <div
                     key={role.title}
-                    className="bg-surface-elevated rounded-xl p-6 shadow-md"
+                    className="bg-surface-elevated bg-dots rounded-xl p-6 shadow-md"
                   >
                     <h4 className="font-serif text-xl text-ink mb-2">
                       {role.title}

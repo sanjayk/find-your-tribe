@@ -1,0 +1,18 @@
+{
+  "id": "26",
+  "title": "Seed data for tribes",
+  "description": "Implement `app/seed/tribes.py` with async seed_tribes(session, users_dict) function. Create 3 tribes matching prototype: 1) Hospitality OS (Tom owner, Maya+James members, OPEN, mission: 'Building the operating system for independent hotels', open roles: Backend Engineer [Go, PostgreSQL], Growth Marketer [SEO, Partnerships]), 2) AI for Education (Sarah owner, Alex member, OPEN, mission: 'Making personalized learning accessible to every student', open roles: Product Designer [Figma, User Research]), 3) Creator Economy Tools (Elena owner, Marcus member, ACTIVE, mission: 'Empowering independent creators with better business tools'). Create TribeMember records with ACTIVE status for members. Create TribeOpenRole records with skills_needed JSONB. Return tribe dict.",
+  "acceptance_criteria": "- Exactly 3 tribes created\n- TribeMember records: Tom(owner), Maya+James in Hospitality OS; Sarah(owner), Alex in AI for Education; Elena(owner), Marcus in Creator Economy\n- Member status = ACTIVE\n- TribeOpenRole records for open positions\n- skills_needed populated as JSONB arrays\n- Missions match spec exactly\n- Returns tribe dict",
+  "depends_on": [
+    "24"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-26-seed-data-for-tribes",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:32Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

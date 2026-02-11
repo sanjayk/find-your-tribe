@@ -1,0 +1,21 @@
+{
+  "id": "11",
+  "title": "Models package exports",
+  "description": "Update `app/models/__init__.py` to re-export all models and enums. This is required for Alembic autogenerate to discover all models. Import and re-export: Base, User, RefreshToken, UserSkill, Skill, Project, ProjectCollaborator, Tribe, TribeMember, TribeOpenRole, FeedEvent, and all enums.",
+  "acceptance_criteria": "- `app/models/__init__.py` imports all models\n- All models and enums re-exported via __all__\n- Alembic can discover all models via this import",
+  "depends_on": [
+    "7",
+    "8",
+    "9",
+    "10"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-11-models-package-exports",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

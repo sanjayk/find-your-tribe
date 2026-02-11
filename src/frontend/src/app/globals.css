@@ -156,6 +156,37 @@ body {
   outline-offset: 2px;
 }
 
+/* ─── Background Patterns ─── */
+
+/* Topographic contour lines — for hero sections */
+.bg-topo {
+  background-image:
+    /* Cluster 1 — indigo, left-center */
+    radial-gradient(ellipse 520px 440px at 18% 55%, transparent 97%, rgba(99, 102, 241, 0.07) 97.5%, transparent 98%),
+    radial-gradient(ellipse 440px 370px at 18% 55%, transparent 97%, rgba(99, 102, 241, 0.06) 97.5%, transparent 98%),
+    radial-gradient(ellipse 360px 300px at 18% 55%, transparent 97%, rgba(99, 102, 241, 0.05) 97.5%, transparent 98%),
+    radial-gradient(ellipse 280px 230px at 18% 55%, transparent 97%, rgba(99, 102, 241, 0.04) 97.5%, transparent 98%),
+    radial-gradient(ellipse 200px 160px at 18% 55%, transparent 97%, rgba(99, 102, 241, 0.035) 97.5%, transparent 98%),
+    radial-gradient(ellipse 130px 100px at 18% 55%, transparent 97%, rgba(99, 102, 241, 0.03) 97.5%, transparent 98%),
+    /* Cluster 2 — amber, right-top */
+    radial-gradient(ellipse 580px 480px at 78% 25%, transparent 97%, rgba(217, 119, 6, 0.06) 97.5%, transparent 98%),
+    radial-gradient(ellipse 480px 400px at 78% 25%, transparent 97%, rgba(217, 119, 6, 0.05) 97.5%, transparent 98%),
+    radial-gradient(ellipse 380px 320px at 78% 25%, transparent 97%, rgba(217, 119, 6, 0.04) 97.5%, transparent 98%),
+    radial-gradient(ellipse 280px 240px at 78% 25%, transparent 97%, rgba(217, 119, 6, 0.035) 97.5%, transparent 98%),
+    radial-gradient(ellipse 190px 160px at 78% 25%, transparent 97%, rgba(217, 119, 6, 0.03) 97.5%, transparent 98%),
+    /* Cluster 3 — rose, bottom-center */
+    radial-gradient(ellipse 450px 360px at 50% 92%, transparent 97%, rgba(244, 63, 94, 0.05) 97.5%, transparent 98%),
+    radial-gradient(ellipse 350px 280px at 50% 92%, transparent 97%, rgba(244, 63, 94, 0.04) 97.5%, transparent 98%),
+    radial-gradient(ellipse 250px 200px at 50% 92%, transparent 97%, rgba(244, 63, 94, 0.035) 97.5%, transparent 98%),
+    radial-gradient(ellipse 160px 130px at 50% 92%, transparent 97%, rgba(244, 63, 94, 0.03) 97.5%, transparent 98%);
+}
+
+/* Dot grid — for cards */
+.bg-dots {
+  background-image: radial-gradient(circle, rgba(28, 25, 23, 0.06) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
 /* ─── Accessibility: Reduced Motion ─── */
 @media (prefers-reduced-motion: reduce) {
   .card-lift:hover {
@@ -218,8 +249,8 @@ body {
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: oklch(0.585 0.204 277.117);
+  --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
@@ -233,8 +264,8 @@ body {
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-accent: oklch(0.585 0.204 277.117);
+  --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 }
@@ -252,8 +283,8 @@ body {
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.680 0.158 276.935);
+  --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);

@@ -1,0 +1,18 @@
+{
+  "id": "32",
+  "title": "Update CLAUDE.md with backend quality gates",
+  "description": "Add backend quality gates section to CLAUDE.md. Include: lint (`cd src/backend && ruff check .`), test (`cd src/backend && python -m pytest`). Document that backend tests require PostgreSQL running via docker-compose.",
+  "acceptance_criteria": "- CLAUDE.md Quality Gates section updated\n- Backend lint command added\n- Backend test command added\n- Note about PostgreSQL requirement added",
+  "depends_on": [
+    "31"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-32-update-claude-md-with-backend-quality-ga",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:32Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

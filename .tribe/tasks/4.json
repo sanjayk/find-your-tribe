@@ -1,0 +1,18 @@
+{
+  "id": "4",
+  "title": "Declarative base and common mixins",
+  "description": "Implement `app/db/base.py` with SQLAlchemy DeclarativeBase. Create TimestampMixin with created_at and updated_at columns (DateTime with timezone, server_default=func.now(), onupdate for updated_at). Create ULIDMixin with id column (String(26), primary_key=True, default=lambda: str(ULID())). Both mixins should use Mapped types.",
+  "acceptance_criteria": "- `app/db/base.py` exports Base, TimestampMixin, ULIDMixin\n- TimestampMixin has created_at and updated_at with correct defaults\n- ULIDMixin has id column with ULID generation\n- All columns use Mapped[] type hints",
+  "depends_on": [
+    "3"
+  ],
+  "status": "done",
+  "branch": "tribe/task-4-declarative-base-and-common-mixins",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:19:48Z",
+  "completed_at": "2026-02-10T23:19:55Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

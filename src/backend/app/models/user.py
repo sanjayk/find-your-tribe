@@ -24,6 +24,7 @@ from app.db.base import Base, TimestampMixin, ULIDMixin
 from app.models.enums import AvailabilityStatus, UserRole
 
 if TYPE_CHECKING:
+    from app.models.project import Project
     from app.models.skill import Skill
 
 
@@ -160,6 +161,16 @@ class User(Base, ULIDMixin, TimestampMixin):
         "RefreshToken",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    owned_projects: Mapped[list["Project"]] = relationship(
+        "Project",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+    )
+    collaborated_projects: Mapped[list["Project"]] = relationship(
+        "Project",
+        secondary="project_collaborators",
+        back_populates="collaborators",
     )
 
     __table_args__ = (

@@ -1,0 +1,16 @@
+{
+  "id": "1",
+  "title": "Project initialization and dependencies",
+  "description": "Create `src/backend/` directory structure with `pyproject.toml` defining all dependencies (fastapi[standard], strawberry-graphql[fastapi], sqlalchemy[asyncio]>=2.0, asyncpg, alembic, pgvector, python-ulid, pydantic-settings, uvicorn[standard], pytest, pytest-asyncio, httpx, ruff). Create empty `app/` directory with `__init__.py`, `db/`, `models/`, `graphql/`, `seed/`, and `tests/` subdirectories. Create `docker-compose.yml` with pgvector/pgvector:pg16 service configured for local development (user: tribe, password: tribe, db: tribe, port 5432).",
+  "acceptance_criteria": "- `src/backend/pyproject.toml` exists with all required dependencies\n- All subdirectories created with `__init__.py` files\n- `docker-compose.yml` configured with pgvector/pgvector:pg16\n- `docker compose up -d` starts PostgreSQL successfully\n- Project structure matches spec exactly",
+  "depends_on": [],
+  "status": "done",
+  "branch": "tribe/task-1-project-initialization-and-dependencies",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": "2026-02-10T23:10:35Z",
+  "completed_at": "2026-02-10T23:10:41Z",
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

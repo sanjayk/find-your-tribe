@@ -1,0 +1,18 @@
+{
+  "id": "10",
+  "title": "FeedEvent model with indexes",
+  "description": "Implement `app/models/feed_event.py` with FeedEvent model. Columns: id (String(26) PK ULID for time-ordering), event_type (Enum(EventType)), actor_id (FK to users.id CASCADE), target_type (String(20)), target_id (String(26)), metadata (JSONB default {}), created_at (DateTime tz). Indexes: (created_at) descending, (event_type, created_at), (actor_id). Relationship: actor (User).",
+  "acceptance_criteria": "- FeedEvent model with all columns\n- actor_id FK with cascade\n- Three indexes defined: created_at DESC, (event_type, created_at), (actor_id)\n- metadata JSONB with default {}\n- Relationship to User as actor",
+  "depends_on": [
+    "7"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-10-feedevent-model-with-indexes",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

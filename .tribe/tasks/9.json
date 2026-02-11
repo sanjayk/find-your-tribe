@@ -1,0 +1,18 @@
+{
+  "id": "9",
+  "title": "Tribe model with relationships",
+  "description": "Implement `app/models/tribe.py` with Tribe, TribeMember, and TribeOpenRole models. Tribe columns: id, owner_id (FK to users.id CASCADE indexed), name (String(100)), mission (Text nullable), status (Enum(TribeStatus) default OPEN), max_members (Integer default 8), search_vector (TSVECTOR with GIN index), created_at, updated_at. TribeMember junction: tribe_id + user_id composite PK, role (Enum(MemberRole) default MEMBER), status (Enum(MemberStatus) default PENDING), joined_at (nullable), requested_at. TribeOpenRole: id, tribe_id (FK cascade indexed), title (String(100)), skills_needed (JSONB default []), filled (Boolean default False), filled_by (FK to users.id nullable). Relationships: owner (User), members (many-to-many via tribe_members), open_roles (one-to-many).",
+  "acceptance_criteria": "- Tribe model with all columns\n- TribeMember association table with composite PK\n- TribeOpenRole model with FK to Tribe and User\n- search_vector has GIN index\n- All relationships defined\n- All defaults match spec\n- owner_id and tribe_id have cascade",
+  "depends_on": [
+    "7"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-9-tribe-model-with-relationships",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:31Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

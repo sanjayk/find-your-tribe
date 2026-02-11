@@ -1,0 +1,19 @@
+{
+  "id": "30",
+  "title": "Pytest configuration and fixtures",
+  "description": "Implement `tests/conftest.py` with pytest fixtures. Create async_engine fixture using test database (or same DB with transaction rollback). Create async_session fixture that yields AsyncSession and rolls back after test. Create async_client fixture that yields httpx.AsyncClient pointed at FastAPI app with TestClient-style lifecycle. Add pytest.ini or pyproject.toml pytest config with asyncio_mode = auto. Create seed_test_data fixture that populates minimal test data.",
+  "acceptance_criteria": "- conftest.py with async_engine, async_session, async_client fixtures\n- Fixtures use pytest-asyncio\n- async_client integrates with FastAPI app\n- Transactions roll back after tests\n- pytest.ini or pyproject.toml has asyncio_mode = auto\n- Fixtures properly typed",
+  "depends_on": [
+    "22",
+    "29"
+  ],
+  "status": "pending",
+  "branch": "tribe/task-30-pytest-configuration-and-fixtures",
+  "agent_model": "sonnet",
+  "created_at": "2026-02-10T23:07:32Z",
+  "started_at": null,
+  "completed_at": null,
+  "agent_pid": null,
+  "error": null,
+  "review_feedback": null
+}

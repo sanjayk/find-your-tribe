@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: find-your-tribe-backend
+Version: 0.1.0
+Requires-Python: >=3.12
+Requires-Dist: fastapi[standard]
+Requires-Dist: strawberry-graphql[fastapi]
+Requires-Dist: sqlalchemy[asyncio]>=2.0
+Requires-Dist: asyncpg
+Requires-Dist: alembic
+Requires-Dist: pgvector
+Requires-Dist: python-ulid
+Requires-Dist: pydantic-settings
+Requires-Dist: uvicorn[standard]
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
