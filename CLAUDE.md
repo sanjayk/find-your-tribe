@@ -68,6 +68,8 @@
 - lint: `cd src/backend && ruff check .`
 - test: `cd src/backend && python -m pytest`
 
+**Note:** Backend tests require PostgreSQL running via docker-compose.
+
 ## Testing — TDD Practices
 
 Follow Test-Driven Development:
