@@ -11,6 +11,7 @@ from app.models.enums import (
     TribeStatus,
     UserRole,
 )
+from app.models.skill import Skill
 
 __all__ = [
     "AvailabilityStatus",
@@ -19,6 +20,7 @@ __all__ = [
     "MemberRole",
     "MemberStatus",
     "ProjectStatus",
+    "Skill",
     "SkillCategory",
     "TribeStatus",
     "UserRole",
