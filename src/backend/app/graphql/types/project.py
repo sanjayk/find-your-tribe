@@ -72,7 +72,6 @@ class ProjectType:
                 _skills=[],
                 _owned_projects=[],
                 _tribes=[],
-                _endorsements=[],
             )
 
         collaborator_types = []
@@ -99,7 +98,6 @@ class ProjectType:
                 _skills=[],
                 _owned_projects=[],
                 _tribes=[],
-                _endorsements=[],
             )
             collaborator_types.append(
                 CollaboratorType(

@@ -7,9 +7,8 @@ from strawberry.types import Info
 
 from app.graphql.context import Context
 from app.graphql.types.user import UserType
-from app.models.endorsement import Endorsement
 from app.models.project import Project
-from app.models.tribe import Tribe, TribeOpenRole
+from app.models.tribe import Tribe
 from app.models.user import User
 
 
@@ -28,7 +27,7 @@ class Query:
     async def user(
         self, info: Info[Context, None], username: str
     ) -> UserType | None:
-        """Fetch a single user by username with skills, projects, tribes, and endorsements."""
+        """Fetch a single user by username with skills, projects, and tribes."""
         session = info.context.session
         stmt = (
             select(User)
@@ -41,10 +40,6 @@ class Query:
                     selectinload(Tribe.members),
                     selectinload(Tribe.open_roles),
                 ),
-                selectinload(User.endorsements_received).options(
-                    selectinload(Endorsement.from_user),
-                    selectinload(Endorsement.project),
-                ),
             )
         )
         result = await session.execute(stmt)
@@ -56,7 +51,6 @@ class Query:
             skills=user.skills,
             projects=user.owned_projects,
             tribes=user.tribes,
-            endorsements=user.endorsements_received,
         )
 
     @strawberry.field

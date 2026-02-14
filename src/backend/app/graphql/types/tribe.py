@@ -65,7 +65,6 @@ class TribeType:
                 _skills=[],
                 _owned_projects=[],
                 _tribes=[],
-                _endorsements=[],
             )
 
         member_types = []
@@ -92,7 +91,6 @@ class TribeType:
                 _skills=[],
                 _owned_projects=[],
                 _tribes=[],
-                _endorsements=[],
             )
             member_types.append(
                 TribeMemberType(
