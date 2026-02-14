@@ -24,7 +24,6 @@ from app.db.base import Base, TimestampMixin, ULIDMixin
 from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
 
 if TYPE_CHECKING:
-    from app.models.endorsement import Endorsement
     from app.models.project import Project
     from app.models.skill import Skill
     from app.models.tribe import Tribe
@@ -194,11 +193,6 @@ class User(Base, ULIDMixin, TimestampMixin):
         "Tribe",
         secondary="tribe_members",
         viewonly=True,
-    )
-    endorsements_received: Mapped[list["Endorsement"]] = relationship(
-        "Endorsement",
-        foreign_keys="Endorsement.to_user_id",
-        back_populates="to_user",
     )
 
     __table_args__ = (
