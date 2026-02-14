@@ -1,19 +1,23 @@
 {
   "id": "1",
-  "title": "Delete backend endorsement model file",
-  "description": "Delete `src/backend/app/models/endorsement.py` — the SQLAlchemy Endorsement model. This file is no longer needed as endorsements are a Won't Have feature.",
-  "acceptance_criteria": "- File `src/backend/app/models/endorsement.py` does not exist\n- No import errors occur when running the backend",
+  "title": "Remove endorsement from backend model layer",
+  "description": "Delete src/backend/app/models/endorsement.py entirely. Then edit src/backend/app/models/user.py to remove the TYPE_CHECKING import of Endorsement and the endorsements_received relationship (lines 27, 198-202). Then edit src/backend/app/models/__init__.py to remove the Endorsement import (line 4) and remove \"Endorsement\" from __all__ (line 28). Finally delete src/backend/app/seed/endorsements.py entirely and edit src/backend/app/seed/run.py to remove the Endorsement import, the DROP TABLE IF EXISTS endorsements line, and the endorsement seeding block.",
+  "acceptance_criteria": "- src/backend/app/models/endorsement.py does not exist\n- src/backend/app/seed/endorsements.py does not exist\n- No reference to endorsement in user.py, __init__.py, or run.py\n- python -c \"from app.models import User\" succeeds\n- python -c \"from app.seed.run import main\" succeeds (no import errors)",
   "depends_on": [],
   "status": "pending",
-  "branch": "tribe/task-1-delete-backend-endorsement-model-file",
+  "branch": "tribe/task-1-remove-endorsement-backend-models",
   "agent_model": "sonnet",
-  "created_at": "2026-02-14T05:19:59Z",
+  "created_at": "2026-02-14T06:30:00Z",
   "started_at": null,
   "completed_at": null,
   "agent_pid": null,
   "error": null,
   "review_feedback": null,
   "files_touched": [
-    "src/backend/app/models/endorsement.py"
+    "src/backend/app/models/endorsement.py",
+    "src/backend/app/models/user.py",
+    "src/backend/app/models/__init__.py",
+    "src/backend/app/seed/endorsements.py",
+    "src/backend/app/seed/run.py"
   ]
 }

@@ -1,19 +1,21 @@
 {
   "id": "4",
-  "title": "Delete frontend EndorsementCard component",
-  "description": "Delete `src/frontend/src/components/features/endorsement-card.tsx` — the React component for displaying endorsements. This component is no longer needed.",
-  "acceptance_criteria": "- File `src/frontend/src/components/features/endorsement-card.tsx` does not exist\n- Frontend builds without errors (`npx tsc --noEmit` passes)\n- No broken imports referencing this component",
-  "depends_on": [],
+  "title": "Verify endorsement removal is complete",
+  "description": "Run grep -ri endorsement src/ to verify no references remain. Run cd src/backend && python -c \"from app.main import app\" to verify backend starts. Run cd src/frontend && npx tsc --noEmit to verify frontend compiles. Run cd src/backend && python -m pytest to verify backend tests. Run cd src/frontend && npx vitest run to verify frontend tests. Report all results.",
+  "acceptance_criteria": "- grep -ri endorsement src/ returns no results\n- Backend app imports successfully\n- Frontend compiles without errors\n- All backend tests pass\n- All frontend tests pass",
+  "depends_on": [
+    "1",
+    "2",
+    "3"
+  ],
   "status": "pending",
-  "branch": "tribe/task-4-delete-frontend-endorsementcard-componen",
+  "branch": "tribe/task-4-verify-endorsement-removal",
   "agent_model": "sonnet",
-  "created_at": "2026-02-14T05:19:59Z",
+  "created_at": "2026-02-14T06:30:00Z",
   "started_at": null,
   "completed_at": null,
   "agent_pid": null,
   "error": null,
   "review_feedback": null,
-  "files_touched": [
-    "src/frontend/src/components/features/endorsement-card.tsx"
-  ]
+  "files_touched": []
 }

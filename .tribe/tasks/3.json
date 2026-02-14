@@ -1,19 +1,23 @@
 {
   "id": "3",
-  "title": "Delete endorsement seed data file",
-  "description": "Delete `src/backend/app/seed/endorsements.py` — seed data for endorsements is no longer needed.",
-  "acceptance_criteria": "- File `src/backend/app/seed/endorsements.py` does not exist\n- No import errors occur in seed package",
+  "title": "Remove endorsement from frontend",
+  "description": "Delete src/frontend/src/components/features/endorsement-card.tsx entirely. Then edit src/frontend/src/lib/graphql/types.ts to remove the Endorsement interface and the endorsements field from the Builder interface. Then edit src/frontend/src/lib/graphql/queries/builders.ts to remove the endorsements { ... } fragment from the GraphQL query. Then edit src/frontend/src/app/profile/[username]/page.tsx to remove the EndorsementCard import and the entire endorsements section from the JSX. Finally edit src/frontend/src/app/profile/[username]/page.test.tsx to remove endorsements: [] from mock data.",
+  "acceptance_criteria": "- src/frontend/src/components/features/endorsement-card.tsx does not exist\n- No reference to endorsement in types.ts, builders.ts, page.tsx, or page.test.tsx\n- cd src/frontend && npx tsc --noEmit succeeds",
   "depends_on": [],
   "status": "pending",
-  "branch": "tribe/task-3-delete-endorsement-seed-data-file",
+  "branch": "tribe/task-3-remove-endorsement-frontend",
   "agent_model": "sonnet",
-  "created_at": "2026-02-14T05:19:59Z",
+  "created_at": "2026-02-14T06:30:00Z",
   "started_at": null,
   "completed_at": null,
   "agent_pid": null,
   "error": null,
   "review_feedback": null,
   "files_touched": [
-    "src/backend/app/seed/endorsements.py"
+    "src/frontend/src/components/features/endorsement-card.tsx",
+    "src/frontend/src/lib/graphql/types.ts",
+    "src/frontend/src/lib/graphql/queries/builders.ts",
+    "src/frontend/src/app/profile/[username]/page.tsx",
+    "src/frontend/src/app/profile/[username]/page.test.tsx"
   ]
 }
