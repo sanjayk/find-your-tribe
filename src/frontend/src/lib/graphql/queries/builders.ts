@@ -72,22 +72,6 @@ export const GET_BUILDER = gql`
           filled
         }
       }
-      endorsements {
-        id
-        text
-        createdAt
-        fromUser {
-          id
-          username
-          displayName
-          avatarUrl
-          primaryRole
-        }
-        project {
-          id
-          title
-        }
-      }
     }
   }
 `;
