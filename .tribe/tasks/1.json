@@ -8,11 +8,11 @@
   "branch": "tribe/task-1-add-from-model-classmethod-and-missing-f",
   "agent_model": "sonnet",
   "created_at": "2026-02-14T08:20:05Z",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "",
+  "completed_at": "",
   "agent_pid": null,
-  "error": null,
-  "review_feedback": null,
+  "error": "",
+  "review_feedback": "Previous attempt failed with: Quality gates failed",
   "files_touched": [
     "src/backend/app/graphql/types/user.py"
   ]

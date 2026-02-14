@@ -163,7 +163,15 @@ gate_run_command() {
 
     mkdir -p "$LOGS_DIR"
 
-    if (cd "$TRIBE_ROOT" && eval "$cmd" > "$log_file" 2>&1); then
+    # Activate venv if it exists in the target directory so tools like ruff/pytest are on PATH
+    local venv_activate=""
+    if [[ "$cmd" == cd\ src/backend* ]] && [[ -f "${TRIBE_ROOT}/src/backend/.venv/bin/activate" ]]; then
+        venv_activate="source ${TRIBE_ROOT}/src/backend/.venv/bin/activate && "
+    elif [[ "$cmd" == cd\ src/frontend* ]] && [[ -f "${TRIBE_ROOT}/src/frontend/node_modules/.bin" ]]; then
+        venv_activate="export PATH=${TRIBE_ROOT}/src/frontend/node_modules/.bin:\$PATH && "
+    fi
+
+    if (cd "$TRIBE_ROOT" && eval "${venv_activate}${cmd}" > "$log_file" 2>&1); then
         return 0
     else
         log_error "${name} failed. Last 20 lines:"
