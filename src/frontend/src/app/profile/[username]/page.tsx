@@ -11,7 +11,6 @@ import type { GetBuilderData, Builder, AvailabilityStatus, ProjectStatus, AgentW
 import { ScoreDisplay } from '@/components/features/score-display';
 import { ProjectCard } from '@/components/features/project-card';
 import { BurnMapDotGrid, generateMockBurnData } from '@/components/features/burn-map';
-import { EndorsementCard } from '@/components/features/endorsement-card';
 
 /* ─── Mock burn patterns per user (until real token data exists) ─── */
 const BURN_PATTERNS: Record<string, 'heavy' | 'moderate' | 'sporadic' | 'new' | 'dormant'> = {
@@ -638,23 +637,6 @@ function ProfileContent({ builder }: { builder: Builder }) {
                     </Link>
                   );
                 })}
-              </div>
-            </section>
-          )}
-
-          {/* ─── Endorsements ─── */}
-          {builder.endorsements && builder.endorsements.length > 0 && (
-            <section>
-              <p className="text-[11px] font-mono font-medium tracking-[0.08em] text-ink-tertiary uppercase mb-6">
-                Endorsements
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {builder.endorsements.map((endorsement) => (
-                  <EndorsementCard
-                    key={endorsement.id}
-                    endorsement={endorsement}
-                  />
-                ))}
               </div>
             </section>
           )}

@@ -28,7 +28,6 @@ const mockBuilder = {
   skills: [{ id: '1', name: 'React', slug: 'react', category: 'ENGINEERING' }],
   projects: [],
   tribes: [],
-  endorsements: [],
 };
 
 const mocks = [

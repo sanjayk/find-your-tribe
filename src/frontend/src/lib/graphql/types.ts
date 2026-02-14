@@ -99,23 +99,6 @@ export interface Tribe {
   openRoles: OpenRole[];
 }
 
-export interface Endorsement {
-  id: string;
-  text: string;
-  createdAt: string;
-  fromUser: {
-    id: string;
-    username: string;
-    displayName: string;
-    avatarUrl: string | null;
-    primaryRole: UserRole | null;
-  };
-  project: {
-    id: string;
-    title: string;
-  } | null;
-}
-
 export interface Builder {
   id: string;
   username: string;
@@ -136,7 +119,6 @@ export interface Builder {
   skills: Skill[];
   projects: Project[];
   tribes?: Tribe[];
-  endorsements?: Endorsement[];
 }
 
 export interface GetBuilderData {
