@@ -6,12 +6,17 @@
 #
 # Commands:
 #   init                    Initialize project for swarm development
-#   plan <spec-file>        Decompose a spec into a task DAG
+#   validate <specs-dir>    Cross-validate all specs for consistency
+#   plan <spec-file> [opts] Decompose a spec into a task DAG + contract
+#   verify                  Blind-verify the plan against the product spec
 #   run [options]           Execute pending tasks with parallel agents
 #   status                  Show swarm state and progress
+#   coherence               Check cross-task consistency before integration
 #   integrate               Merge completed branches into main
 #   review [--task-id ID]   Run code review on completed tasks
 #   retry [--task-id ID]    Retry a failed task
+#   recover                 Recover from crashed/stale state
+#   guardian [spec-file]     Run Product Guardian vision check
 #   help                    Show this help message
 
 set -euo pipefail
@@ -24,6 +29,7 @@ source "${SCRIPT_DIR}/lib/log.sh"
 source "${SCRIPT_DIR}/lib/git.sh"
 source "${SCRIPT_DIR}/lib/claude.sh"
 source "${SCRIPT_DIR}/lib/tasks.sh"
+source "${SCRIPT_DIR}/lib/grounding.sh"
 source "${SCRIPT_DIR}/lib/gates.sh"
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -35,27 +41,56 @@ tribe_help() {
     echo -e "${BOLD}USAGE${RESET}"
     echo "    ./swarm/tribe <command> [options]"
     echo ""
+    echo -e "${BOLD}WORKFLOW${RESET}"
+    echo -e "    ${DIM}1.${RESET} ${CYAN}init${RESET}       → ${DIM}Initialize project${RESET}"
+    echo -e "    ${DIM}2.${RESET} ${CYAN}validate${RESET}   → ${DIM}Cross-validate specs${RESET}"
+    echo -e "    ${DIM}3.${RESET} ${CYAN}plan${RESET}       → ${DIM}Guardian gate → Decompose spec into task DAG + contract${RESET}"
+    echo -e "    ${DIM}4.${RESET} ${CYAN}verify${RESET}     → ${DIM}Blind-check plan against spec${RESET}"
+    echo -e "    ${DIM}5.${RESET} ${CYAN}run${RESET}        → ${DIM}Execute tasks with parallel agents${RESET}"
+    echo -e "    ${DIM}6.${RESET} ${CYAN}review${RESET}     → ${DIM}Code review + Guardian gate on completed tasks${RESET}"
+    echo -e "    ${DIM}7.${RESET} ${CYAN}coherence${RESET}  → ${DIM}Cross-task consistency check${RESET}"
+    echo -e "    ${DIM}8.${RESET} ${CYAN}integrate${RESET}  → ${DIM}Merge + regression + contract + Guardian gate${RESET}"
+    echo ""
     echo -e "${BOLD}COMMANDS${RESET}"
     echo -e "    ${CYAN}init${RESET}                        Initialize project for swarm development"
-    echo -e "    ${CYAN}plan${RESET} <spec-file>             Decompose a product spec into a task DAG"
+    echo -e "    ${CYAN}validate${RESET} <specs-dir>         Cross-validate all specs for consistency"
+    echo -e "    ${CYAN}plan${RESET} <spec-file> [opts]      Decompose a product spec into task DAG + contract"
+    echo -e "    ${CYAN}verify${RESET}                       Blind-verify plan against product spec"
     echo -e "    ${CYAN}run${RESET}  [options]               Execute pending tasks with parallel agents"
     echo -e "    ${CYAN}status${RESET}                       Show swarm state and progress"
-    echo -e "    ${CYAN}integrate${RESET}                    Merge completed branches into main"
+    echo -e "    ${CYAN}coherence${RESET}                    Cross-task consistency check pre-integration"
+    echo -e "    ${CYAN}integrate${RESET}                    Merge completed branches + regression + contract"
     echo -e "    ${CYAN}review${RESET} [--task-id ID]        Run code review on completed tasks"
     echo -e "    ${CYAN}retry${RESET}  [--task-id ID]        Retry a failed task with optional escalation"
+    echo -e "    ${CYAN}recover${RESET}                      Recover from crashed/stale swarm state"
+    echo -e "    ${CYAN}guardian${RESET} [spec-file]           Run Product Guardian vision check"
     echo -e "    ${CYAN}help${RESET}                         Show this help message"
+    echo ""
+    echo -e "${BOLD}PLAN OPTIONS${RESET}"
+    echo -e "    --specs-dir DIR             Directory with related specs for cross-referencing"
     echo ""
     echo -e "${BOLD}RUN OPTIONS${RESET}"
     echo -e "    --max-parallel N            Max concurrent agents (default: ${DEFAULT_MAX_PARALLEL})"
     echo -e "    --max-budget USD            Total budget in USD (default: ${DEFAULT_MAX_BUDGET})"
     echo -e "    --model MODEL               Default model: sonnet|opus|haiku (default: ${DEFAULT_MODEL})"
     echo ""
+    echo -e "${BOLD}RETRY OPTIONS${RESET}"
+    echo -e "    --task-id ID                Retry a specific task"
+    echo -e "    --escalate                  Upgrade model on retry (sonnet→opus)"
+    echo ""
+    echo -e "${BOLD}GUARDIAN OPTIONS${RESET}"
+    echo -e "    SKIP_GUARDIAN=true             Skip guardian gates in plan/review/integrate"
+    echo ""
     echo -e "${BOLD}EXAMPLES${RESET}"
     echo "    ./swarm/tribe init"
-    echo "    ./swarm/tribe plan spec.md"
+    echo "    ./swarm/tribe validate specs/"
+    echo "    ./swarm/tribe plan specs/product/f4-tribes.md --specs-dir specs/"
+    echo "    ./swarm/tribe verify"
     echo "    ./swarm/tribe run --max-parallel 3 --max-budget 10"
-    echo "    ./swarm/tribe status"
+    echo "    ./swarm/tribe review"
+    echo "    ./swarm/tribe coherence"
     echo "    ./swarm/tribe integrate"
+    echo "    ./swarm/tribe guardian specs/product/f4-tribes.md"
     echo ""
 }
 
@@ -80,6 +115,7 @@ cmd_init() {
 .tribe/logs/
 .tribe/state.json
 .tribe/budget.json
+.tribe/running/
 EOF
         log_success "Updated .gitignore"
     fi
@@ -110,11 +146,131 @@ EOF
     echo ""
 }
 
+cmd_validate() {
+    local specs_dir="${1:-}"
+
+    if [[ -z "$specs_dir" ]]; then
+        log_error "Usage: tribe validate <specs-dir>"
+        exit 1
+    fi
+
+    if [[ ! -d "$specs_dir" ]]; then
+        if [[ -d "${TRIBE_ROOT}/${specs_dir}" ]]; then
+            specs_dir="${TRIBE_ROOT}/${specs_dir}"
+        else
+            log_error "Specs directory not found: $specs_dir"
+            exit 1
+        fi
+    fi
+
+    log_header "Validating Specs"
+
+    # Gather all spec files
+    local spec_files=""
+    local file_count=0
+    while IFS= read -r -d '' f; do
+        local relpath="${f#${TRIBE_ROOT}/}"
+        spec_files+=$'\n\n'"--- FILE: ${relpath} ---"$'\n'"$(cat "$f")"
+        ((file_count++))
+    done < <(find "$specs_dir" -name '*.md' -type f -print0 | sort -z)
+
+    if [[ $file_count -eq 0 ]]; then
+        log_error "No .md files found in $specs_dir"
+        exit 1
+    fi
+
+    log_step "Found ${file_count} spec files"
+    log_step "Sending to Validator agent..."
+    echo ""
+
+    local validator_output
+    validator_output=$(claude_run \
+        "${AGENTS_DIR}/validator.md" \
+        "Cross-validate the following ${file_count} specification files for consistency, completeness, and missing relationships:${spec_files}" \
+        "sonnet" \
+        "$DEFAULT_TASK_BUDGET" \
+        "Read Glob Grep")
+
+    echo "$validator_output"
+    echo ""
+
+    # Save validation report
+    echo "$validator_output" > "${LOGS_DIR}/validation.log"
+    log_success "Validation report saved to ${LOGS_DIR}/validation.log"
+
+    # Check status
+    local status
+    status=$(echo "$validator_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+
+    if [[ "$status" == "fail" ]]; then
+        echo ""
+        log_error "Validation FAILED — fix critical gaps before running 'tribe plan'"
+        local gap_count
+        gap_count=$(echo "$validator_output" | jq '.critical_gaps | length' 2>/dev/null || echo "?")
+        log_error "${gap_count} critical gap(s) found"
+        exit 1
+    elif [[ "$status" == "pass" ]]; then
+        echo ""
+        log_success "Validation PASSED — specs are consistent"
+    else
+        log_warn "Could not parse validation status. Review the report manually."
+    fi
+
+    echo ""
+}
+
+# ── Gather related specs for cross-referencing ────────────────
+
+_gather_related_specs() {
+    local specs_dir="$1"
+    local exclude_file="$2"
+    local related=""
+
+    if [[ -z "$specs_dir" ]] || [[ ! -d "$specs_dir" ]]; then
+        echo ""
+        return
+    fi
+
+    while IFS= read -r -d '' f; do
+        # Skip the primary spec file
+        if [[ "$(realpath "$f")" == "$(realpath "$exclude_file")" ]]; then
+            continue
+        fi
+        local relpath="${f#${TRIBE_ROOT}/}"
+        related+=$'\n\n'"--- RELATED SPEC: ${relpath} ---"$'\n'"$(cat "$f")"
+    done < <(find "$specs_dir" -name '*.md' -type f -print0 | sort -z)
+
+    echo "$related"
+}
+
+# ── Store the primary spec file path for downstream commands ──
+
+_save_spec_path() {
+    local spec_file="$1"
+    echo "$spec_file" > "${TRIBE_DIR}/spec_path"
+}
+
+_get_spec_path() {
+    if [[ -f "${TRIBE_DIR}/spec_path" ]]; then
+        cat "${TRIBE_DIR}/spec_path"
+    fi
+}
+
 cmd_plan() {
     local spec_file="${1:-}"
+    shift || true
+    local specs_dir=""
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --specs-dir) specs_dir="$2"; shift 2 ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
 
     if [[ -z "$spec_file" ]]; then
-        log_error "Usage: tribe plan <spec-file>"
+        log_error "Usage: tribe plan <spec-file> [--specs-dir DIR]"
         exit 1
     fi
 
@@ -128,48 +284,106 @@ cmd_plan() {
         fi
     fi
 
+    # Resolve specs_dir
+    if [[ -n "$specs_dir" ]] && [[ ! -d "$specs_dir" ]]; then
+        if [[ -d "${TRIBE_ROOT}/${specs_dir}" ]]; then
+            specs_dir="${TRIBE_ROOT}/${specs_dir}"
+        else
+            log_warn "Specs directory not found: $specs_dir — proceeding without cross-references"
+            specs_dir=""
+        fi
+    fi
+
+    # Save spec path for verify and review commands
+    _save_spec_path "$spec_file"
+
     log_header "Planning Task DAG"
     log_step "Reading spec: ${CYAN}${spec_file}${RESET}"
 
     local spec_content
     spec_content=$(cat "$spec_file")
 
+    # ── Pre-Plan Guardian Gate ─────────────────────────────────────
+    # Check: does this spec belong in the product?
+    log_step "Running pre-plan vision check..."
+    _run_guardian "pre-plan" "$spec_content" "$spec_file" || {
+        local guardian_rc=$?
+        if [[ $guardian_rc -eq 1 ]]; then
+            log_error "Product Guardian REJECTED this spec — it conflicts with the product vision"
+            echo -e "Review the guardian report and either:"
+            echo -e "  1. Fix the spec to align with the vision"
+            echo -e "  2. Override with ${CYAN}SKIP_GUARDIAN=true tribe plan ...${RESET} (use with caution)"
+            if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
+                exit 1
+            else
+                log_warn "SKIP_GUARDIAN=true — proceeding despite rejection"
+            fi
+        fi
+        # guardian_rc == 2 means flagged — warn but continue
+    }
+    echo ""
+
+    # Gather related specs for cross-referencing
+    local related_specs=""
+    if [[ -n "$specs_dir" ]]; then
+        log_step "Gathering related specs from: ${CYAN}${specs_dir}${RESET}"
+        related_specs=$(_gather_related_specs "$specs_dir" "$spec_file")
+        if [[ -n "$related_specs" ]]; then
+            log_step "Cross-referencing with related specs"
+        fi
+    fi
+
     log_step "Sending to Architect agent..."
     echo ""
+
+    # Build the message with primary spec and related specs
+    local architect_message="Here is the product specification to decompose into tasks:\n\n${spec_content}"
+    if [[ -n "$related_specs" ]]; then
+        architect_message+="\n\n## Related Specs (cross-reference these for entity relationships)\n${related_specs}"
+    fi
 
     # Run architect agent
     local architect_output
     architect_output=$(claude_run_json \
         "${AGENTS_DIR}/architect.md" \
-        "Here is the product specification to decompose into tasks:\n\n${spec_content}" \
+        "$architect_message" \
         "${TEMPLATES_DIR}/task.json" \
         "sonnet")
 
     # Save raw output for debugging
     echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
 
-    # Normalize output to a JSON array of tasks
-    local tasks_json=""
+    # ── Extract tasks and contract from architect output ──────────
 
-    # Case 1: already a valid JSON array
-    if echo "$architect_output" | jq -e 'type == "array"' &>/dev/null; then
+    local tasks_json=""
+    local contract_json=""
+
+    # Try to parse as {tasks: [...], contract: {...}}
+    if echo "$architect_output" | jq -e '.tasks | type == "array"' &>/dev/null; then
+        tasks_json=$(echo "$architect_output" | jq '.tasks')
+        contract_json=$(echo "$architect_output" | jq '.contract // empty')
+    # Fallback: already a valid JSON array (old format)
+    elif echo "$architect_output" | jq -e 'type == "array"' &>/dev/null; then
         tasks_json="$architect_output"
-    # Case 2: JSON object — look for common wrapper keys
-    elif echo "$architect_output" | jq -e 'type == "object"' &>/dev/null; then
-        if echo "$architect_output" | jq -e '.tasks | type == "array"' &>/dev/null; then
-            tasks_json=$(echo "$architect_output" | jq '.tasks')
-        else
-            tasks_json=$(echo "$architect_output" | jq '[.[] | select(type == "array")] | .[0] // empty')
+    fi
+
+    # Fallback: text with embedded JSON in ```json code fences
+    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
+        local fenced_json
+        fenced_json=$(echo "$architect_output" | sed -n '/^```/,/^```/p' | sed '/^```/d' | jq -s '.[0]' 2>/dev/null || true)
+
+        if [[ -n "$fenced_json" ]]; then
+            # Code-fenced JSON may be {tasks: [...], contract: {...}} wrapper
+            if echo "$fenced_json" | jq -e '.tasks | type == "array"' &>/dev/null; then
+                tasks_json=$(echo "$fenced_json" | jq '.tasks')
+                contract_json=$(echo "$fenced_json" | jq '.contract // empty')
+            elif echo "$fenced_json" | jq -e 'type == "array"' &>/dev/null; then
+                tasks_json="$fenced_json"
+            fi
         fi
     fi
 
-    # Case 3: text with embedded JSON (possibly in ```json code fences)
-    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
-        # Strip markdown code fences and extract JSON array
-        tasks_json=$(echo "$architect_output" | sed -n '/^```/,/^```/p' | sed '/^```/d' | jq -s '.[0]' 2>/dev/null || true)
-    fi
-
-    # Case 4: brute force — find the first [ and last ] in the output
+    # Fallback: brute force — find the first [ and last ] in the output
     if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
         tasks_json=$(echo "$architect_output" | sed -n '/^\[/,/^\]/p' | jq '.' 2>/dev/null || true)
     fi
@@ -182,6 +396,15 @@ cmd_plan() {
 
     architect_output="$tasks_json"
 
+    # Save contract if present
+    if [[ -n "$contract_json" ]] && echo "$contract_json" | jq -e '.' &>/dev/null; then
+        echo "$contract_json" | jq '.' > "${TRIBE_DIR}/contract.json"
+        log_success "Contract saved to ${TRIBE_DIR}/contract.json"
+    else
+        log_warn "No contract produced by Architect — verification will be limited"
+        log_warn "Consider re-running plan or manually creating .tribe/contract.json"
+    fi
+
     # Clear existing tasks
     rm -f "${TASKS_DIR}"/*.json
 
@@ -192,20 +415,29 @@ cmd_plan() {
     log_step "Creating ${task_count} tasks..."
     echo ""
 
+    # Check for file conflicts between parallel tasks
+    local conflict_warnings=""
+
     local i=0
     while [[ $i -lt $task_count ]]; do
         local task
         task=$(echo "$architect_output" | jq ".[$i]")
 
-        local id title description criteria depends_on model
+        local id title description criteria depends_on model files_touched
         id=$(echo "$task" | jq -r '.id')
         title=$(echo "$task" | jq -r '.title')
         description=$(echo "$task" | jq -r '.description')
         criteria=$(echo "$task" | jq -r '.acceptance_criteria')
         depends_on=$(echo "$task" | jq -c '.depends_on // []')
         model=$(echo "$task" | jq -r '.agent_model // "sonnet"')
+        files_touched=$(echo "$task" | jq -c '.files_touched // []')
 
         task_create "$id" "$title" "$description" "$criteria" "$depends_on" "$model"
+
+        # Store files_touched in the task file
+        if [[ "$files_touched" != "[]" ]]; then
+            task_update_raw "$id" "files_touched" "$files_touched"
+        fi
 
         ((i++))
     done
@@ -221,7 +453,119 @@ cmd_plan() {
     echo ""
 
     echo -e "${DIM}Review tasks in ${TASKS_DIR}/${RESET}"
-    echo -e "${DIM}When ready, run: ${CYAN}./swarm/tribe run${RESET}"
+    echo -e "${DIM}Next: ${CYAN}./swarm/tribe verify${RESET} to validate the plan against the spec${RESET}"
+    echo ""
+}
+
+# ── Verify: blind plan verification against product spec ─────
+
+cmd_verify() {
+    log_header "Verifying Plan Against Spec"
+
+    # Check prerequisites
+    local total
+    total=$(task_count_total)
+    if [[ "$total" -eq 0 ]]; then
+        log_error "No tasks found. Run 'tribe plan <spec>' first."
+        exit 1
+    fi
+
+    local spec_file
+    spec_file=$(_get_spec_path)
+    if [[ -z "$spec_file" ]] || [[ ! -f "$spec_file" ]]; then
+        log_error "Product spec not found. Run 'tribe plan <spec-file>' first."
+        exit 1
+    fi
+
+    log_step "Reading product spec: ${CYAN}${spec_file}${RESET}"
+    local spec_content
+    spec_content=$(cat "$spec_file")
+
+    # Gather the task plan
+    log_step "Gathering task plan (${total} tasks)..."
+    local task_plan=""
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local id title desc criteria deps files
+        id=$(jq -r '.id' "$f")
+        title=$(jq -r '.title' "$f")
+        desc=$(jq -r '.description' "$f")
+        criteria=$(jq -r '.acceptance_criteria' "$f")
+        deps=$(jq -r '.depends_on | join(", ")' "$f")
+        files=$(jq -r '.files_touched // [] | join(", ")' "$f")
+
+        task_plan+="### Task ${id}: ${title}
+Description: ${desc}
+Acceptance Criteria: ${criteria}
+Depends On: ${deps}
+Files: ${files}
+
+"
+    done
+
+    # Gather contract if it exists
+    local contract_section=""
+    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
+        contract_section="
+## Data Model Contract
+$(cat "${TRIBE_DIR}/contract.json")
+"
+    fi
+
+    # Build verification message — spec and plan ONLY, no architect reasoning
+    local verify_message="## Product Specification
+
+${spec_content}
+
+## Task Plan
+
+${task_plan}
+${contract_section}
+
+Verify this plan against the product specification. Read the spec FIRST, form your own understanding, THEN check the plan."
+
+    log_step "Sending to Plan Verifier agent (blind check)..."
+    echo ""
+
+    local verify_output
+    verify_output=$(claude_run \
+        "${AGENTS_DIR}/plan-verifier.md" \
+        "$verify_message" \
+        "sonnet" \
+        "$DEFAULT_TASK_BUDGET" \
+        "Read Glob Grep")
+
+    echo "$verify_output"
+    echo ""
+
+    # Save verification report
+    echo "$verify_output" > "${LOGS_DIR}/plan-verification.log"
+    log_success "Verification report saved to ${LOGS_DIR}/plan-verification.log"
+
+    # Check status
+    local status
+    status=$(echo "$verify_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+
+    if [[ "$status" == "fail" ]]; then
+        echo ""
+        log_error "Plan verification FAILED — the plan may not deliver what the spec requires"
+        local failure_count
+        failure_count=$(echo "$verify_output" | jq '.critical_failures | length' 2>/dev/null || echo "?")
+        log_error "${failure_count} critical failure(s) found"
+        echo ""
+        echo -e "Options:"
+        echo -e "  1. Fix the spec or re-run ${CYAN}tribe plan${RESET} with adjustments"
+        echo -e "  2. Review the failures and proceed if they're false positives"
+        echo ""
+        exit 1
+    elif [[ "$status" == "pass" ]]; then
+        echo ""
+        log_success "Plan verification PASSED"
+        echo -e "Next: ${CYAN}./swarm/tribe run${RESET} to execute tasks"
+    else
+        log_warn "Could not parse verification status. Review the report manually."
+    fi
+
     echo ""
 }
 
@@ -243,12 +587,24 @@ cmd_run() {
     log_header "Running Swarm"
     log_info "Max parallel: ${max_parallel} | Budget: \$${max_budget} | Model: ${model}"
 
+    # Ensure working tree is committed so task branches see all files
+    git_create_baseline
+
     # Verify tasks exist
     local total
     total=$(task_count_total)
     if [[ "$total" -eq 0 ]]; then
         log_error "No tasks found. Run 'tribe plan <spec>' first."
         exit 1
+    fi
+
+    # Check for stale state
+    local current_state
+    current_state=$(jq -r '.status' "$STATE_FILE" 2>/dev/null || echo "idle")
+    if [[ "$current_state" == "running" ]]; then
+        log_warn "Swarm state is 'running' — may be stale from a previous crash."
+        log_warn "Run ${CYAN}tribe recover${RESET} first, or press Ctrl+C to abort."
+        sleep 3
     fi
 
     # Initialize budget tracking
@@ -260,7 +616,7 @@ cmd_run() {
     jq -n \
         --arg status "running" \
         --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        '{status: $status, agents: [], started_at: $started}' > "$STATE_FILE"
+        '{status: $status, agents: [], started_at: $started, failure_history: []}' > "$STATE_FILE"
 
     # Ensure we're on main branch
     local main_branch
@@ -270,7 +626,6 @@ cmd_run() {
     local running_dir="${TRIBE_ROOT}/.tribe/running"
     rm -rf "$running_dir"
     mkdir -p "$running_dir"
-    # Each running agent: .tribe/running/{task_id}.pid (contains PID)
 
     _running_count() {
         local count=0
@@ -285,6 +640,21 @@ cmd_run() {
             [[ -f "$f" ]] || continue
             basename "$f" .pid
         done
+    }
+
+    # ── Failure tracking for pattern detection ─────────────────
+    local failure_log="${TRIBE_DIR}/failure_history.jsonl"
+    > "$failure_log"  # Clear
+
+    _record_failure() {
+        local task_id="$1"
+        local error="$2"
+        jq -nc --arg tid "$task_id" --arg err "$error" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{task_id: $tid, error: $err, timestamp: $ts}' >> "$failure_log"
+    }
+
+    _failure_count() {
+        wc -l < "$failure_log" 2>/dev/null | tr -d ' '
     }
 
     # ── Main orchestration loop ──────────────────────────────────
@@ -312,7 +682,45 @@ cmd_run() {
                 # Wait briefly for file writes to flush
                 sleep 1
 
-                # Determine success by output content, not exit code
+                # ── Check for blocked status first ────────────────
+                if [[ -s "$output_file" ]] && grep -q '"status"[[:space:]]*:[[:space:]]*"blocked"' "$output_file" 2>/dev/null; then
+                    log_warn "Task ${task_id}: agent reported BLOCKED"
+                    task_update "$task_id" "status" "blocked"
+
+                    # Extract the blocked reason
+                    local blocked_info
+                    blocked_info=$(python3 -c "
+import json, sys
+try:
+    text = open('${output_file}').read()
+    # Find JSON in the output
+    start = text.find('{')
+    end = text.rfind('}') + 1
+    if start >= 0 and end > start:
+        data = json.loads(text[start:end])
+        if data.get('status') == 'blocked':
+            print(json.dumps(data))
+except:
+    pass
+" 2>/dev/null || echo "")
+
+                    if [[ -n "$blocked_info" ]]; then
+                        task_update "$task_id" "error" "$blocked_info"
+                        local uncertain_about
+                        uncertain_about=$(echo "$blocked_info" | jq -r '.uncertain_about // "Unknown"' 2>/dev/null)
+                        log_warn "  Uncertainty: ${uncertain_about}"
+                    fi
+
+                    # Invoke supervisor for blocked tasks
+                    _invoke_supervisor "$task_id" "blocked"
+
+                    rm -f "$pid_file" "$done_marker"
+                    task_update_raw "$task_id" "agent_pid" "null"
+                    _git checkout "$main_branch" 2>/dev/null || true
+                    continue
+                fi
+
+                # ── Normal completion check ───────────────────────
                 if [[ -s "$output_file" ]]; then
                     log_success "Task ${task_id} agent completed"
 
@@ -324,11 +732,24 @@ cmd_run() {
                         task_update "$task_id" "status" "failed"
                         task_update "$task_id" "error" "Quality gates failed"
                         log_error "Task ${task_id}: quality gates failed"
+                        _record_failure "$task_id" "Quality gates failed"
+
+                        # Invoke debugger for diagnosis
+                        _invoke_debugger "$task_id"
+
+                        # Check for pattern failures
+                        local fail_count
+                        fail_count=$(_failure_count)
+                        if [[ "$fail_count" -ge 3 ]]; then
+                            log_warn "Multiple failures detected — invoking Supervisor for pattern analysis"
+                            _invoke_supervisor "$task_id" "pattern"
+                        fi
                     fi
                 else
                     task_update "$task_id" "status" "failed"
                     task_update "$task_id" "error" "Agent produced no output"
                     log_error "Task ${task_id}: agent produced no output"
+                    _record_failure "$task_id" "Agent produced no output"
                 fi
 
                 # Clean up tracking
@@ -346,10 +767,18 @@ cmd_run() {
 
         # Find ready tasks and spawn agents
         local ready_tasks
-        ready_tasks=$(task_list_ready)
+        ready_tasks=$(_get_ready_tasks)
 
         if [[ -z "$ready_tasks" ]] && [[ $running_count -eq 0 ]]; then
-            # Nothing ready and nothing running — we're done
+            # Nothing ready and nothing running — check if blocked tasks exist
+            local blocked_count
+            blocked_count=$(task_count_by_status "blocked")
+            if [[ "$blocked_count" -gt 0 ]]; then
+                log_warn "${blocked_count} task(s) blocked — awaiting human input"
+                log_warn "Check .tribe/logs/supervisor-*.log for details"
+                break
+            fi
+            # Otherwise we're done
             break
         fi
 
@@ -357,6 +786,15 @@ cmd_run() {
             while IFS= read -r task_id; do
                 if [[ $running_count -ge $max_parallel ]]; then
                     break
+                fi
+
+                # ── File conflict check ───────────────────────────
+                local conflict_output
+                conflict_output=$(grounding_check_file_conflicts "$task_id")
+                if [[ $? -ne 0 ]] && [[ -n "$conflict_output" ]]; then
+                    log_warn "Task ${task_id}: file conflict detected, deferring"
+                    log_warn "  ${conflict_output}"
+                    continue
                 fi
 
                 # Read task details
@@ -369,12 +807,22 @@ cmd_run() {
                 task_model=$(echo "$task_json" | jq -r ".agent_model // \"${model}\"")
                 branch=$(echo "$task_json" | jq -r '.branch')
 
+                # Get files_touched for scope awareness
+                local files_touched
+                files_touched=$(echo "$task_json" | jq -r '.files_touched // [] | join(", ")')
+
                 # Append review feedback if retrying
                 local feedback
                 feedback=$(echo "$task_json" | jq -r '.review_feedback // empty')
                 local extra_context=""
                 if [[ -n "$feedback" ]]; then
                     extra_context=$'\n\n## Previous Review Feedback\n\n'"${feedback}"
+                fi
+
+                # Append debugger analysis if retrying after failure
+                local debugger_log="${LOGS_DIR}/debugger-${task_id}.json"
+                if [[ -f "$debugger_log" ]]; then
+                    extra_context+=$'\n\n## Debugger Analysis (from previous failure)\n\n'"$(cat "$debugger_log")"
                 fi
 
                 # Create branch
@@ -384,6 +832,13 @@ cmd_run() {
                 _git checkout "$main_branch" 2>/dev/null || true
 
                 # Build agent message
+                local files_section=""
+                if [[ -n "$files_touched" ]]; then
+                    files_section="
+### Declared Files (stay within scope)
+${files_touched}"
+                fi
+
                 local agent_message="## Task: ${title}
 
 ### Description
@@ -391,6 +846,7 @@ ${description}
 
 ### Acceptance Criteria
 ${criteria}
+${files_section}
 
 ### Git Branch
 You are working on branch: \`${branch}\`
@@ -427,12 +883,25 @@ ${TRIBE_ROOT}"
         fi
 
         # Brief status update
-        local done_count pending_count failed_count
+        local done_count pending_count failed_count blocked_count
         done_count=$(task_count_by_status "done")
         running_count=$(_running_count)
         pending_count=$(task_count_by_status "pending")
         failed_count=$(task_count_by_status "failed")
-        echo -ne "\r${DIM}[${done_count}/${total} done | ${running_count} running | ${pending_count} pending | ${failed_count} failed]${RESET}  "
+        blocked_count=$(task_count_by_status "blocked")
+        echo -ne "\r${DIM}[${done_count}/${total} done | ${running_count} running | ${pending_count} pending | ${failed_count} failed | ${blocked_count} blocked]${RESET}  "
+
+        # Check halt threshold: >30% failed
+        local fail_pct=0
+        if [[ "$total" -gt 0 ]]; then
+            fail_pct=$(( (failed_count * 100) / total ))
+        fi
+        if [[ "$fail_pct" -ge 30 ]]; then
+            echo ""
+            log_error "Over 30% of tasks have failed (${failed_count}/${total}). Halting swarm."
+            log_error "Review failures with: tribe status"
+            break
+        fi
 
         # Sleep before next check
         sleep 5
@@ -460,12 +929,353 @@ ${TRIBE_ROOT}"
         log_warn "${failed_count} task(s) failed. Use ${CYAN}tribe retry --task-id ID${RESET} to retry."
     fi
 
+    local blocked_count
+    blocked_count=$(task_count_by_status "blocked")
+    if [[ "$blocked_count" -gt 0 ]]; then
+        log_warn "${blocked_count} task(s) blocked. Check supervisor logs for questions that need human answers."
+    fi
+
     local done_count
     done_count=$(task_count_by_status "done")
     if [[ "$done_count" -gt 0 ]]; then
-        echo -e "Next: ${CYAN}./swarm/tribe integrate${RESET} to merge completed work."
+        echo -e "Next: ${CYAN}./swarm/tribe review${RESET} then ${CYAN}./swarm/tribe coherence${RESET} then ${CYAN}./swarm/tribe integrate${RESET}"
     fi
     echo ""
+}
+
+# ── Get ready tasks: pending + deps met + not blocked ────────
+
+_get_ready_tasks() {
+    _ensure_jq
+    local pending
+    pending=$(task_list_by_status "pending")
+
+    if [[ -z "$pending" ]]; then
+        return
+    fi
+
+    while IFS= read -r id; do
+        if task_deps_met "$id"; then
+            echo "$id"
+        fi
+    done <<< "$pending"
+}
+
+# ── Invoke debugger on a failed task ─────────────────────────
+
+_invoke_debugger() {
+    local task_id="$1"
+    local task_json
+    task_json=$(task_get "$task_id")
+    local title description criteria branch
+    title=$(echo "$task_json" | jq -r '.title')
+    description=$(echo "$task_json" | jq -r '.description')
+    criteria=$(echo "$task_json" | jq -r '.acceptance_criteria')
+    branch=$(echo "$task_json" | jq -r '.branch')
+
+    local output_file="${LOGS_DIR}/${task_id}.log"
+    local agent_output=""
+    if [[ -f "$output_file" ]]; then
+        # Tail last 200 lines to keep context manageable
+        agent_output=$(tail -200 "$output_file")
+    fi
+
+    local diff=""
+    if git_branch_exists "$branch" 2>/dev/null; then
+        diff=$(_git diff "main...${branch}" 2>/dev/null | head -500 || echo "No diff")
+    fi
+
+    local debugger_message="## Failed Task ${task_id}: ${title}
+
+### Task Description
+${description}
+
+### Acceptance Criteria
+${criteria}
+
+### Agent Output (last 200 lines)
+${agent_output}
+
+### Git Diff (first 500 lines)
+\`\`\`diff
+${diff}
+\`\`\`
+
+Diagnose why this task failed and provide a specific fix."
+
+    log_step "Invoking Debugger for task ${task_id}..."
+
+    local debugger_output
+    debugger_output=$(claude_run \
+        "${AGENTS_DIR}/debugger.md" \
+        "$debugger_message" \
+        "sonnet" \
+        "1" \
+        "Read Glob Grep" 2>/dev/null || echo '{"error": "Debugger agent failed"}')
+
+    echo "$debugger_output" > "${LOGS_DIR}/debugger-${task_id}.json"
+    log_step "Debugger analysis saved to ${LOGS_DIR}/debugger-${task_id}.json"
+}
+
+# ── Invoke supervisor for diagnosis ──────────────────────────
+
+_invoke_supervisor() {
+    local task_id="$1"
+    local trigger_type="$2"  # "blocked", "pattern", "coherence", "contract"
+
+    local task_json
+    task_json=$(task_get "$task_id")
+
+    # Gather swarm state
+    local swarm_state=""
+    swarm_state+="Total tasks: $(task_count_total)\n"
+    swarm_state+="Done: $(task_count_by_status "done")\n"
+    swarm_state+="Running: $(task_count_by_status "running")\n"
+    swarm_state+="Pending: $(task_count_by_status "pending")\n"
+    swarm_state+="Failed: $(task_count_by_status "failed")\n"
+    swarm_state+="Blocked: $(task_count_by_status "blocked")\n"
+
+    # Gather failure history
+    local failure_history=""
+    local failure_log="${TRIBE_DIR}/failure_history.jsonl"
+    if [[ -f "$failure_log" ]]; then
+        failure_history=$(cat "$failure_log")
+    fi
+
+    # Gather task details
+    local task_details=""
+    task_details+="Task ${task_id}: $(echo "$task_json" | jq -r '.title')\n"
+    task_details+="Status: $(echo "$task_json" | jq -r '.status')\n"
+    task_details+="Error: $(echo "$task_json" | jq -r '.error // "none"')\n"
+
+    # Include debugger analysis if available
+    local debugger_log="${LOGS_DIR}/debugger-${task_id}.json"
+    if [[ -f "$debugger_log" ]]; then
+        task_details+="\nDebugger Analysis:\n$(cat "$debugger_log")\n"
+    fi
+
+    local supervisor_message="## Supervisor Trigger: ${trigger_type}
+
+### Swarm State
+$(echo -e "$swarm_state")
+
+### Triggering Task
+$(echo -e "$task_details")
+
+### Failure History
+${failure_history}
+
+Diagnose the situation and recommend recovery actions."
+
+    log_step "Invoking Supervisor (trigger: ${trigger_type})..."
+
+    local supervisor_output
+    supervisor_output=$(claude_run \
+        "${AGENTS_DIR}/supervisor.md" \
+        "$supervisor_message" \
+        "sonnet" \
+        "1" \
+        "Read Glob Grep" 2>/dev/null || echo '{"error": "Supervisor agent failed"}')
+
+    echo "$supervisor_output" > "${LOGS_DIR}/supervisor-${task_id}-$(date +%s).log"
+
+    # Check if supervisor recommends halting
+    local should_halt
+    should_halt=$(echo "$supervisor_output" | jq -r '.should_halt' 2>/dev/null || echo "false")
+    if [[ "$should_halt" == "true" ]]; then
+        local halt_reason
+        halt_reason=$(echo "$supervisor_output" | jq -r '.halt_reason' 2>/dev/null || echo "Unknown")
+        log_error "Supervisor recommends HALTING: ${halt_reason}"
+    fi
+
+    # Check for escalation (needs human input)
+    local has_escalation
+    has_escalation=$(echo "$supervisor_output" | jq -r '.actions[]? | select(.action == "escalate") | .human_question' 2>/dev/null || echo "")
+    if [[ -n "$has_escalation" ]]; then
+        echo ""
+        log_warn "HUMAN INPUT NEEDED:"
+        echo -e "  ${YELLOW}${has_escalation}${RESET}"
+        echo ""
+    fi
+
+    log_step "Supervisor analysis saved to ${LOGS_DIR}/"
+}
+
+# ── Product Guardian: vision alignment check ──────────────────
+# Runs the Product Guardian agent against any input (spec, diff, integration)
+# Returns: 0 = aligned, 1 = rejected, 2 = flagged (warnings)
+_run_guardian() {
+    local check_type="$1"  # "pre-plan" | "post-review" | "post-integration"
+    local content="$2"
+    local label="${3:-}"
+
+    local overview_file="${TRIBE_ROOT}/specs/product/overview.md"
+    if [[ ! -f "$overview_file" ]]; then
+        log_warn "Product overview not found at ${overview_file} — skipping guardian check"
+        return 0
+    fi
+
+    local overview_content
+    overview_content=$(cat "$overview_file")
+
+    local guardian_message="## Guardian Check: ${check_type}
+
+### Product Vision (source of truth)
+${overview_content}
+
+### Input to Evaluate
+${content}
+
+Evaluate this ${check_type} input against the product vision. Respond with JSON."
+
+    log_step "Running Product Guardian (${check_type})..."
+
+    local raw_guardian_output
+    raw_guardian_output=$(claude_run \
+        "${AGENTS_DIR}/product-guardian.md" \
+        "$guardian_message" \
+        "sonnet" \
+        "$DEFAULT_TASK_BUDGET" \
+        "Read Glob Grep")
+
+    # Extract JSON from code fences if present
+    local guardian_output
+    if echo "$raw_guardian_output" | jq -e '.status' &>/dev/null; then
+        guardian_output="$raw_guardian_output"
+    else
+        guardian_output=$(echo "$raw_guardian_output" | sed -n '/^```/,/^```/p' | sed '/^```/d' | jq -s '.[0]' 2>/dev/null || echo "$raw_guardian_output")
+    fi
+
+    # Save report
+    local timestamp
+    timestamp=$(date +%s)
+    local log_file="${LOGS_DIR}/guardian-${check_type}-${timestamp}.json"
+    echo "$guardian_output" > "$log_file"
+
+    # Parse status
+    local status
+    status=$(echo "$guardian_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+    local summary
+    summary=$(echo "$guardian_output" | jq -r '.summary' 2>/dev/null || echo "No summary")
+
+    case "$status" in
+        aligned)
+            log_success "Guardian: ${GREEN}ALIGNED${RESET} — ${summary}"
+            echo "$guardian_output"
+            return 0
+            ;;
+        flagged)
+            log_warn "Guardian: ${YELLOW}FLAGGED${RESET} — ${summary}"
+            echo "$guardian_output"
+
+            # Print flags
+            local flag_count
+            flag_count=$(echo "$guardian_output" | jq '.flags | length' 2>/dev/null || echo "0")
+            if [[ "$flag_count" -gt 0 ]]; then
+                echo ""
+                echo -e "  ${BOLD}Vision Flags:${RESET}"
+                echo "$guardian_output" | jq -r '.flags[] | "    \(.severity): \(.description)"' 2>/dev/null
+                echo ""
+            fi
+            return 2
+            ;;
+        rejected)
+            log_error "Guardian: ${RED}REJECTED${RESET} — ${summary}"
+            echo "$guardian_output"
+
+            # Print critical flags
+            local critical_flags
+            critical_flags=$(echo "$guardian_output" | jq -r '.flags[] | select(.severity == "critical") | "    \(.description)\n    Spec: \(.spec_reference)"' 2>/dev/null || echo "")
+            if [[ -n "$critical_flags" ]]; then
+                echo ""
+                echo -e "  ${BOLD}Critical Violations:${RESET}"
+                echo -e "$critical_flags"
+                echo ""
+            fi
+
+            # Print Won't Have violations
+            local wont_have
+            wont_have=$(echo "$guardian_output" | jq -r '.wont_have_violations[]? | "    \(.feature) → maps to Won'\''t Have: \(.maps_to)"' 2>/dev/null || echo "")
+            if [[ -n "$wont_have" ]]; then
+                echo -e "  ${BOLD}Won't Have Violations:${RESET}"
+                echo -e "$wont_have"
+                echo ""
+            fi
+            return 1
+            ;;
+        *)
+            log_warn "Guardian returned unparseable status. Review: ${log_file}"
+            echo "$guardian_output"
+            return 0
+            ;;
+    esac
+}
+
+# Standalone guardian command
+cmd_guardian() {
+    local input_file="${1:-}"
+
+    log_header "Product Guardian"
+
+    # If a file is provided, evaluate it
+    if [[ -n "$input_file" ]]; then
+        if [[ ! -f "$input_file" ]]; then
+            if [[ -f "${TRIBE_ROOT}/${input_file}" ]]; then
+                input_file="${TRIBE_ROOT}/${input_file}"
+            else
+                log_error "File not found: $input_file"
+                exit 1
+            fi
+        fi
+
+        log_step "Evaluating: ${CYAN}${input_file}${RESET}"
+        local content
+        content=$(cat "$input_file")
+
+        _run_guardian "ad-hoc" "$content" "$input_file"
+        local rc=$?
+
+        echo ""
+        echo -e "Report saved to ${CYAN}${LOGS_DIR}/guardian-ad-hoc-*.json${RESET}"
+        echo ""
+        return $rc
+    fi
+
+    # No file — evaluate the current task plan + completed work
+    local spec_file
+    spec_file=$(_get_spec_path)
+    if [[ -z "$spec_file" ]] || [[ ! -f "$spec_file" ]]; then
+        log_error "No spec file found. Provide a file or run 'tribe plan' first."
+        log_error "Usage: tribe guardian <spec-or-plan-file>"
+        exit 1
+    fi
+
+    log_step "Evaluating current spec: ${CYAN}${spec_file}${RESET}"
+    local content
+    content=$(cat "$spec_file")
+
+    # Include task plan if it exists
+    local total
+    total=$(task_count_total 2>/dev/null || echo "0")
+    if [[ "$total" -gt 0 ]]; then
+        content+="\n\n## Current Task Plan\n"
+        for f in "${TASKS_DIR}"/*.json; do
+            [[ -f "$f" ]] || continue
+            local id title status
+            id=$(jq -r '.id' "$f")
+            title=$(jq -r '.title' "$f")
+            status=$(jq -r '.status' "$f")
+            content+="- Task ${id}: ${title} [${status}]\n"
+        done
+    fi
+
+    _run_guardian "ad-hoc" "$content" "$spec_file"
+    local rc=$?
+
+    echo ""
+    echo -e "Report saved to ${CYAN}${LOGS_DIR}/guardian-ad-hoc-*.json${RESET}"
+    echo ""
+    return $rc
 }
 
 cmd_status() {
@@ -514,6 +1324,142 @@ cmd_status() {
         if [[ "$budget" != "0" ]]; then
             echo -e "${BOLD}Budget:${RESET} \$${spent} / \$${budget}"
         fi
+    fi
+
+    # Contract info
+    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
+        echo -e "${BOLD}Contract:${RESET} ${GREEN}present${RESET}"
+    else
+        echo -e "${BOLD}Contract:${RESET} ${YELLOW}missing${RESET}"
+    fi
+
+    # Blocked tasks
+    local blocked_count
+    blocked_count=$(task_count_by_status "blocked")
+    if [[ "$blocked_count" -gt 0 ]]; then
+        echo ""
+        echo -e "${BOLD}Blocked Tasks (need human input):${RESET}"
+        for f in "${TASKS_DIR}"/*.json; do
+            [[ -f "$f" ]] || continue
+            local status
+            status=$(jq -r '.status' "$f")
+            if [[ "$status" == "blocked" ]]; then
+                local id title error
+                id=$(jq -r '.id' "$f")
+                title=$(jq -r '.title' "$f")
+                error=$(jq -r '.error // "No details"' "$f")
+                echo -e "  ${YELLOW}${SYM_WARN}${RESET} Task ${id}: ${title}"
+                echo -e "    ${DIM}${error}${RESET}"
+            fi
+        done
+    fi
+
+    echo ""
+}
+
+# ── Coherence: cross-task consistency check ──────────────────
+
+cmd_coherence() {
+    log_header "Coherence Check"
+
+    local done_tasks
+    done_tasks=$(task_list_by_status "done")
+
+    if [[ -z "$done_tasks" ]]; then
+        log_info "No completed tasks to check."
+        return
+    fi
+
+    # Gather all diffs from completed tasks
+    local all_diffs=""
+    local task_count=0
+    while IFS= read -r tid; do
+        local task_json
+        task_json=$(task_get "$tid")
+        local title branch
+        title=$(echo "$task_json" | jq -r '.title')
+        branch=$(echo "$task_json" | jq -r '.branch')
+
+        local diff=""
+        if git_branch_exists "$branch"; then
+            diff=$(git_diff_branch "$branch" 2>/dev/null || echo "No diff")
+        fi
+
+        all_diffs+="
+--- TASK ${tid}: ${title} (branch: ${branch}) ---
+\`\`\`diff
+${diff}
+\`\`\`
+
+"
+        ((task_count++))
+    done <<< "$done_tasks"
+
+    # Gather product spec
+    local spec_content=""
+    local spec_file
+    spec_file=$(_get_spec_path)
+    if [[ -n "$spec_file" ]] && [[ -f "$spec_file" ]]; then
+        spec_content=$(cat "$spec_file")
+    fi
+
+    # Gather contract
+    local contract_content=""
+    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
+        contract_content=$(cat "${TRIBE_DIR}/contract.json")
+    fi
+
+    local coherence_message="## Coherence Check: ${task_count} completed tasks
+
+### All Task Diffs
+${all_diffs}
+
+### Product Specification
+${spec_content}
+
+### Data Model Contract
+${contract_content}
+
+Check that all these task implementations compose correctly. Focus on interfaces, schemas, naming consistency, duplicates, and missing connections."
+
+    log_step "Sending ${task_count} task diffs to Coherence Checker..."
+    echo ""
+
+    local coherence_output
+    coherence_output=$(claude_run \
+        "${AGENTS_DIR}/coherence-checker.md" \
+        "$coherence_message" \
+        "sonnet" \
+        "$DEFAULT_TASK_BUDGET" \
+        "Read Glob Grep")
+
+    echo "$coherence_output"
+    echo ""
+
+    # Save report
+    echo "$coherence_output" > "${LOGS_DIR}/coherence.log"
+    log_success "Coherence report saved to ${LOGS_DIR}/coherence.log"
+
+    local status
+    status=$(echo "$coherence_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+
+    if [[ "$status" == "fail" ]]; then
+        echo ""
+        log_error "Coherence check FAILED — tasks have compatibility issues"
+        local issue_count
+        issue_count=$(echo "$coherence_output" | jq '.critical_issues | length' 2>/dev/null || echo "?")
+        log_error "${issue_count} critical issue(s) found"
+        echo ""
+        echo -e "Fix issues before integrating. Options:"
+        echo -e "  1. ${CYAN}tribe retry --task-id ID${RESET} to fix specific tasks"
+        echo -e "  2. Review the coherence report and fix manually"
+        exit 1
+    elif [[ "$status" == "pass" ]]; then
+        echo ""
+        log_success "Coherence check PASSED — tasks are compatible"
+        echo -e "Next: ${CYAN}./swarm/tribe integrate${RESET}"
+    else
+        log_warn "Could not parse coherence status. Review the report manually."
     fi
 
     echo ""
@@ -593,6 +1539,79 @@ ${TRIBE_ROOT}
     echo "$output" > "${LOGS_DIR}/integration.log"
     log_success "Integration log saved to ${LOGS_DIR}/integration.log"
 
+    # ── Post-integration: regression tests ────────────────────────
+    echo ""
+    log_header "Post-Integration Verification"
+
+    if regression_run; then
+        log_success "Regression tests passed"
+    else
+        log_error "Regression tests FAILED after integration"
+        log_error "The merge may have introduced incompatibilities"
+        echo ""
+        echo -e "Options:"
+        echo -e "  1. Check ${CYAN}${LOGS_DIR}/integration.log${RESET} for details"
+        echo -e "  2. Use ${CYAN}git log --oneline${RESET} to review merge commits"
+        echo -e "  3. Use ${CYAN}git reset --hard HEAD~N${RESET} to rollback (destructive)"
+        echo ""
+    fi
+
+    # ── Post-integration: contract check ──────────────────────────
+    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
+        if contract_check; then
+            log_success "Contract check passed — schema matches plan"
+        else
+            log_error "Contract check FAILED — built schema doesn't match the plan"
+            log_error "This means the implementation doesn't support the product's core question"
+            echo ""
+
+            # Invoke supervisor for contract failure
+            _invoke_supervisor "0" "contract"
+        fi
+    fi
+
+    # ── Post-integration: Guardian vision check ──────────────────
+    # Check: does the integrated result still feel like FYT?
+    if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
+        echo ""
+        log_header "Post-Integration Vision Check"
+
+        # Gather the full integration diff
+        local integration_diff=""
+        for b in "${branches[@]}"; do
+            integration_diff+="--- Branch: ${b} ---"$'\n'
+            integration_diff+=$(git_diff_branch "$b" 2>/dev/null || echo "No diff")$'\n\n'
+        done
+
+        # Include the spec for context
+        local spec_content=""
+        local spec_file
+        spec_file=$(_get_spec_path)
+        if [[ -n "$spec_file" ]] && [[ -f "$spec_file" ]]; then
+            spec_content="
+### Feature Specification
+$(cat "$spec_file")"
+        fi
+
+        local guardian_input="## Integrated Work: ${#branches[@]} branches merged
+
+### Combined Diff
+${integration_diff}
+${spec_content}
+
+This is a post-integration check. Evaluate whether the integrated result, taken as a whole, is consistent with the product vision."
+
+        _run_guardian "post-integration" "$guardian_input" "integration" || {
+            local grc=$?
+            if [[ $grc -eq 1 ]]; then
+                echo ""
+                log_error "Guardian REJECTED the integrated result — vision violation detected"
+                log_error "Review the guardian report before shipping"
+                echo -e "Report: ${CYAN}${LOGS_DIR}/guardian-post-integration-*.json${RESET}"
+            fi
+        }
+    fi
+
     echo ""
 }
 
@@ -640,6 +1659,29 @@ cmd_review() {
             continue
         fi
 
+        # Gather product specs for context (if specs/ directory exists)
+        local spec_context=""
+        local spec_file
+        spec_file=$(_get_spec_path)
+        if [[ -n "$spec_file" ]] && [[ -f "$spec_file" ]]; then
+            spec_context="
+### Product Specification (SOURCE OF TRUTH — verify code satisfies this)
+$(cat "$spec_file")"
+        fi
+
+        # Also include other specs if available
+        local specs_dir="${TRIBE_ROOT}/specs"
+        if [[ -d "$specs_dir" ]]; then
+            while IFS= read -r -d '' sf; do
+                local relpath="${sf#${TRIBE_ROOT}/}"
+                # Skip the primary spec (already included above)
+                if [[ -n "$spec_file" ]] && [[ "$(realpath "$sf")" == "$(realpath "$spec_file")" ]]; then
+                    continue
+                fi
+                spec_context+=$'\n\n'"--- RELATED SPEC: ${relpath} ---"$'\n'"$(cat "$sf")"
+            done < <(find "$specs_dir" -name '*.md' -type f -print0 | sort -z)
+        fi
+
         local agent_message="## Review Task ${tid}: ${title}
 
 ### Acceptance Criteria
@@ -649,9 +1691,13 @@ ${criteria}
 \`\`\`diff
 ${diff}
 \`\`\`
+${spec_context}
 
 ### Instructions
-Review this code against the acceptance criteria and project conventions in CLAUDE.md.
+1. Read the Product Specification FIRST — form your understanding of what this code should do
+2. Check the diff against the spec — quote specific spec lines for each requirement you verify
+3. Flag anything in the diff that doesn't trace to a spec requirement (potential over-engineering)
+4. Then do standard code review (quality, conventions, security, tests)
 Respond with your review as JSON."
 
         local review_output
@@ -677,7 +1723,34 @@ Respond with your review as JSON."
             task_update "$tid" "status" "pending"
             task_update "$tid" "review_feedback" "$review_output"
         elif [[ "$verdict" == "approve" ]]; then
-            log_success "Task ${tid}: approved"
+            log_success "Task ${tid}: approved by Reviewer"
+
+            # ── Post-Review Guardian Gate ──────────────────────────
+            # Check: did the implementation drift from the vision?
+            if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
+                local guardian_input="## Task ${tid}: ${title}
+
+### Code Diff (branch: ${branch})
+\`\`\`diff
+${diff}
+\`\`\`
+
+### Task Acceptance Criteria
+${criteria}"
+
+                _run_guardian "post-review" "$guardian_input" "task-${tid}" || {
+                    local grc=$?
+                    if [[ $grc -eq 1 ]]; then
+                        log_error "Task ${tid}: Guardian REJECTED — vision violation in implementation"
+                        task_update "$tid" "status" "pending"
+                        local guardian_log
+                        guardian_log=$(ls -t "${LOGS_DIR}"/guardian-post-review-*.json 2>/dev/null | head -1)
+                        task_update "$tid" "review_feedback" "GUARDIAN REJECTED: $(cat "$guardian_log" 2>/dev/null | jq -r '.summary' 2>/dev/null || echo 'See guardian log')"
+                        verdict="request_changes"
+                    fi
+                    # grc == 2 means flagged — warn but keep approved
+                }
+            fi
         fi
 
     done <<< "$tasks_to_review"
@@ -698,14 +1771,23 @@ cmd_retry() {
     done
 
     if [[ -z "$task_id" ]]; then
-        # Retry all failed tasks
-        local failed
-        failed=$(task_list_by_status "failed")
-        if [[ -z "$failed" ]]; then
-            log_info "No failed tasks to retry."
+        # Retry all failed + blocked tasks
+        local retryable
+        retryable=$(task_list_by_status "failed")
+        local blocked
+        blocked=$(task_list_by_status "blocked")
+        if [[ -n "$blocked" ]]; then
+            if [[ -n "$retryable" ]]; then
+                retryable+=$'\n'"$blocked"
+            else
+                retryable="$blocked"
+            fi
+        fi
+        if [[ -z "$retryable" ]]; then
+            log_info "No failed or blocked tasks to retry."
             return
         fi
-        task_id="$failed"
+        task_id="$retryable"
     fi
 
     while IFS= read -r tid; do
@@ -755,6 +1837,65 @@ cmd_retry() {
     echo ""
 }
 
+# ── Recover: fix stale state from crashed swarm ──────────────
+
+cmd_recover() {
+    log_header "Recovering Swarm State"
+
+    local running_dir="${TRIBE_ROOT}/.tribe/running"
+    local recovered=0
+
+    # Clean stale PID files
+    if [[ -d "$running_dir" ]]; then
+        for pid_file in "$running_dir"/*.pid; do
+            [[ -f "$pid_file" ]] || continue
+            local task_id pid
+            task_id=$(basename "$pid_file" .pid)
+            pid=$(cat "$pid_file")
+
+            if ! kill -0 "$pid" 2>/dev/null; then
+                log_step "Cleaning stale PID file for task ${task_id} (PID ${pid} not running)"
+                rm -f "$pid_file"
+                rm -f "${LOGS_DIR}/${task_id}.log.done"
+                ((recovered++))
+            fi
+        done
+    fi
+
+    # Reset "running" tasks that have no active process
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local status tid
+        status=$(jq -r '.status' "$f")
+        tid=$(jq -r '.id' "$f")
+
+        if [[ "$status" == "running" ]]; then
+            local agent_pid
+            agent_pid=$(jq -r '.agent_pid // "null"' "$f")
+            if [[ "$agent_pid" == "null" ]] || ! kill -0 "$agent_pid" 2>/dev/null; then
+                log_step "Resetting stale running task ${tid} to pending"
+                task_update "$tid" "status" "pending"
+                task_update_raw "$tid" "agent_pid" "null"
+                task_update "$tid" "started_at" ""
+                ((recovered++))
+            fi
+        fi
+    done
+
+    # Reset swarm state
+    jq '.status = "idle" | .agents = []' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+    if [[ "$recovered" -gt 0 ]]; then
+        log_success "Recovered ${recovered} stale item(s)"
+    else
+        log_info "No stale state found — swarm is clean"
+    fi
+
+    echo ""
+    task_print_summary
+    echo ""
+}
+
 # ── Main ─────────────────────────────────────────────────────────
 
 main() {
@@ -763,12 +1904,17 @@ main() {
 
     case "$command" in
         init)      cmd_init "$@" ;;
+        validate)  cmd_validate "$@" ;;
         plan)      cmd_plan "$@" ;;
+        verify)    cmd_verify "$@" ;;
         run)       cmd_run "$@" ;;
         status)    cmd_status "$@" ;;
+        coherence) cmd_coherence "$@" ;;
         integrate) cmd_integrate "$@" ;;
         review)    cmd_review "$@" ;;
         retry)     cmd_retry "$@" ;;
+        recover)   cmd_recover "$@" ;;
+        guardian)   cmd_guardian "$@" ;;
         help|--help|-h) tribe_help ;;
         *)
             log_error "Unknown command: ${command}"

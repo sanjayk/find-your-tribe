@@ -41,7 +41,7 @@
 | tribe_id | UUID | FK -> tribes(id) ON DELETE CASCADE, NOT NULL | |
 | user_id | UUID | FK -> users(id) ON DELETE CASCADE, NOT NULL | |
 | role | VARCHAR(50) | NULLABLE | "designer", "backend engineer" |
-| status | VARCHAR(20) | NOT NULL, DEFAULT 'pending' | 'pending', 'active', 'left', 'removed' |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'pending' | 'pending', 'active', 'rejected', 'left', 'removed' |
 | joined_at | TIMESTAMPTZ | NULLABLE | Set when status becomes 'active' |
 
 **Unique constraint**: (tribe_id, user_id) -- a user can only be a member once per tribe.
@@ -94,6 +94,7 @@ Tribes transition through three states:
 |---------------|-------------|
 | `pending` | User has requested to join; awaiting owner approval |
 | `active` | User is an active member of the tribe |
+| `rejected` | Join request was declined by the owner |
 | `left` | User voluntarily left the tribe |
 | `removed` | User was removed by the tribe owner |
 

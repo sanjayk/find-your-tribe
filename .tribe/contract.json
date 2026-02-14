@@ -1,0 +1,42 @@
+{
+  "core_question": "After cleanup, does the codebase contain any references to endorsements?",
+  "entities": [
+    {
+      "name": "Endorsement",
+      "table": "endorsements",
+      "created_by_task": null,
+      "key_fields": []
+    }
+  ],
+  "relationships": [
+    {
+      "from": "users",
+      "to": "endorsements",
+      "type": "has_many",
+      "via": "endorsements.endorsee_id",
+      "created_by_task": null
+    }
+  ],
+  "core_queries": [
+    {
+      "description": "Verify no endorsements table exists in database",
+      "traversal": "PostgreSQL system catalog → pg_tables WHERE tablename = 'endorsements'",
+      "answers": "Returns 0 rows after task 17 completes"
+    },
+    {
+      "description": "Verify no endorsement imports exist in backend",
+      "traversal": "grep -ri 'from.*endorsement' src/backend/app/",
+      "answers": "Returns no matches after all backend tasks complete"
+    },
+    {
+      "description": "Verify no endorsement types exist in frontend",
+      "traversal": "grep -r 'Endorsement' src/frontend/src/ (excluding node_modules)",
+      "answers": "Returns no matches after all frontend tasks complete"
+    },
+    {
+      "description": "Verify GraphQL schema does not expose endorsements",
+      "traversal": "GraphQL introspection query → User type fields",
+      "answers": "User type does not have an 'endorsements' field after task 9"
+    }
+  ]
+}

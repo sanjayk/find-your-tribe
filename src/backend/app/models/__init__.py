@@ -1,7 +1,9 @@
 """Data models for the Find Your Tribe application."""
 
 from app.db.base import Base
+from app.models.endorsement import Endorsement
 from app.models.enums import (
+    AgentWorkflowStyle,
     AvailabilityStatus,
     CollaboratorStatus,
     EventType,
@@ -19,9 +21,11 @@ from app.models.tribe import Tribe, TribeOpenRole, tribe_members
 from app.models.user import RefreshToken, User, user_skills
 
 __all__ = [
+    "AgentWorkflowStyle",
     "AvailabilityStatus",
     "Base",
     "CollaboratorStatus",
+    "Endorsement",
     "EventType",
     "FeedEvent",
     "MemberRole",

@@ -42,7 +42,7 @@ MCP server for intelligent discovery.
                                           |
 +-------------------+    GraphQL/REST     +-------------------+
 |                   | ==================> |                   |
-|   Next.js 14+     |    (HTTPS/JSON)    |   FastAPI +       |
+|   Next.js 16      |    (HTTPS/JSON)    |   FastAPI +       |
 |   Frontend        | <================= |   Strawberry      |
 |                   |                    |   GraphQL Server  |
 |  - App Router     |                    |                   |
@@ -53,14 +53,14 @@ MCP server for intelligent discovery.
 +-------------------+                    +---------+---------+
         |                                    |           |
         |  Static assets                     |           |
-        v                                    |           |
-+-------------------+               SQL/ORM  |           | HTTP (internal)
+        v                                    |           | HTTP (internal)
++-------------------+               SQL/ORM  |           | (V2 only)
 |   Object Storage  |                        |           |
 |   (S3 / local)    |                        v           v
 |                   |               +-----------+   +-----------+
 |  - Avatars        |               |           |   |   MCP     |
 |  - Thumbnails     |               | PostgreSQL|   |   Server  |
-|                   |               |           |   |  (Python) |
+|                   |               |           |   |  (V2)     |
 +-------------------+               | - Tables  |   |           |
                                     | - pgvector|   | - Claude  |
                                     | - FTS     |   |   API     |
@@ -77,9 +77,9 @@ MCP server for intelligent discovery.
 | Service | Responsibility | Port (local) |
 |---------|---------------|------|
 | **Frontend** (Next.js) | UI rendering, SSR, static generation, client interactivity | 3000 |
-| **Backend** (FastAPI + Strawberry) | GraphQL API, REST endpoints, auth, business logic | 8000 |
-| **MCP Server** (Python) | AI-powered search, embeddings, Claude API integration | 8100 |
-| **PostgreSQL** | Primary data store, full-text search, vector search | 5432 |
+| **Backend** (FastAPI + Strawberry) | GraphQL API, REST endpoints, auth, business logic | 8787 |
+| **MCP Server** (Python) **(V2 — not built for V1)** | AI-powered search, embeddings, Claude API integration | 8100 |
+| **PostgreSQL** | Primary data store, full-text search, vector search | 5433 |
 | **Object Storage** | Avatars, project thumbnails, uploaded media | 9000 (MinIO local) |
 
 ### Communication Patterns
@@ -87,14 +87,14 @@ MCP server for intelligent discovery.
 **Synchronous (request/response)**:
 - Frontend <-> Backend: GraphQL over HTTPS (Apollo Client <-> Strawberry)
 - Frontend <-> Backend: REST over HTTPS (file uploads, webhooks, health checks)
-- Backend <-> MCP Server: HTTP JSON-RPC (MCP protocol over HTTP transport)
+- Backend <-> MCP Server: HTTP JSON-RPC (MCP protocol over HTTP transport) **(V2)**
 
 **Asynchronous (background processing)**:
 - V1 uses in-process background tasks via FastAPI's `BackgroundTasks`
 - Jobs: embedding generation, GitHub repo sync, builder score recalculation, feed event creation
 - Future: migrate to a proper task queue (Celery + Redis) when volume demands it
 
-**AI (MCP protocol)**:
+**AI (MCP protocol) — V2**:
 - The backend calls the MCP server using the MCP client SDK over HTTP/SSE transport
 - The MCP server exposes tools that the backend invokes programmatically
 - The MCP server calls the Claude API for natural language understanding
@@ -110,7 +110,7 @@ Browser Request
 | Next.js Server   |  Server Components fetch data at render time
 |                  |  using server-side GraphQL calls (no Apollo
 |  Server          |  Client needed -- direct fetch() to backend)
-|  Components      |------> fetch("http://backend:8000/graphql")
+|  Components      |------> fetch("http://backend:8787/graphql")
 |                  |         with auth cookie forwarded
 |  Client          |
 |  Components      |  Client Components use Apollo Client in the
@@ -150,7 +150,7 @@ Browser / SSR
      v
 +----+----------+
 | FastAPI        |
-| (port 8000)    |
+| (port 8787)    |
 |                |
 | Middleware:    |
 |  1. CORS       |
@@ -170,46 +170,28 @@ Browser / SSR
 ### GraphQL Schema Organization
 
 ```
-src/backend/schema/
+src/backend/app/graphql/
   __init__.py          # Root schema assembly
+  context.py           # GraphQL context (session, loaders)
   types/
-    user.py            # UserType, UserInput, UserConnection
-    project.py         # ProjectType, ProjectInput, ProjectConnection
-    tribe.py           # TribeType, TribeInput, TribeConnection
+    __init__.py
+    user.py            # UserType
+    project.py         # ProjectType
+    tribe.py           # TribeType
     skill.py           # SkillType
-    feed.py            # FeedEventType, FeedConnection
-    common.py          # PageInfo, Connection base, DateTime scalar
+    feed_event.py      # FeedEventType
   queries/
-    user_queries.py    # me, user(id), user(username), searchUsers
-    project_queries.py # project(id), projects(filters), searchProjects
-    tribe_queries.py   # tribe(id), tribes(filters), openTribes
-    feed_queries.py    # feed(cursor, limit, filters)
-    search_queries.py  # aiSearch(query) -- delegates to MCP
-  mutations/
-    auth_mutations.py  # login, register, refreshToken, logout
-    user_mutations.py  # updateProfile, updateAvatar
-    project_mutations.py # createProject, updateProject, deleteProject, inviteCollaborator, confirmCollaboration
-    tribe_mutations.py # createTribe, updateTribe, requestJoinTribe, approveMember, removeMember, leaveTribe
-  subscriptions/       # Future: WebSocket-based
-    feed_subscriptions.py
-  dataloaders.py       # DataLoader instances for N+1 prevention
+    __init__.py
+    health.py          # health query
+  mutations/           # Future: mutation resolvers
 ```
 
-**Root schema**:
+**Root schema** (assembled in `__init__.py`):
 ```python
 import strawberry
-from .queries import UserQueries, ProjectQueries, TribeQueries, FeedQueries, SearchQueries
-from .mutations import AuthMutations, UserMutations, ProjectMutations, TribeMutations
+from .queries import Query
 
-@strawberry.type
-class Query(UserQueries, ProjectQueries, TribeQueries, FeedQueries, SearchQueries):
-    pass
-
-@strawberry.type
-class Mutation(AuthMutations, UserMutations, ProjectMutations, TribeMutations):
-    pass
-
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(query=Query)
 ```
 
 ### Pagination Strategy
@@ -376,6 +358,7 @@ This ensures that when rendering a list of 20 users with their projects, we issu
 | timezone         |   |   | impact_metrics (JSONB) |   |   | updated_at       |
 | availability     |   |   | thumbnail_url          |   |   +--------+---------+
 | builder_score    |   |   | search_vector (tsvec)  |   |            |
+| embedding (vec)  |   |   | embedding (vec)        |   |            |
 | github_id        |   |   | created_at             |   |            |
 | github_username  |   |   | updated_at             |   |   +--------+---------+
 | github_token_enc |   |   +----------+-------------+   |   | tribe_members    |
@@ -402,7 +385,7 @@ This ensures that when rendering a list of 20 users with their projects, we issu
 | user_id (FK)  ---+---+   | slug (unique)          |   |   +------------------+
 | skill_id (FK) ---+------>| created_at             |   |
 | proficiency      |       +------------------------+   |   +------------------+
-| endorsed_count   |                                    |   | refresh_tokens   |
+| created_at       |                                    |   | refresh_tokens   |
 | created_at       |   +------------------------+      |   +------------------+
 +------------------+   | tribe_open_roles        |      |   | id (PK, uuid)   |
                        +------------------------+      |   | user_id (FK)     |
@@ -466,10 +449,13 @@ CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens (expires_at)
   WHERE revoked_at IS NULL;
 
 -- Vector similarity search (HNSW for approximate nearest neighbor)
-CREATE INDEX idx_embeddings_vector ON embeddings
+-- Embedding stored as column on users and projects tables (not a separate table)
+CREATE INDEX idx_users_embedding ON users
   USING hnsw (embedding vector_cosine_ops)
   WITH (m = 16, ef_construction = 64);
-CREATE INDEX idx_embeddings_source ON embeddings (source_type, source_id);
+CREATE INDEX idx_projects_embedding ON projects
+  USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
 ```
 
 **Indexing rationale**:
@@ -506,120 +492,40 @@ src/backend/
 ### Next.js App Router Structure
 
 ```
-src/frontend/
+src/frontend/src/
   app/
-    layout.tsx                 # Root layout: fonts, theme, providers
-    page.tsx                   # Landing page (unauthenticated) or redirect to /feed
-    loading.tsx                # Root loading skeleton
-    error.tsx                  # Root error boundary
-    not-found.tsx              # 404 page
-    globals.css                # Tailwind imports + custom properties
-
-    (auth)/                    # Route group: auth pages (no sidebar)
-      login/
-        page.tsx               # Login form (email + GitHub OAuth)
-      signup/
-        page.tsx               # Registration form
-      onboarding/
-        page.tsx               # Post-signup onboarding wizard
-        layout.tsx             # Step indicator layout
-
-    (main)/                    # Route group: authenticated pages (with sidebar/nav)
-      layout.tsx               # Main layout: nav, sidebar, footer
-      feed/
-        page.tsx               # Build feed (Server Component, cursor pagination)
-        loading.tsx
-      discover/
-        page.tsx               # Discovery hub
-        builders/
-          page.tsx             # Builder search + browse
-        projects/
-          page.tsx             # Project search + browse
-        tribes/
-          page.tsx             # Open tribes browse
-      profile/
-        [username]/
-          page.tsx             # Public builder profile (SSR for SEO)
-          edit/
-            page.tsx           # Edit profile (Client Component)
-      project/
-        new/
-          page.tsx             # Create project form
-        [id]/
-          page.tsx             # Project detail (SSR for SEO)
-          edit/
-            page.tsx           # Edit project (Client Component)
-      tribe/
-        new/
-          page.tsx             # Create tribe form
-        [id]/
-          page.tsx             # Tribe detail / dashboard
-          edit/
-            page.tsx           # Edit tribe (Client Component)
-      search/
-        page.tsx               # AI-powered search results
+    layout.tsx                 # Root layout: fonts, theme, Apollo Provider
+    page.tsx                   # Landing page
+    globals.css                # Tailwind v4 @theme tokens + custom properties
+    discover/
+      page.tsx                 # Discovery hub (builders tab)
+      page.test.tsx
+    profile/
+      [username]/
+        page.tsx               # Public builder profile (SSR for SEO)
+        page.test.tsx
 
   components/
-    ui/                        # Atomic / base components
-      Button.tsx
-      Input.tsx
-      Card.tsx
-      Avatar.tsx
-      Badge.tsx
-      Modal.tsx
-      Skeleton.tsx
-      Select.tsx
-      Textarea.tsx
-    composed/                  # Molecule-level components
-      BuilderCard.tsx          # Builder summary card (avatar, name, skills, score)
-      ProjectCard.tsx          # Project summary card (thumbnail, title, tech stack)
-      TribeCard.tsx            # Tribe summary card (members, open roles)
-      FeedItem.tsx             # Single feed event
-      SkillTag.tsx             # Skill pill / badge
-      ScoreBadge.tsx           # Builder score display
-    layout/
-      Nav.tsx                  # Top navigation bar
-      Sidebar.tsx              # Left sidebar (discover, feed, tribes)
-      Footer.tsx
-      MobileNav.tsx            # Bottom nav for mobile
-    forms/
-      ProjectForm.tsx          # Shared create/edit project form
-      TribeForm.tsx
-      ProfileForm.tsx
-      OnboardingSteps.tsx
-    providers/
-      ApolloProvider.tsx       # Apollo Client wrapper (Client Component)
-      AuthProvider.tsx         # Auth context + token refresh logic
-      ThemeProvider.tsx        # Theme context (if needed)
+    ui/                        # shadcn/ui primitives (Button, Card, Avatar, Badge, etc.)
+    features/                  # Product-specific components
+      builder-card.tsx         # Builder summary card
+      project-card.tsx         # Project summary card
+      score-display.tsx        # Builder score display
+      shipping-timeline.tsx    # Horizontal time axis with project dots
+      collaborator-network.tsx # Deduplicated collaborator avatars
+      agent-workflow-card.tsx  # AI workflow style, tools, human/AI ratio
+      burn-map.tsx             # Building activity dot grid
+    layout/                    # Nav, Footer
 
   lib/
-    apollo-client.ts           # Apollo Client instance + cache config
     graphql/
-      queries/                 # .graphql or .ts query definitions
-        user.ts
-        project.ts
-        tribe.ts
-        feed.ts
-        search.ts
-      mutations/
-        auth.ts
-        user.ts
-        project.ts
-        tribe.ts
-      fragments/
-        user.ts
-        project.ts
-    auth.ts                    # Cookie utilities, token helpers
-    utils.ts                   # Date formatting, URL helpers
-    constants.ts               # Route paths, config values
+      client.ts               # Apollo Client instance + cache config
+      types.ts                 # TypeScript types for GraphQL
+      queries/
+        builders.ts            # Builder queries
 
-  styles/
-    tailwind.config.ts         # Extended theme (colors, fonts, spacing)
-    fonts.ts                   # Font loading (serif + sans-serif)
-
-  public/
-    images/                    # Static images, icons
-    og/                        # OpenGraph template images
+  test/
+    setup.ts                   # Vitest test setup
 ```
 
 ### Server Components vs Client Components Decision Tree
@@ -658,7 +564,7 @@ interactivity, browser APIs, or Apollo reactive features. Keep the client bundle
 import { ApolloClient, InMemoryCache, HttpLink } from "@apollo/client";
 
 const httpLink = new HttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8000/graphql",
+  uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8787/graphql",
   credentials: "include",  // Send cookies (httpOnly JWT)
 });
 
@@ -790,7 +696,7 @@ services:
       POSTGRES_USER: fyt_dev
       POSTGRES_PASSWORD: dev_password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -805,7 +711,7 @@ services:
       context: ./src/backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://fyt_dev:dev_password@postgres:5432/findyourtribe
+      DATABASE_URL: postgresql+asyncpg://fyt_dev:dev_password@postgres:5433/findyourtribe
       SECRET_KEY: dev-secret-key-change-in-production
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
@@ -813,22 +719,22 @@ services:
       CORS_ORIGINS: http://localhost:3000
       ENVIRONMENT: development
     ports:
-      - "8000:8000"
+      - "8787:8787"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - ./src/backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8787 --reload
 
   frontend:
     build:
       context: ./src/frontend
       dockerfile: Dockerfile
     environment:
-      NEXT_PUBLIC_GRAPHQL_URL: http://localhost:8000/graphql
-      INTERNAL_GRAPHQL_URL: http://backend:8000/graphql
-      NEXT_PUBLIC_UPLOAD_URL: http://localhost:8000/upload
+      NEXT_PUBLIC_GRAPHQL_URL: http://localhost:8787/graphql
+      INTERNAL_GRAPHQL_URL: http://backend:8787/graphql
+      NEXT_PUBLIC_UPLOAD_URL: http://localhost:8787/upload
     ports:
       - "3000:3000"
     depends_on:
@@ -839,23 +745,24 @@ services:
       - /app/.next
     command: npm run dev
 
-  mcp:
-    build:
-      context: ./src/mcp
-      dockerfile: Dockerfile
-    environment:
-      DATABASE_URL: postgresql+asyncpg://fyt_dev:dev_password@postgres:5432/findyourtribe
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      EMBEDDING_MODEL: voyage-3
-      VOYAGE_API_KEY: ${VOYAGE_API_KEY}
-    ports:
-      - "8100:8100"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./src/mcp:/app
-    command: python server.py
+  # MCP server — V2, not built for V1
+  # mcp:
+  #   build:
+  #     context: ./src/mcp
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     DATABASE_URL: postgresql+asyncpg://fyt_dev:dev_password@postgres:5433/findyourtribe
+  #     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  #     EMBEDDING_MODEL: voyage-3
+  #     VOYAGE_API_KEY: ${VOYAGE_API_KEY}
+  #   ports:
+  #     - "8100:8100"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./src/mcp:/app
+  #   command: python server.py
 
   minio:
     image: minio/minio
@@ -915,20 +822,19 @@ VOYAGE_API_KEY=pa-...
 ### Database Seeding Strategy
 
 ```
-src/backend/
-  seeds/
-    seed_skills.py          # Canonical skill list (engineering, design, product, marketing, growth)
-    seed_demo_users.py      # 10-15 demo builders with realistic profiles
-    seed_demo_projects.py   # 20-30 demo projects with varied tech stacks and statuses
-    seed_demo_tribes.py     # 5-8 demo tribes in various states (active, open, alumni)
-    seed_feed_events.py     # Generated from the demo data above
-    run_seeds.py            # Orchestrator: runs all seeds in order
+src/backend/app/seed/
+    __init__.py             # Package exports (seed_all)
+    users.py                # 10-15 demo builders with realistic profiles
+    projects.py             # 20-30 demo projects with varied tech stacks and statuses
+    tribes.py               # 5-8 demo tribes in various states
+    feed_events.py          # Generated from the demo data above
+    run.py                  # Orchestrator: runs all seeds in order
 ```
 
 **Usage**:
 ```bash
 # After docker-compose up
-docker compose exec backend python seeds/run_seeds.py
+cd src/backend && python -m app.seed.run
 
 # Or during development, auto-seed if DB is empty:
 # backend startup checks if users table has 0 rows, runs seeds if so
@@ -1294,48 +1200,37 @@ async def global_exception_handler(request, exc):
 
 ```
 find-your-tribe/
-  spec.md                      # Product specification
+  CLAUDE.md                    # Project instructions and conventions
   specs/
-    SYSTEMS_DESIGN.md          # This document
+    product/                   # Product specs per feature (f2-f7)
+    tech/                      # Technical specs per feature
+    systems/                   # Systems design per feature
+    design/                    # Design specs, component library
   src/
-    frontend/                  # Next.js app
+    frontend/                  # Next.js 16 app
       package.json
       tsconfig.json
-      tailwind.config.ts
-      next.config.js
-      Dockerfile
-      app/
-      components/
-      lib/
-      public/
+      next.config.ts
+      vitest.config.ts
+      src/
+        app/
+        components/
+        lib/
+        test/
     backend/                   # FastAPI app
-      pyproject.toml           # Python dependencies (uv/poetry)
-      Dockerfile
-      main.py
-      schema/
-      models/
-      services/
-      auth/
-      migrations/
-      seeds/
-      tests/
-    mcp/                       # MCP server
       pyproject.toml
-      Dockerfile
-      server.py
-      tools/
-      embeddings/
+      alembic.ini
+      docker-compose.yml       # PostgreSQL + pgvector
+      app/
+        main.py
+        config.py
+        db/
+        graphql/
+        models/
+        seed/
+      migrations/
       tests/
-    shared/                    # Shared constants (skill taxonomy, enums)
-      constants.json
-  tests/
-    e2e/                       # End-to-end tests (Playwright)
-      playwright.config.ts
-      tests/
-  docker-compose.yml
-  .env.example                 # Template for environment variables
   .gitignore
-  Makefile                     # Development convenience commands
 ```
 
 ### How to Run Locally
@@ -1353,17 +1248,15 @@ cp .env.example .env
 docker compose up
 
 # This starts:
-#   - PostgreSQL (port 5432) with pgvector extension
-#   - FastAPI backend (port 8000) with hot reload
+#   - PostgreSQL (port 5433) with pgvector extension
+#   - FastAPI backend (port 8787) with hot reload
 #   - Next.js frontend (port 3000) with hot reload
-#   - MCP server (port 8100) with hot reload
-#   - MinIO (port 9000, console at 9001) for file storage
 
 # 4. Run database migrations
-docker compose exec backend alembic upgrade head
+cd src/backend && alembic upgrade head
 
 # 5. Seed demo data (optional)
-docker compose exec backend python seeds/run_seeds.py
+cd src/backend && python -m app.seed.run
 
 # 6. Open browser
 open http://localhost:3000
@@ -1516,16 +1409,16 @@ jobs:
 | Technology | Version | Notes |
 |------------|---------|-------|
 | Python | 3.12+ | Type hints, performance improvements |
-| Node.js | 20 LTS | Stable for Next.js 14 |
-| Next.js | 14.x | App Router, Server Components |
+| Node.js | 20 LTS | Stable for Next.js 16 |
+| Next.js | 16.x | App Router, Server Components, Turbopack |
 | FastAPI | 0.110+ | Async support, Pydantic v2 |
 | Strawberry GraphQL | 0.220+ | DataLoader support, extensions |
 | SQLAlchemy | 2.0+ | Async engine, modern query style |
 | Alembic | 1.13+ | Async migration support |
 | PostgreSQL | 16 | pgvector, full-text search |
 | pgvector | 0.7+ | HNSW index support |
-| Apollo Client | 3.9+ | App Router compatibility |
-| Tailwind CSS | 3.4+ | Latest utilities |
+| Apollo Client | 4.x | App Router compatibility |
+| Tailwind CSS | 4.x | CSS-first config, @theme directive |
 | Docker Compose | 3.9 | Service dependencies, healthchecks |
 
 ### Appendix B: Glossary

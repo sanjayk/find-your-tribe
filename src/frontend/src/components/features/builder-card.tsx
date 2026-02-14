@@ -12,6 +12,7 @@ export interface BuilderCardProps {
   status: 'open' | 'collaborating' | 'heads-down';
   avatarColor: string;
   avatarTextColor: string;
+  avatarUrl?: string | null;
   variant: 'featured' | 'list';
 }
 
@@ -43,6 +44,7 @@ function BuilderCard({
   status,
   avatarColor,
   avatarTextColor,
+  avatarUrl,
   variant,
 }: BuilderCardProps) {
   const statusInfo = statusConfig[status];
@@ -52,9 +54,17 @@ function BuilderCard({
       <div className="card-lift bg-surface-elevated rounded-xl p-6 md:p-8 shadow-md">
         {/* Header with avatar and name */}
         <div className="flex items-center gap-4 mb-6">
-          <div className={cn('avatar avatar-lg', avatarColor, avatarTextColor)}>
-            <span className="text-xl">{initials}</span>
-          </div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={name}
+              className={cn('avatar avatar-lg object-cover', avatarColor)}
+            />
+          ) : (
+            <div className={cn('avatar avatar-lg', avatarColor, avatarTextColor)}>
+              <span className="text-xl">{initials}</span>
+            </div>
+          )}
           <div>
             <h3 className="font-serif text-[24px] leading-tight text-ink">
               {name}
@@ -104,9 +114,17 @@ function BuilderCard({
     <div className="pb-5 border-b border-ink/5">
       {/* Header row */}
       <div className="flex items-center gap-3 mb-3">
-        <div className={cn('avatar avatar-md', avatarColor, avatarTextColor)}>
-          <span className="text-sm">{initials}</span>
-        </div>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={name}
+            className={cn('avatar avatar-md object-cover', avatarColor)}
+          />
+        ) : (
+          <div className={cn('avatar avatar-md', avatarColor, avatarTextColor)}>
+            <span className="text-sm">{initials}</span>
+          </div>
+        )}
         <div className="flex-1">
           <h3 className="font-serif text-lg leading-tight text-ink">{name}</h3>
           <p className="text-[12px] text-ink-tertiary">{title}</p>

@@ -1,18 +1,22 @@
 {
   "id": "15",
-  "title": "Strawberry GraphQL types for User and Skill",
-  "description": "Implement `app/graphql/types/user.py` with UserType Strawberry type. Fields: id, email, username, display_name, avatar_url, headline, primary_role, timezone, availability_status, builder_score, bio, contact_links, github_username, onboarding_completed, created_at. Add lazy resolver fields for skills → list[SkillType] (to be implemented later). Implement `app/graphql/types/skill.py` with SkillType. Fields: id, name, slug, category. Use @strawberry.type decorator and proper field types.",
-  "acceptance_criteria": "- UserType with all specified fields\n- SkillType with all fields\n- Field types match GraphQL schema conventions\n- Lazy fields use @strawberry.field decorator\n- Types can be imported from graphql.types",
+  "title": "Remove EndorsementCard from profile page",
+  "description": "Edit `src/frontend/src/app/profile/[username]/page.tsx` to remove:\n1. The import of `EndorsementCard`\n2. The endorsements section from the JSX that renders endorsement cards\nEnsure the profile page renders correctly without the endorsement section.",
+  "acceptance_criteria": "- No `EndorsementCard` import in page.tsx\n- No endorsements section in the JSX\n- Profile page renders without errors\n- `npx tsc --noEmit` passes\n- Profile page UI looks correct without endorsement section",
   "depends_on": [
-    "14"
+    "4",
+    "13"
   ],
-  "status": "done",
-  "branch": "tribe/task-15-strawberry-graphql-types-for-user-and-sk",
+  "status": "pending",
+  "branch": "tribe/task-15-remove-endorsementcard-from-profile-page",
   "agent_model": "sonnet",
-  "created_at": "2026-02-10T23:07:31Z",
-  "started_at": "2026-02-10T23:29:20Z",
-  "completed_at": "2026-02-10T23:32:42Z",
+  "created_at": "2026-02-14T05:20:00Z",
+  "started_at": null,
+  "completed_at": null,
   "agent_pid": null,
   "error": null,
-  "review_feedback": null
+  "review_feedback": null,
+  "files_touched": [
+    "src/frontend/src/app/profile/[username]/page.tsx"
+  ]
 }

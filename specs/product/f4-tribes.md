@@ -188,6 +188,20 @@ Tribes depend on authentication (F1), builder profiles (F2), and projects (F3). 
 
 ---
 
+## Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Tribe model (backend) | Built | SQLAlchemy model with members, open roles |
+| Tribe GraphQL type | Built | Strawberry type with owner, members, open_roles |
+| MemberStatus enum | Built | 5 values: pending, active, rejected, left, removed |
+| Seed data (tribes) | Built | Demo tribes in various states |
+| Tribe Card (frontend) | Not built | Design spec exists in components.md |
+| Tribe page | Not built | |
+| Tribe creation form | Not built | |
+| Join request flow | Not built | |
+| Tribe dashboard | Not built | |
+
 ## Out of Scope (V1)
 
 - In-tribe messaging or chat (builders use external tools)

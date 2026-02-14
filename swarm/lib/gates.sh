@@ -1,20 +1,41 @@
 #!/usr/bin/env bash
 # gates.sh — Quality gate runner
+#
+# Gates are split into two categories:
+# 1. Grounding gates (non-LLM) — in grounding.sh
+# 2. Quality gates (lint, typecheck, tests) — in this file
+#
+# Grounding gates verify FACTS (files exist, imports resolve, diff non-empty).
+# Quality gates verify CODE QUALITY (syntax, lint, types, tests).
 
-# Requires config.sh and log.sh to be sourced first
+# Requires config.sh, log.sh, and grounding.sh to be sourced first
 
-# Run all configured quality gates on the current working tree
+# Run all gates on a completed task: grounding + quality
 # Returns 0 if all pass, 1 if any fail
 gates_run() {
     local task_id="$1"
-    local results=()
-    local all_passed=true
+    local grounding_passed=true
+    local quality_passed=true
 
     # During scaffolding, skip quality gates (validate at integration time)
     if [[ "${SKIP_GATES:-}" == "true" ]]; then
         log_step "Quality gates skipped (SKIP_GATES=true)"
         return 0
     fi
+
+    # ── Grounding gates first (non-LLM) ──────────────────────────
+    if ! grounding_run "$task_id"; then
+        grounding_passed=false
+    fi
+
+    # If grounding failed, don't bother with quality gates
+    if ! $grounding_passed; then
+        log_error "Grounding checks failed — skipping quality gates"
+        return 1
+    fi
+
+    # ── Quality gates ─────────────────────────────────────────────
+    local results=()
 
     log_step "Running quality gates for task ${task_id}..."
 
@@ -23,7 +44,7 @@ gates_run() {
         results+=("${GREEN}${SYM_CHECK} Syntax check${RESET}")
     else
         results+=("${RED}${SYM_CROSS} Syntax check${RESET}")
-        all_passed=false
+        quality_passed=false
     fi
 
     # Gate 2: Lint (if configured in CLAUDE.md)
@@ -34,7 +55,7 @@ gates_run() {
             results+=("${GREEN}${SYM_CHECK} Lint${RESET}")
         else
             results+=("${RED}${SYM_CROSS} Lint${RESET}")
-            all_passed=false
+            quality_passed=false
         fi
     else
         results+=("${DIM}○ Lint (not configured)${RESET}")
@@ -48,7 +69,7 @@ gates_run() {
             results+=("${GREEN}${SYM_CHECK} Type check${RESET}")
         else
             results+=("${RED}${SYM_CROSS} Type check${RESET}")
-            all_passed=false
+            quality_passed=false
         fi
     else
         results+=("${DIM}○ Type check (not configured)${RESET}")
@@ -62,7 +83,7 @@ gates_run() {
             results+=("${GREEN}${SYM_CHECK} Tests${RESET}")
         else
             results+=("${RED}${SYM_CROSS} Tests${RESET}")
-            all_passed=false
+            quality_passed=false
         fi
     else
         results+=("${DIM}○ Tests (not configured)${RESET}")
@@ -76,7 +97,7 @@ gates_run() {
     done
     echo ""
 
-    if $all_passed; then
+    if $quality_passed; then
         return 0
     else
         return 1

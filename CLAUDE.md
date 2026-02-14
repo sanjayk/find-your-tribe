@@ -2,6 +2,17 @@
 
 > A social network where clout comes from shipping. Connect your GitHub, form a tribe, and let your work speak.
 
+## Rules
+
+- **When instructions are provided, follow them.** Do not substitute your own ideas for what was explicitly asked.
+- **Re-read CLAUDE.md every 5 turns** to stay grounded in project conventions and instructions.
+- **No lazy design.** Every design decision must be intentional. No generic layouts, no reshuffling the same elements into slightly different boxes and calling them "options." Each option presented must be genuinely distinct with real thought behind it.
+- **No AI slop.** Output must be thoughtful, specific, and earned. If you can't articulate why a design choice is better than an alternative, you haven't done the work.
+- **Follow the design system.** All design work must use the tokens defined in `globals.css` — colors, fonts, spacing. No inventing new values. The aesthetic is "Modern Editorial Luxury" — read the global CLAUDE.md spec.
+- **Prototype before code.** Any visual/layout change must be discussed and approved before writing code. Work with the user to get the design right first. Present prototypes (ASCII, descriptions, or HTML mockups) and iterate until approved.
+- **Design for the common case.** Most data will be sparse. Design for minimal data looking complete, not maximum data looking full. A card with just a title and description must look intentional, not empty.
+- **Earn every element.** Every data point, every UI element, every visual flourish must have a reason tied to the user's goal. "Because we have the data" is not a reason.
+
 ## Architecture
 
 - **Language:** TypeScript (strict mode)

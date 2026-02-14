@@ -48,7 +48,7 @@ project_collaborators = Table(
     ),
     Column(
         "status",
-        SQLEnum(CollaboratorStatus),
+        SQLEnum(CollaboratorStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=CollaboratorStatus.PENDING,
         server_default="pending",
@@ -88,7 +88,7 @@ class Project(Base, ULIDMixin, TimestampMixin):
         nullable=True,
     )
     status: Mapped[ProjectStatus] = mapped_column(
-        SQLEnum(ProjectStatus),
+        SQLEnum(ProjectStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=ProjectStatus.IN_PROGRESS,
         server_default="in_progress",
@@ -165,6 +165,7 @@ class Project(Base, ULIDMixin, TimestampMixin):
             "embedding",
             postgresql_using="hnsw",
             postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
         Index("ix_projects_status", "status"),
         Index("ix_projects_github_repo", "github_repo_full_name"),

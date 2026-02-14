@@ -144,6 +144,17 @@ The build feed depends on projects (F3), profiles (F2), and optionally tribes (F
 
 ---
 
+## Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| FeedEvent model (backend) | Built | SQLAlchemy model with all event types |
+| FeedEvent GraphQL type | Built | Strawberry type with actor, metadata |
+| Seed data (feed events) | Built | Generated from demo users/projects/tribes |
+| Feed page (frontend) | Not built | |
+| Feed filtering | Not built | |
+| Feed card component | Not built | Design spec exists in components.md |
+
 ## Out of Scope (V1)
 
 - Text-only posts, articles, or status updates

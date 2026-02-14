@@ -46,6 +46,16 @@
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | |
 | updated_at | TIMESTAMPTZ | DEFAULT NOW() | |
 
+**Agent workflow columns** (on `users` table):
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| agent_tools | JSONB | NULLABLE | List of AI tools, e.g. `["Claude Code", "Cursor"]` |
+| agent_workflow_style | VARCHAR(20) | NULLABLE | 'pair', 'swarm', 'review', 'autonomous', 'minimal' |
+| human_agent_ratio | FLOAT | NULLABLE | 0.0 (fully human) to 1.0 (fully AI-assisted) |
+
+**Activity tracking for burn map**: Derived from `feed_events` table — no additional columns needed. Query aggregates events by week where `actor_id = user.id`.
+
 ### `skills`
 
 | Column | Type | Constraints | Notes |
@@ -64,10 +74,26 @@
 | user_id | UUID | FK -> users(id) ON DELETE CASCADE, NOT NULL | |
 | skill_id | INTEGER | FK -> skills(id) ON DELETE CASCADE, NOT NULL | |
 | proficiency | VARCHAR(20) | DEFAULT 'intermediate' | 'beginner', 'intermediate', 'expert' |
-| endorsed_count | INTEGER | DEFAULT 0 | Number of collaborator endorsements |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | |
 
 **Unique constraint**: (user_id, skill_id)
+
+### Query Plan for Profile Page
+
+The `user()` query uses `selectinload` chains to fetch all profile data in a single round-trip:
+
+```
+SELECT users WHERE username = ?
+  + selectinload(skills)                          -- user_skills JOIN skills
+  + selectinload(owned_projects)
+      + selectinload(collaborators)               -- project_collaborators JOIN users
+  + selectinload(tribes)
+      + selectinload(owner)                       -- tribes.owner_id JOIN users
+      + selectinload(members)                     -- tribe_members JOIN users
+      + selectinload(open_roles)                  -- tribe_open_roles
+```
+
+This produces ~6 SQL queries (one per `selectinload`) but avoids N+1 issues.
 
 ---
 
@@ -198,32 +224,22 @@ Cache strategy for profile pages:
 Profile saved
        |
        v
-[Compute SHA-256 of assembled text]
+[Assemble text for embedding]
        |
-       v
-[Compare with stored content_hash] --Same--> [Skip, no update needed]
-       |
-       Different
        v
 [Call embedding API (Claude/Voyage AI)]
        |
        v
-[Upsert into embeddings table with new vector + content_hash]
+[Update embedding column on users table]
 ```
 
-### `embeddings` table (pgvector)
+### Embedding Storage
 
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | |
-| source_type | VARCHAR(20) | NOT NULL | 'user', 'project' |
-| source_id | UUID | NOT NULL | FK to users or projects |
-| embedding | VECTOR(1536) | NOT NULL | OpenAI-compatible dimension |
-| content_hash | VARCHAR(64) | NOT NULL | SHA-256 of input text; skip recompute if unchanged |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | |
-| updated_at | TIMESTAMPTZ | DEFAULT NOW() | |
+Embeddings are stored as a `VECTOR(1536)` column directly on the `users` and `projects` tables (not a separate table). This simplifies queries — similarity search is a single-table operation with no joins.
 
-**Unique constraint**: (source_type, source_id)
+**Trade-off**: The separate `embeddings` table approach offered `content_hash` dedup (skip recomputation if text unchanged). With column-on-model, this check must be implemented in the service layer (hash the assembled text and compare before calling the API).
+
+**TODO**: Implement content hash check in the embedding generation service to avoid unnecessary API calls.
 
 ---
 

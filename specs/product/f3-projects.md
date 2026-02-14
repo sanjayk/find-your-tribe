@@ -208,6 +208,20 @@ Projects depend on authentication (F1) and builder profiles (F2). They are a pre
 
 ---
 
+## Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Project model (backend) | Built | SQLAlchemy model with all fields |
+| Project GraphQL type | Built | Strawberry type with collaborators, tech stack |
+| Seed data (projects) | Built | 20+ demo projects with varied tech stacks |
+| Project Card (frontend) | Built | With status badge, tech stack tags, impact pills |
+| Project detail page | Not built | |
+| Project creation form | Not built | |
+| Collaborator invitation flow | Not built | |
+| Collaborator verification UI | Not built | |
+| GitHub import | Not built | V2 feature |
+
 ## Out of Scope (V1)
 
 - AI-powered project analysis (auto-extracting tech stack from URLs/repos)

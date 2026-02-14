@@ -21,11 +21,13 @@ from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, ULIDMixin
-from app.models.enums import AvailabilityStatus, UserRole
+from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
 
 if TYPE_CHECKING:
+    from app.models.endorsement import Endorsement
     from app.models.project import Project
     from app.models.skill import Skill
+    from app.models.tribe import Tribe
 
 
 # Association table for many-to-many relationship between users and skills
@@ -90,7 +92,7 @@ class User(Base, ULIDMixin, TimestampMixin):
         nullable=True,
     )
     primary_role: Mapped[UserRole | None] = mapped_column(
-        SQLEnum(UserRole),
+        SQLEnum(UserRole, values_callable=lambda x: [e.value for e in x]),
         nullable=True,
     )
     timezone: Mapped[str | None] = mapped_column(
@@ -98,7 +100,7 @@ class User(Base, ULIDMixin, TimestampMixin):
         nullable=True,
     )
     availability_status: Mapped[AvailabilityStatus] = mapped_column(
-        SQLEnum(AvailabilityStatus),
+        SQLEnum(AvailabilityStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=AvailabilityStatus.JUST_BROWSING,
         server_default="just_browsing",
@@ -118,6 +120,22 @@ class User(Base, ULIDMixin, TimestampMixin):
         nullable=False,
         default=dict,
         server_default="{}",
+    )
+
+    # Agent collaboration
+    agent_tools: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
+    agent_workflow_style: Mapped[AgentWorkflowStyle | None] = mapped_column(
+        SQLEnum(AgentWorkflowStyle, values_callable=lambda x: [e.value for e in x]),
+        nullable=True,
+    )
+    human_agent_ratio: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
     )
 
     # GitHub integration
@@ -172,6 +190,16 @@ class User(Base, ULIDMixin, TimestampMixin):
         secondary="project_collaborators",
         back_populates="collaborators",
     )
+    tribes: Mapped[list["Tribe"]] = relationship(
+        "Tribe",
+        secondary="tribe_members",
+        viewonly=True,
+    )
+    endorsements_received: Mapped[list["Endorsement"]] = relationship(
+        "Endorsement",
+        foreign_keys="Endorsement.to_user_id",
+        back_populates="to_user",
+    )
 
     __table_args__ = (
         Index("ix_users_search_vector", "search_vector", postgresql_using="gin"),
@@ -180,6 +208,7 @@ class User(Base, ULIDMixin, TimestampMixin):
             "embedding",
             postgresql_using="hnsw",
             postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
         Index("ix_users_primary_role_availability", "primary_role", "availability_status"),
     )

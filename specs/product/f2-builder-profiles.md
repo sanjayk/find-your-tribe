@@ -94,7 +94,7 @@ This flow is part of the discovery experience (see F5) but is included here beca
 - **Maya Chen (Indie Hacker):** Creates detailed project entries for her 3 shipped products. Profile becomes a strong portfolio. Uses "Open to tribe" status. Evaluates potential collaborators by looking at their project history and builder scores.
 - **James Okafor (Agency Escapee):** Builds a profile focused on his side project and independent design work, not agency clients. Sets status to "Open to tribe" and lists the roles he is looking for.
 - **Priya Sharma (Senior Engineer):** Imports GitHub projects and adds open-source contributions. Uses discovery to find builders in overlapping timezones.
-- **David Morales (Non-Technical Founder):** Creates projects based on operational work. Evaluates technical builders by their project history and collaborator endorsements, which he can understand even without technical depth.
+- **David Morales (Non-Technical Founder):** Creates projects based on operational work. Evaluates technical builders by their project history and verified collaborations, which he can understand even without technical depth.
 
 ---
 
@@ -135,10 +135,87 @@ Builder profiles depend on authentication and onboarding (F1) to exist. They are
 
 ---
 
+## Implemented Profile Sections
+
+### Shipping Proof
+- **Aggregate Impact Row**: Total GitHub stars, shipped count, and total users across all projects — displayed as large mono numbers at the top of the content area.
+- **Split Projects**: Projects separated into "Currently Building" (with amber pulse dot) and "Shipped" sections instead of a flat grid.
+- **Impact Metrics**: Each project card shows key metrics (users, companies, downloads) as accent-colored pills.
+- **Shipping Timeline**: Horizontal time axis showing project dots positioned by creation date. Shipped = filled accent dot, in-progress = outlined amber dot. Hover reveals title.
+
+### Social Proof
+- **Tribes**: Tribe cards showing name, mission, member avatars (overlapping circles), member count, and open role count.
+- **Collaborator Network ("Built With")**: Unique collaborators deduplicated across all projects (excluding self), rendered as overlapping avatar circles with links to their profiles.
+
+### AI Workflow Signals ("How They Build")
+
+FYT exists in the AI era. The platform asks "What have you built, and who did you build it with?" — the natural extension is "How do you build?" In 2026, a builder's AI workflow is a real compatibility signal:
+
+- A swarm builder and a minimal builder may clash on process
+- Tool preferences indicate workflow maturity
+- Human/AI ratio indicates working style
+
+This positions FYT as the only professional network that understands how modern builders work.
+
+**Data captured:**
+- **Workflow style** (enum): pair, swarm, review, autonomous, minimal — describes how the builder collaborates with AI agents
+- **Agent tools** (JSONB list): tools and frameworks the builder uses (e.g., "Claude Code", "Cursor", "GitHub Copilot", "Aider")
+- **Human/AI ratio** (float 0-1): self-reported ratio of human vs AI contribution in their workflow (0.0 = fully human, 1.0 = fully AI)
+
+**User stories:**
+
+| ID | Story | Priority |
+|---|---|---|
+| P-7 | As a builder, I want to set my AI workflow style so that potential collaborators understand how I work. | Should |
+| P-8 | As a visitor, I want to see a builder's AI tools and workflow on their profile so that I can assess compatibility. | Should |
+
+### Building Activity ("Burn Map")
+
+The burn map is proof-of-work made visual. It answers: "Is this builder actively shipping, or is this a stale profile?" For tribe formation, this is critical — you want active co-builders, not dormant ones.
+
+Displayed as a dot grid (similar to GitHub's contribution graph but simpler), showing building activity over the past 12 months. Each dot represents a week; intensity indicates activity level.
+
+**V1 data source**: Platform activity events — project creation/updates, collaborator confirmations, tribe activity. These already exist as feed events.
+
+**Future**: Integration with AI tool providers for actual token consumption data.
+
+| ID | Story | Priority |
+|---|---|---|
+| P-9 | As a visitor, I want to see a builder's activity history so that I know they are actively shipping. | Should |
+
+### Working Style Signals (Sidebar)
+- **Timezone Overlap**: Shows builder's timezone plus calculated work-hour overlap (9am-6pm) with viewer's timezone.
+- **Preferred Stack**: Top 5 technologies derived from all projects' tech stacks, shown as horizontal bars proportional to frequency.
+- **Role Pattern**: Label derived from project ownership — "Usually the founder", "Versatile builder", or "Independent builder".
+
+### Existing Gaps Fixed
+- **Headline**: Rendered below display name in italic.
+- **Twitter + LinkedIn**: Rendered from `contactLinks` JSON alongside GitHub and website.
+- **Real Collaborators on ProjectCard**: Built from actual `project.collaborators` data instead of hardcoding owner-only.
+
+---
+
+## Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| User model (backend) | Built | SQLAlchemy model with all profile fields including agent workflow |
+| User GraphQL type | Built | Strawberry type with resolvers for skills, projects, tribes |
+| Profile page (`/profile/[username]`) | Partial | Page exists with layout, queries wired, but uses mock data fallback |
+| Builder Card | Built | Featured and list variants |
+| Project Card | Built | With shipping status and impact metrics |
+| Score Display | Partial | Component shell exists |
+| Shipping Timeline | Partial | Component exists, needs real data integration |
+| Collaborator Network | Partial | Component exists, needs real data integration |
+| Agent Workflow Card | Partial | Component exists, needs backend query integration |
+| Burn Map | Partial | Component exists, needs feed event aggregation query |
+| Seed data (users) | Built | 10+ demo builders with realistic profiles |
+| Edit profile page | Not built | |
+| Avatar upload | Not built | |
+
 ## Out of Scope (V1)
 
 - Job history, education, or company name fields
 - In-platform messaging or DMs
 - Follower / following relationships
-- Endorsements or testimonials from other builders
 - Profile analytics (who viewed your profile)

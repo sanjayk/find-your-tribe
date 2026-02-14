@@ -630,3 +630,128 @@ Overflow: surface-secondary circle with "+N" (caption, text-secondary)
 | Feed | Full width, 16px padding | Max 640px centered |
 | Cmd palette | Full-screen sheet | 540px centered |
 | Tabs | Horizontal scroll if needed | Static |
+
+---
+
+## Profile-Specific Components (V1)
+
+### Shipping Timeline
+
+```
+Container: surface-elevated, rounded-xl, p-6, shadow-sm
+Height: 48px content area
+
+Axis: 1px horizontal line, ink-tertiary/20, centered vertically
+Dots:
+  Shipped: 12px circle, bg-accent, filled
+  In-progress: 12px circle, transparent bg, 2px ring in-progress
+  Position: left % = (projectDate - earliest) / range
+Hover: scale 1.5x, tooltip above with project title
+  Tooltip: 11px, bg-surface-inverse, text-ink-inverse, rounded
+
+Date labels: 10px mono, ink-tertiary, left = earliest date, right = latest date
+```
+
+### Agent Workflow Card ("How They Build")
+
+```
+Container: sidebar section, no card wrapper (follows sidebar section pattern)
+Overline: "HOW THEY BUILD" (11px mono, uppercase, tracking)
+
+Workflow label:
+  Text: 12px, ink-secondary
+  Background: accent-subtle, px-2.5, py-1, rounded-md
+  Values: "Pair builder" | "Swarm builder" | "Review-first" | "Autonomous" | "Minimal AI"
+  Derived from agent_workflow_style enum
+
+Tool tags:
+  Same style as skill tags but accent-subtle bg instead of surface-secondary
+  Font: mono 12px
+  Wrapped row, gap-1.5
+  Show all tools (no max — typically 2-5)
+
+Human/AI ratio bar:
+  Container: flex, items-center, gap-2, mt-3
+  Bar: flex-1, h-1.5, rounded-full, overflow-hidden
+    Human segment: bg-ink-tertiary/30, width = (1 - ratio) * 100%
+    AI segment: bg-accent, width = ratio * 100%
+  Label: 11px, ink-tertiary — "60% human · 40% AI"
+
+If agent_workflow_style is null: entire section hidden.
+If agent_tools is empty but style is set: show style label, hide tools row.
+```
+
+### Burn Map (Building Activity)
+
+```
+Container: surface-elevated, rounded-xl, p-6, shadow-sm
+Overline: "BUILDING ACTIVITY" (11px mono, uppercase, tracking)
+
+Dot grid:
+  Layout: 52 columns × 7 rows, CSS grid
+  Cell size: 10px × 10px, gap 2px
+  Dot shape: rounded-sm (2px radius)
+  Colors by activity level:
+    0 events: surface-secondary
+    1-2 events: accent-subtle (#eef2ff)
+    3-5 events: accent-muted (#a5b4fc)
+    6+ events: accent (#6366f1)
+  Tooltip on hover: "3 events · Week of Jan 6" (same tooltip style as ShippingTimeline)
+
+Month labels: 10px mono, ink-tertiary, above grid, spaced at month boundaries
+Day labels: optional, 10px mono, ink-tertiary, left of grid (Mon/Wed/Fri)
+
+Summary: below grid, mt-3
+  Text: 12px, ink-tertiary
+  Format: "N active weeks · M total events this year"
+
+Empty state: "No recent activity" — 12px, ink-tertiary, centered in container
+```
+
+### Collaborator Network ("Built With")
+
+```
+Overline: "BUILT WITH" (11px mono, uppercase, tracking)
+Avatar row: overlapping circles, -8px margin, 36px each
+  Ring: 2px ring-surface for separation
+  Hover: scale 1.1x, z-10
+Name list: 13px, ink-secondary, comma-separated, accent on hover
+```
+
+### Aggregate Impact Row
+
+```
+Layout: flex, items-baseline, gap-3, flex-wrap
+Each metric:
+  Value: font-mono, 24px, font-medium, ink
+  Label: 13px, ink-tertiary
+  Separator: middot (·), ink-tertiary, mx-1
+Render only non-zero metrics. Hide entirely if all zero.
+```
+
+### Preferred Stack (Sidebar)
+
+```
+Overline: "PREFERRED STACK"
+Each row: flex, items-center, gap-2
+  Label: 12px, ink-secondary, w-20, truncate
+  Bar container: flex-1, h-1.5, bg-surface-secondary, rounded-full
+  Fill: bg-accent-subtle, rounded-full, width proportional to max count
+Top 5 technologies derived from all projects' techStack.
+```
+
+### Timezone Overlap (Sidebar)
+
+```
+Icon: MapPin (16px, ink-tertiary) + timezone string (13px)
+Below: 11px, ink-tertiary, pl-6 — "{N}hrs overlap with you" or "No work-hour overlap"
+Same timezone: just show timezone, no overlap text.
+```
+
+### Role Pattern (Sidebar)
+
+```
+Label: 12px, ink-tertiary, bg-surface-secondary, px-2.5, py-1, rounded-md
+Values: "Usually the founder" | "Versatile builder" | "Independent builder"
+Derived from project count and collaborator presence.
+```

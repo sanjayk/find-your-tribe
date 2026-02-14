@@ -157,7 +157,7 @@ This is powerful but requires embeddings infrastructure and meaningful data volu
 - **Maya Chen (Indie Hacker):** Browses open tribes that need an engineer, or discovers designers who have shipped B2B SaaS. Evaluates potential collaborators by their project history and builder scores.
 - **James Okafor (Agency Escapee):** Browses engineers who have shipped design-related tools or developer tools. Searches for tribes that need a designer.
 - **Priya Sharma (Senior Engineer):** Uses discovery to find designers and growth people in overlapping timezones (IST +/- 3 hours).
-- **David Morales (Non-Technical Founder):** Searches for engineers who have built in hospitality, travel, or marketplace verticals. Browses open tribes that need operational expertise. Evaluates builders by their project history and collaborator endorsements.
+- **David Morales (Non-Technical Founder):** Searches for engineers who have built in hospitality, travel, or marketplace verticals. Browses open tribes that need operational expertise. Evaluates builders by their project history and verified collaborations.
 
 ---
 
@@ -213,6 +213,18 @@ Collaborator Verification (F3)
 Builder and project discovery depend on profiles (F2) and projects (F3) existing. Ranked discovery depends on Builder Score (F7). Tribe discovery depends on tribes (F4) existing. AI search depends on sufficient data volume and embeddings infrastructure.
 
 ---
+
+## Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Discovery page (`/discover`) | Partial | Page exists with tab structure and builder grid |
+| Builder Card (in discovery) | Built | Featured and list variants wired to GraphQL |
+| Builder filters (role, skill, timezone) | Not built | |
+| Project discovery tab | Not built | |
+| Tribe discovery tab | Not built | |
+| Full-text search (backend) | Not built | Search vector columns exist on models |
+| AI-powered natural language search | Not built | V2 (requires MCP) |
 
 ## Out of Scope (V1)
 

@@ -25,6 +25,51 @@ git_current_branch() {
     _git rev-parse --abbrev-ref HEAD
 }
 
+# Check if working tree has uncommitted changes (tracked or untracked)
+git_is_dirty() {
+    # Check for staged/unstaged changes to tracked files
+    if ! _git diff --quiet HEAD 2>/dev/null; then
+        return 0
+    fi
+    # Check for staged changes
+    if ! _git diff --cached --quiet 2>/dev/null; then
+        return 0
+    fi
+    # Check for untracked files (excluding gitignored)
+    if [[ -n "$(_git ls-files --others --exclude-standard 2>/dev/null)" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# Create a baseline commit so task branches include the full working tree.
+# Without this, untracked files are invisible to task branches.
+git_create_baseline() {
+    if ! git_is_dirty; then
+        return 0
+    fi
+
+    log_step "Working tree has uncommitted changes"
+
+    # Show summary
+    local tracked_changes untracked_files
+    tracked_changes=$(_git diff --stat HEAD 2>/dev/null | tail -1)
+    untracked_files=$(_git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+    if [[ -n "$tracked_changes" ]]; then
+        log_step "  Tracked: ${tracked_changes}"
+    fi
+    if [[ "$untracked_files" -gt 0 ]]; then
+        log_step "  Untracked: ${untracked_files} file(s)"
+    fi
+
+    log_step "Creating baseline commit so task branches see all files..."
+    _git add -A
+    _git commit -m "tribe: baseline commit for swarm operation" >/dev/null 2>&1
+    log_success "Baseline commit created"
+    return 0
+}
+
 git_branch_exists() {
     local branch="$1"
     _git rev-parse --verify "$branch" &>/dev/null

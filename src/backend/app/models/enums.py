@@ -57,9 +57,11 @@ class MemberRole(str, Enum):
 class MemberStatus(str, Enum):
     """Status of a tribe membership."""
 
-    ACTIVE = "active"
     PENDING = "pending"
+    ACTIVE = "active"
     REJECTED = "rejected"
+    LEFT = "left"
+    REMOVED = "removed"
 
 
 class EventType(str, Enum):
@@ -71,6 +73,16 @@ class EventType(str, Enum):
     TRIBE_CREATED = "tribe_created"
     MEMBER_JOINED_TRIBE = "member_joined_tribe"
     BUILDER_JOINED = "builder_joined"
+
+
+class AgentWorkflowStyle(str, Enum):
+    """How a builder collaborates with AI agents."""
+
+    PAIR = "pair"
+    SWARM = "swarm"
+    REVIEW = "review"
+    AUTONOMOUS = "autonomous"
+    MINIMAL = "minimal"
 
 
 class SkillCategory(str, Enum):

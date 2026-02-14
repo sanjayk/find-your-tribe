@@ -1,18 +1,22 @@
 {
   "id": "8",
-  "title": "Project model with relationships",
-  "description": "Implement `app/models/project.py` with Project and ProjectCollaborator models. Project columns: id, owner_id (FK to users.id CASCADE indexed), title (String(200)), description (Text nullable), status (Enum(ProjectStatus) default IN_PROGRESS), role (String(100) nullable), thumbnail_url (String(500) nullable), links (JSONB default {}), tech_stack (JSONB default []), impact_metrics (JSONB default {}), github_repo_full_name (String(200) nullable unique), github_stars (Integer nullable), search_vector (TSVECTOR with GIN index), embedding (Vector(1536) nullable with HNSW index), created_at, updated_at. Relationships: owner (User), collaborators (many-to-many via project_collaborators). ProjectCollaborator junction: project_id + user_id composite PK, role (String(100) nullable), status (Enum(CollaboratorStatus) default PENDING), invited_at, confirmed_at (nullable).",
-  "acceptance_criteria": "- Project model with all columns defined\n- ProjectCollaborator association table\n- owner_id FK with cascade and index\n- search_vector and embedding with correct indexes\n- Relationships to User defined\n- All defaults match spec\n- github_repo_full_name unique constraint",
+  "title": "Remove endorsement eager-loading from health query",
+  "description": "Edit `src/backend/app/graphql/queries/health.py` to remove:\n1. Import of `Endorsement` model\n2. The `selectinload(User.endorsements_received)` chain from the query options\n3. The `endorsements=user.endorsements_received` parameter when constructing `UserType` in the loop\nEnsure the health query still works and returns users correctly.",
+  "acceptance_criteria": "- No `Endorsement` import in health.py\n- No `selectinload(User.endorsements_received)` in query options\n- No `endorsements` parameter passed to UserType constructor\n- Health query executes successfully\n- Query returns valid user data",
   "depends_on": [
-    "7"
+    "1",
+    "5"
   ],
   "status": "pending",
-  "branch": "tribe/task-8-project-model-with-relationships",
+  "branch": "tribe/task-8-remove-endorsement-eager-loading-from-he",
   "agent_model": "sonnet",
-  "created_at": "2026-02-10T23:07:31Z",
+  "created_at": "2026-02-14T05:20:00Z",
   "started_at": null,
   "completed_at": null,
   "agent_pid": null,
   "error": null,
-  "review_feedback": null
+  "review_feedback": null,
+  "files_touched": [
+    "src/backend/app/graphql/queries/health.py"
+  ]
 }

@@ -39,6 +39,49 @@ class UserSkill(Base):
     )
 ```
 
+## Agent Workflow Fields (on User model)
+
+```python
+# Added to User model (src/backend/app/models/user.py)
+class User(Base, ULIDMixin):
+    # ... existing fields ...
+
+    # AI workflow signals
+    agent_tools: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # e.g. ["Claude Code", "Cursor", "GitHub Copilot"]
+
+    agent_workflow_style: Mapped[str | None] = mapped_column(
+        SQLEnum(AgentWorkflowStyle, values_callable=lambda x: [e.value for e in x]),
+        nullable=True,
+    )
+    # "pair", "swarm", "review", "autonomous", "minimal"
+
+    human_agent_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # 0.0 = fully human, 1.0 = fully AI-assisted
+```
+
+## Burn Map (Activity Derivation)
+
+The burn map is derived from `feed_events` — no separate activity tracking table needed in V1.
+
+```python
+# Query: aggregate feed events by week for the past 52 weeks
+stmt = (
+    select(
+        func.date_trunc("week", FeedEvent.created_at).label("week"),
+        func.count().label("count"),
+    )
+    .where(
+        FeedEvent.actor_id == user_id,
+        FeedEvent.created_at >= datetime.now() - timedelta(weeks=52),
+    )
+    .group_by("week")
+    .order_by("week")
+)
+```
+
+Returns 52 data points (one per week), each with an activity count. Frontend maps counts to intensity levels (0 = no activity, 1-2 = low, 3-5 = medium, 6+ = high).
+
 ## GraphQL Types
 
 ```python
@@ -247,9 +290,36 @@ app/
 ```
 
 ### Profile Page Layout
-- Hero: avatar, display_name, headline, role badge, builder score, availability pill
-- Skills: horizontal chip list
-- Contact: icon links (Twitter, email, Calendly, GitHub)
-- Projects: grid of ProjectCards (sorted by recency)
-- Collaborators: avatar row with names
-- Tribes: list of active/alumni tribes
+- **Left Sidebar (320px, sticky)**: avatar, display_name, headline (italic), @username, role badge, builder score, bio, skills, availability dot, timezone with overlap calculation, contact links (GitHub, Twitter, LinkedIn, website), joined date, preferred stack bars, role pattern label, "How They Build" (agent workflow)
+- **Right Content**: aggregate impact row (stars/shipped/users), "Currently Building" section (IN_PROGRESS projects with amber pulse dot), "Shipped" section (SHIPPED projects with impact metric pills), shipping timeline, burn map, tribes (cards with member avatars), collaborator network ("Built With")
+
+### GraphQL Query (Eager-Loading Chain)
+
+```python
+stmt = (
+    select(User)
+    .where(User.username == username)
+    .options(
+        selectinload(User.skills),
+        selectinload(User.owned_projects).selectinload(Project.collaborators),
+        selectinload(User.tribes).options(
+            selectinload(Tribe.owner),
+            selectinload(Tribe.members),
+            selectinload(Tribe.open_roles),
+        ),
+    )
+)
+```
+
+### New Frontend Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `ShippingTimeline` | `components/features/shipping-timeline.tsx` | Horizontal time axis with project dots |
+| `CollaboratorNetwork` | `components/features/collaborator-network.tsx` | Deduplicated collaborator avatars across all projects |
+| `AgentWorkflowCard` | `components/features/agent-workflow-card.tsx` | AI workflow style, tools, human/AI ratio |
+| `BurnMap` | `components/features/burn-map.tsx` | Building activity dot grid |
+| `AggregateImpact` | Inline in profile page | Big mono numbers: stars, shipped, users |
+| `PreferredStack` | Inline in profile page | Top 5 tech frequencies as horizontal bars |
+| `TimezoneOverlap` | Inline in profile page | Timezone + work-hour overlap calculation |
+| `RolePattern` | Inline in profile page | Derived label from project ownership patterns |

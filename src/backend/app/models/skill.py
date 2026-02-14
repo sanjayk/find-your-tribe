@@ -27,10 +27,9 @@ class Skill(Base, ULIDMixin, TimestampMixin):
         String(100),
         unique=True,
         nullable=False,
-        index=True,
     )
     category: Mapped[SkillCategory] = mapped_column(
-        SQLEnum(SkillCategory),
+        SQLEnum(SkillCategory, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
 

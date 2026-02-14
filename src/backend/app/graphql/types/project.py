@@ -8,7 +8,8 @@ import strawberry
 from app.models.enums import CollaboratorStatus, ProjectStatus
 
 if TYPE_CHECKING:
-    from app.graphql.types.user import UserType
+    from app.models.project import Project
+    from app.models.user import User
 
 
 @strawberry.type
@@ -29,29 +30,104 @@ class ProjectType:
     created_at: datetime
     updated_at: datetime
 
+    _owner: strawberry.Private[object | None]
+    _collaborators: strawberry.Private[list]
+
     @strawberry.field
     def owner(self) -> "UserType":
-        """
-        Lazy resolver for project owner.
-
-        This field will be implemented later with proper data loading logic.
-        For now, it returns a placeholder as the implementation requires
-        database context and data loaders.
-        """
-        # TODO: Implement proper owner loading from database using dataloaders
-        # Placeholder - will be replaced with actual dataloader
-        raise NotImplementedError("Owner loading not yet implemented")
+        return self._owner  # type: ignore[return-value]
 
     @strawberry.field
     def collaborators(self) -> list["CollaboratorType"]:
-        """
-        Lazy resolver for project collaborators.
+        return self._collaborators  # type: ignore[return-value]
 
-        This field will be implemented later with proper data loading logic.
-        For now, it returns an empty list as a placeholder.
-        """
-        # TODO: Implement proper collaborators loading from database
-        return []
+    @classmethod
+    def from_model(
+        cls,
+        project: "Project",
+        owner: "User | None" = None,
+        collaborators: "list[User] | None" = None,
+    ) -> "ProjectType":
+        owner_type = None
+        if owner is not None:
+            owner_type = UserType(
+                id=owner.id,
+                email=owner.email,
+                username=owner.username,
+                display_name=owner.display_name,
+                avatar_url=owner.avatar_url,
+                headline=owner.headline,
+                primary_role=owner.primary_role,
+                timezone=owner.timezone,
+                availability_status=owner.availability_status,
+                builder_score=owner.builder_score,
+                bio=owner.bio,
+                contact_links=owner.contact_links,
+                github_username=owner.github_username,
+                onboarding_completed=owner.onboarding_completed,
+                agent_tools=[],
+                agent_workflow_style=None,
+                human_agent_ratio=None,
+                created_at=owner.created_at,
+                _skills=[],
+                _owned_projects=[],
+                _tribes=[],
+                _endorsements=[],
+            )
+
+        collaborator_types = []
+        for collab in (collaborators or []):
+            collab_user = UserType(
+                id=collab.id,
+                email=collab.email,
+                username=collab.username,
+                display_name=collab.display_name,
+                avatar_url=collab.avatar_url,
+                headline=collab.headline,
+                primary_role=collab.primary_role,
+                timezone=collab.timezone,
+                availability_status=collab.availability_status,
+                builder_score=collab.builder_score,
+                bio=collab.bio,
+                contact_links=collab.contact_links,
+                github_username=collab.github_username,
+                onboarding_completed=collab.onboarding_completed,
+                agent_tools=[],
+                agent_workflow_style=None,
+                human_agent_ratio=None,
+                created_at=collab.created_at,
+                _skills=[],
+                _owned_projects=[],
+                _tribes=[],
+                _endorsements=[],
+            )
+            collaborator_types.append(
+                CollaboratorType(
+                    user=collab_user,
+                    role=None,
+                    status=CollaboratorStatus.CONFIRMED,
+                    invited_at=project.created_at,
+                    confirmed_at=project.created_at,
+                )
+            )
+
+        return cls(
+            id=project.id,
+            title=project.title,
+            description=project.description,
+            status=project.status,
+            role=project.role,
+            thumbnail_url=project.thumbnail_url,
+            links=project.links,
+            tech_stack=project.tech_stack,
+            impact_metrics=project.impact_metrics,
+            github_repo_full_name=project.github_repo_full_name,
+            github_stars=project.github_stars,
+            created_at=project.created_at,
+            updated_at=project.updated_at,
+            _owner=owner_type,
+            _collaborators=collaborator_types,
+        )
 
 
 @strawberry.type
@@ -63,3 +139,7 @@ class CollaboratorType:
     status: CollaboratorStatus
     invited_at: datetime
     confirmed_at: datetime | None
+
+
+# Import after class definitions to avoid circular import at module level
+from app.graphql.types.user import UserType  # noqa: E402

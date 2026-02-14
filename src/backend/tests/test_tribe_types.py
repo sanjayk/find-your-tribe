@@ -272,6 +272,9 @@ def test_tribe_member_type_instantiation():
         contact_links={},
         github_username=None,
         onboarding_completed=False,
+        agent_tools=[],
+        agent_workflow_style=None,
+        human_agent_ratio=None,
         created_at=now,
     )
 
@@ -307,6 +310,9 @@ def test_tribe_member_type_with_owner_role():
         contact_links={},
         github_username=None,
         onboarding_completed=True,
+        agent_tools=[],
+        agent_workflow_style=None,
+        human_agent_ratio=None,
         created_at=now,
     )
 
@@ -342,6 +348,9 @@ def test_tribe_member_type_with_pending_status():
         contact_links={},
         github_username=None,
         onboarding_completed=True,
+        agent_tools=[],
+        agent_workflow_style=None,
+        human_agent_ratio=None,
         created_at=now,
     )
 
@@ -474,6 +483,9 @@ def test_all_member_role_values():
         contact_links={},
         github_username=None,
         onboarding_completed=False,
+        agent_tools=[],
+        agent_workflow_style=None,
+        human_agent_ratio=None,
         created_at=now,
     )
 
@@ -506,6 +518,9 @@ def test_all_member_status_values():
         contact_links={},
         github_username=None,
         onboarding_completed=False,
+        agent_tools=[],
+        agent_workflow_style=None,
+        human_agent_ratio=None,
         created_at=now,
     )
 

@@ -34,15 +34,53 @@ Implement the task described below completely and correctly. You are working on 
 - **Stay in scope** — Only implement what your task describes. Don't refactor unrelated code or add features not in your task.
 - **Don't break existing code** — If your task builds on existing work, ensure backward compatibility.
 - **Follow existing patterns** — Don't introduce new libraries, frameworks, or architectural patterns unless your task specifically requires it.
-- **Ask no questions** — You have all the information you need. If something is ambiguous, make the most reasonable choice and document it in a code comment.
+- **Only touch declared files** — Your task declares which files it will create or modify. Stay within those boundaries. If you need to modify an undeclared file, report it as a scope issue.
+- **No over-engineering** — Don't add abstractions, utilities, or helpers that aren't directly required. Three lines of repeated code is better than a premature abstraction.
+
+## When You're Stuck or Uncertain
+
+**Do not fabricate solutions.** If you encounter something you're genuinely uncertain about — an ambiguous requirement, a missing dependency, a contradiction in the task spec — you MUST report it instead of guessing.
+
+Output a blocked status:
+
+```json
+{
+  "status": "blocked",
+  "task_id": "your task ID",
+  "uncertain_about": "Clear description of what you don't understand or can't resolve",
+  "options": [
+    "Option A: description",
+    "Option B: description"
+  ],
+  "attempted": "What you tried before getting stuck",
+  "files_completed": ["files you successfully created/modified before getting stuck"],
+  "blocked_reason": "ambiguous_spec" | "missing_dependency" | "contradictory_requirements" | "impossible_as_specified"
+}
+```
+
+This is a **valid and expected** output. It is better to report a block than to build on a guess. The system has a path for handling blocked tasks — your uncertainty will be resolved and you'll be re-run with clarity.
 
 ## Output
 
-When you're done:
-1. Ensure all your changes are committed
+When you're done (not blocked):
+1. Ensure all your changes are committed to your branch
 2. Verify your code runs without errors
 3. Confirm tests pass (if applicable)
-4. Provide a brief summary of what you implemented and any decisions you made
+4. Output a completion summary:
+
+```json
+{
+  "status": "done",
+  "task_id": "your task ID",
+  "files_created": ["list of new files"],
+  "files_modified": ["list of modified files"],
+  "decisions": ["Any non-obvious decisions you made and why"],
+  "tests_added": ["list of test files"],
+  "concerns": ["Anything you're not 100% confident about"]
+}
+```
+
+Note: the `concerns` field is important. If you're 90% sure about something but not 100%, say so. A concern that's surfaced is catchable; a hidden doubt becomes a bug.
 
 ## Quality Standards
 

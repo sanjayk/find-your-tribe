@@ -216,7 +216,7 @@ async def seed_feed_events(
         event_time = base_time - timedelta(hours=event_data["time_offset_hours"] - 2)
 
         # Generate ULID with specific timestamp for proper ordering
-        event_ulid = ULID.from_timestamp(event_time)
+        event_ulid = ULID.from_timestamp(event_time.timestamp())
 
         # Determine target_id based on target_type
         if event_data["target_type"] == "project":

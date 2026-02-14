@@ -3,6 +3,10 @@
 
 # Requires config.sh and log.sh to be sourced first
 
+# Allow nested invocation when running inside a Claude Code session.
+# The -p (print/pipe) mode is non-interactive and safe to nest.
+unset CLAUDECODE 2>/dev/null || true
+
 # Spawn a Claude agent with a system prompt and user message
 # Returns the agent's output on stdout
 claude_run() {

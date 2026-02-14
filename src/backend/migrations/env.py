@@ -3,6 +3,7 @@
 import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from alembic import context
@@ -83,7 +84,7 @@ def do_run_migrations(connection: Connection) -> None:
     )
 
     # Ensure pgvector extension is available
-    connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     with context.begin_transaction():
         context.run_migrations()

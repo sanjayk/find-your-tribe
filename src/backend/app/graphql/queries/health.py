@@ -1,37 +1,80 @@
-"""Health check query for GraphQL API."""
+"""GraphQL queries for health check and builder profiles."""
 
 import strawberry
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.orm import selectinload
 from strawberry.types import Info
 
 from app.graphql.context import Context
+from app.graphql.types.user import UserType
+from app.models.endorsement import Endorsement
+from app.models.project import Project
+from app.models.tribe import Tribe, TribeOpenRole
+from app.models.user import User
 
 
 @strawberry.type
 class Query:
-    """GraphQL Query type containing health check."""
+    """GraphQL Query type."""
 
     @strawberry.field
     async def health(self, info: Info[Context, None]) -> str:
-        """
-        Health check endpoint that verifies database connectivity.
-
-        Executes a simple SELECT 1 query to ensure the database is reachable
-        and responsive. Returns 'ok' if the database connection is healthy.
-
-        Args:
-            info: Strawberry Info object containing the GraphQL context.
-
-        Returns:
-            str: 'ok' if database is connected and healthy.
-
-        Raises:
-            Exception: If database connection fails or query cannot be executed.
-        """
-        # Get the session from the context
+        """Health check that verifies database connectivity."""
         session = info.context.session
-
-        # Execute SELECT 1 to verify database connectivity
         await session.execute(text("SELECT 1"))
-
         return "ok"
+
+    @strawberry.field
+    async def user(
+        self, info: Info[Context, None], username: str
+    ) -> UserType | None:
+        """Fetch a single user by username with skills, projects, tribes, and endorsements."""
+        session = info.context.session
+        stmt = (
+            select(User)
+            .where(User.username == username)
+            .options(
+                selectinload(User.skills),
+                selectinload(User.owned_projects).selectinload(Project.collaborators),
+                selectinload(User.tribes).options(
+                    selectinload(Tribe.owner),
+                    selectinload(Tribe.members),
+                    selectinload(Tribe.open_roles),
+                ),
+                selectinload(User.endorsements_received).options(
+                    selectinload(Endorsement.from_user),
+                    selectinload(Endorsement.project),
+                ),
+            )
+        )
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        if user is None:
+            return None
+        return UserType.from_model(
+            user,
+            skills=user.skills,
+            projects=user.owned_projects,
+            tribes=user.tribes,
+            endorsements=user.endorsements_received,
+        )
+
+    @strawberry.field
+    async def builders(
+        self,
+        info: Info[Context, None],
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[UserType]:
+        """Paginated list of builders ordered by score descending."""
+        session = info.context.session
+        stmt = (
+            select(User)
+            .options(selectinload(User.skills))
+            .order_by(User.builder_score.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await session.execute(stmt)
+        users = result.scalars().all()
+        return [UserType.from_model(u, skills=u.skills) for u in users]

@@ -1,18 +1,21 @@
 {
   "id": "7",
-  "title": "User model with relationships and indexes",
-  "description": "Implement `app/models/user.py` with User, RefreshToken, and UserSkill models. User columns: email (String(255) unique indexed), password_hash (String(255) nullable), username (String(50) unique indexed), display_name (String(100)), avatar_url (String(500) nullable), headline (String(200) nullable), primary_role (Enum(UserRole) nullable), timezone (String(50) nullable), availability_status (Enum(AvailabilityStatus) default JUST_BROWSING), builder_score (Float default 0.0), bio (Text nullable), contact_links (JSONB default {}), github_username (String(100) nullable unique), github_access_token_encrypted (String(500) nullable), onboarding_completed (Boolean default False), search_vector (TSVECTOR with GIN index), embedding (Vector(1536) nullable with HNSW index). Relationships: skills (many-to-many via user_skills), refresh_tokens (one-to-many). RefreshToken: id, user_id (FK cascade indexed), token_hash (String(64) unique), expires_at, revoked_at (nullable), created_at. UserSkill junction: user_id + skill_id composite PK, added_at. Use ULIDMixin and TimestampMixin where appropriate. Add composite index on (primary_role, availability_status).",
-  "acceptance_criteria": "- User model with all 20+ columns defined correctly\n- RefreshToken model with FK to User (cascade)\n- UserSkill association table with composite PK\n- search_vector has GIN index\n- embedding Vector(1536) has HNSW index\n- Composite index on (primary_role, availability_status)\n- All relationships defined\n- All defaults match spec",
+  "title": "Remove endorsement seeding from run.py",
+  "description": "Edit `src/backend/app/seed/run.py` to remove:\n1. Import of endorsement seed module\n2. The `DROP TABLE IF EXISTS endorsements` SQL line\n3. The call to `seed_endorsements(session)` in the main seeding flow\nEnsure the seeding script still runs successfully without endorsements.",
+  "acceptance_criteria": "- No endorsement import in run.py\n- No `DROP TABLE IF EXISTS endorsements` line\n- No call to `seed_endorsements()`\n- Seeding script runs without errors (`python -m app.seed.run`)",
   "depends_on": [
-    "6"
+    "3"
   ],
-  "status": "done",
-  "branch": "tribe/task-7-user-model-with-relationships-and-indexe",
+  "status": "pending",
+  "branch": "tribe/task-7-remove-endorsement-seeding-from-run-py",
   "agent_model": "sonnet",
-  "created_at": "2026-02-10T23:07:31Z",
-  "started_at": "2026-02-10T23:36:58Z",
-  "completed_at": "2026-02-10T23:45:04Z",
+  "created_at": "2026-02-14T05:20:00Z",
+  "started_at": null,
+  "completed_at": null,
   "agent_pid": null,
   "error": null,
-  "review_feedback": null
+  "review_feedback": null,
+  "files_touched": [
+    "src/backend/app/seed/run.py"
+  ]
 }

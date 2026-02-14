@@ -170,6 +170,16 @@ Builder Score depends on projects (F3) and collaborator verifications (F3) to ha
 
 ---
 
+## Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Builder score field (on User model) | Built | `builder_score` column exists, default 0 |
+| Score display component | Partial | Component shell exists |
+| Score computation algorithm | Not built | |
+| Score breakdown UI | Not built | |
+| Score transparency page | Not built | |
+
 ## Out of Scope (V1)
 
 - Score decay over time (penalizing inactive builders)

@@ -1,18 +1,21 @@
 {
   "id": "6",
-  "title": "Skill model",
-  "description": "Implement `app/models/skill.py` with Skill model. Columns: id (String(26) PK), name (String(100) unique), slug (String(100) unique indexed), category (Enum(SkillCategory)). Use ULIDMixin for id. Model should inherit from Base and mixins.",
-  "acceptance_criteria": "- `app/models/skill.py` exports Skill model\n- All columns defined with correct types\n- name and slug have unique constraints\n- slug has index\n- category uses SkillCategory enum",
+  "title": "Remove Endorsement from models __init__.py",
+  "description": "Edit `src/backend/app/models/__init__.py` to remove the `Endorsement` import and re-export. This ensures the model is not registered with SQLAlchemy metadata.",
+  "acceptance_criteria": "- No `Endorsement` import in models/__init__.py\n- No `Endorsement` in `__all__` list (if present)\n- Backend imports successfully\n- Alembic can still see all other models",
   "depends_on": [
-    "5"
+    "1"
   ],
-  "status": "done",
-  "branch": "tribe/task-6-skill-model",
+  "status": "pending",
+  "branch": "tribe/task-6-remove-endorsement-from-models-init-py",
   "agent_model": "sonnet",
-  "created_at": "2026-02-10T23:07:31Z",
-  "started_at": "2026-02-10T23:26:56Z",
-  "completed_at": "2026-02-10T23:32:44Z",
+  "created_at": "2026-02-14T05:20:00Z",
+  "started_at": null,
+  "completed_at": null,
   "agent_pid": null,
   "error": null,
-  "review_feedback": null
+  "review_feedback": null,
+  "files_touched": [
+    "src/backend/app/models/__init__.py"
+  ]
 }

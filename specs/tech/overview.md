@@ -6,11 +6,11 @@
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Frontend | Next.js (App Router) + Tailwind CSS + Apollo Client | 14.x |
+| Frontend | Next.js (App Router) + Tailwind CSS + Apollo Client | 16.x |
 | Backend | Python FastAPI + Strawberry GraphQL | FastAPI 0.110+, Strawberry 0.220+ |
 | Database | PostgreSQL + pgvector | 16+ |
 | ORM | SQLAlchemy 2.0+ + Alembic | async |
-| AI Layer | MCP Server (Python) + Claude API | — |
+| AI Layer | MCP Server (Python) + Claude API **(V2)** | — |
 | Auth | JWT (access + refresh) + GitHub OAuth | — |
 
 ## Project Structure
@@ -38,51 +38,27 @@ src/
 │   │   └── utils.ts
 │   ├── styles/
 │   │   └── globals.css
-│   ├── tailwind.config.ts
-│   └── next.config.js
+│   └── next.config.ts
 ├── backend/
-│   ├── main.py                # FastAPI app + Strawberry mount
-│   ├── schema/
-│   │   ├── types.py           # Strawberry GraphQL types
-│   │   ├── queries.py         # Query resolvers
-│   │   ├── mutations.py       # Mutation resolvers
-│   │   └── inputs.py          # Input types
-│   ├── models/
-│   │   ├── base.py            # SQLAlchemy Base, mixins
-│   │   ├── user.py
-│   │   ├── project.py
-│   │   ├── tribe.py
-│   │   ├── skill.py
-│   │   └── feed.py
-│   ├── services/
-│   │   ├── user_service.py
-│   │   ├── project_service.py
-│   │   ├── tribe_service.py
-│   │   ├── feed_service.py
-│   │   └── score_service.py
-│   ├── auth/
-│   │   ├── jwt.py             # Token creation/verification
-│   │   ├── github.py          # GitHub OAuth
-│   │   ├── middleware.py       # Auth middleware
-│   │   └── dependencies.py    # FastAPI dependencies
+│   ├── app/
+│   │   ├── main.py            # FastAPI app + Strawberry mount
+│   │   ├── config.py          # Pydantic settings
+│   │   ├── db/                # Engine, session, base
+│   │   ├── graphql/
+│   │   │   ├── types/         # Strawberry GraphQL types (user, project, tribe, skill, etc.)
+│   │   │   ├── queries/       # Query resolvers
+│   │   │   └── mutations/     # Mutation resolvers
+│   │   ├── models/            # SQLAlchemy models (user, project, tribe, skill, feed_event, enums)
+│   │   └── seed/              # Seed data (users, projects, tribes, feed_events, skills, run)
 │   ├── migrations/            # Alembic
 │   │   ├── env.py
 │   │   └── versions/
-│   ├── seeds/
-│   └── tests/
-├── mcp/
-│   ├── server.py              # MCP server entrypoint
-│   ├── tools/
-│   │   ├── search_builders.py
-│   │   ├── match_tribe.py
-│   │   ├── analyze_project.py
-│   │   └── suggest_collaborators.py
-│   ├── embeddings/
-│   │   ├── generator.py       # Embedding creation
-│   │   └── search.py          # Vector similarity search
-│   └── tests/
+│   ├── tests/
+│   ├── alembic.ini
+│   ├── pyproject.toml
+│   └── docker-compose.yml     # PostgreSQL + pgvector for local dev
 └── shared/
-    └── constants.json         # Skill taxonomy, role enums
+    └── constants.json         # Skill taxonomy, role enums (future)
 ```
 
 ## GraphQL Schema Overview
@@ -99,8 +75,8 @@ src/
 | `searchProjects(query: String, filters: ProjectFilters, limit: Int, offset: Int)` | Optional | Project discovery |
 | `searchTribes(query: String, filters: TribeFilters, limit: Int, offset: Int)` | Optional | Tribe discovery |
 | `feed(cursor: String, limit: Int)` | Optional | Paginated build feed |
-| `suggestedCollaborators(limit: Int)` | Required | AI-powered suggestions |
-| `myGithubRepos` | Required | List importable GitHub repos |
+| `suggestedCollaborators(limit: Int)` | Required | AI-powered suggestions **(V2 — requires MCP)** |
+| `myGithubRepos` | Required | List importable GitHub repos **(V2 — requires GitHub integration)** |
 
 ### Mutations
 
@@ -119,7 +95,7 @@ src/
 | `inviteCollaborator(projectId: ID!, userId: ID!, role: String!)` | Required (owner) | Invite |
 | `confirmCollaboration(projectId: ID!)` | Required (invitee) | Accept invite |
 | `declineCollaboration(projectId: ID!)` | Required (invitee) | Decline invite |
-| `importGithubRepo(repoFullName: String!)` | Required | Import repo as project |
+| `importGithubRepo(repoFullName: String!)` | Required | Import repo as project **(V2 — requires GitHub integration)** |
 | `createTribe(input: CreateTribeInput!)` | Required | Create tribe |
 | `updateTribe(id: ID!, input: UpdateTribeInput!)` | Required (owner) | Edit tribe |
 | `addOpenRole(tribeId: ID!, input: OpenRoleInput!)` | Required (owner) | Add role |

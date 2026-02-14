@@ -182,9 +182,11 @@ class MemberRole(str, Enum):
     MEMBER = "member"
 
 class MemberStatus(str, Enum):
-    ACTIVE = "active"
     PENDING = "pending"
+    ACTIVE = "active"
     REJECTED = "rejected"
+    LEFT = "left"
+    REMOVED = "removed"
 
 class EventType(str, Enum):
     PROJECT_CREATED = "project_created"

@@ -1,18 +1,21 @@
 {
   "id": "13",
-  "title": "Generate initial migration",
-  "description": "Generate the initial Alembic migration using `alembic revision --autogenerate -m 'initial schema'`. Verify migration creates: all enums, all tables with correct columns and types, all foreign keys with cascade, all indexes (GIN on search_vector, HNSW on embedding, composite indexes), pgvector extension. Review generated migration for correctness.",
-  "acceptance_criteria": "- Migration file created in migrations/versions/\n- Migration includes CREATE EXTENSION pgvector\n- All 11 tables created (users, refresh_tokens, user_skills, skills, projects, project_collaborators, tribes, tribe_members, tribe_open_roles, feed_events)\n- All enums created\n- All indexes present\n- Foreign keys with CASCADE\n- Migration runs without errors",
+  "title": "Remove Endorsement interface from frontend types",
+  "description": "Edit `src/frontend/src/lib/graphql/types.ts` to remove:\n1. The `Endorsement` interface definition\n2. The `endorsements` field from the `Builder` interface\nEnsure TypeScript compiles successfully without these types.",
+  "acceptance_criteria": "- No `Endorsement` interface in types.ts\n- No `endorsements` field on `Builder` interface\n- `npx tsc --noEmit` passes with no errors\n- Frontend builds successfully",
   "depends_on": [
-    "12"
+    "4"
   ],
   "status": "pending",
-  "branch": "tribe/task-13-generate-initial-migration",
+  "branch": "tribe/task-13-remove-endorsement-interface-from-fronte",
   "agent_model": "sonnet",
-  "created_at": "2026-02-10T23:07:31Z",
+  "created_at": "2026-02-14T05:20:00Z",
   "started_at": null,
   "completed_at": null,
   "agent_pid": null,
   "error": null,
-  "review_feedback": null
+  "review_feedback": null,
+  "files_touched": [
+    "src/frontend/src/lib/graphql/types.ts"
+  ]
 }

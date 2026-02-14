@@ -17,9 +17,11 @@ class MemberRole(str, enum.Enum):
     MEMBER = "member"
 
 class MemberStatus(str, enum.Enum):
-    ACTIVE = "active"
-    PENDING = "pending"    # Requested to join
-    REJECTED = "rejected"
+    PENDING = "pending"      # Requested to join, waiting for owner
+    ACTIVE = "active"        # Full member
+    REJECTED = "rejected"    # Join request declined
+    LEFT = "left"            # Member voluntarily left
+    REMOVED = "removed"      # Owner kicked them
 
 class Tribe(Base):
     __tablename__ = "tribes"
@@ -113,7 +115,7 @@ class TribeType:
 class TribeMemberType:
     user: UserType
     role: str       # owner | member
-    status: str     # active | pending
+    status: str     # pending | active | rejected | left | removed
     joined_at: datetime | None
 
 @strawberry.type

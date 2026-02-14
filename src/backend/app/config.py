@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    database_url: str = "postgresql+asyncpg://tribe:tribe@localhost:5432/tribe"
+    database_url: str = "postgresql+asyncpg://tribe:tribe@localhost:5433/tribe"
     environment: str = "development"
     debug: bool = True
 

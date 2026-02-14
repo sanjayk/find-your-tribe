@@ -21,7 +21,7 @@ class FeedEvent(Base, ULIDMixin):
 
     # Event metadata
     event_type: Mapped[EventType] = mapped_column(
-        SQLEnum(EventType),
+        SQLEnum(EventType, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
 
@@ -30,7 +30,6 @@ class FeedEvent(Base, ULIDMixin):
         String(26),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
 
     # Target (polymorphic reference)

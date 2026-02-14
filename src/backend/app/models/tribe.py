@@ -43,14 +43,14 @@ tribe_members = Table(
     ),
     Column(
         "role",
-        SQLEnum(MemberRole),
+        SQLEnum(MemberRole, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=MemberRole.MEMBER,
         server_default="member",
     ),
     Column(
         "status",
-        SQLEnum(MemberStatus),
+        SQLEnum(MemberStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=MemberStatus.PENDING,
         server_default="pending",
@@ -90,7 +90,7 @@ class Tribe(Base, ULIDMixin, TimestampMixin):
         nullable=True,
     )
     status: Mapped[TribeStatus] = mapped_column(
-        SQLEnum(TribeStatus),
+        SQLEnum(TribeStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=TribeStatus.OPEN,
         server_default="open",

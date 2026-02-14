@@ -67,6 +67,11 @@ Left sidebar: 320px, sticky (top: 80px)
 Right main: fluid
 Gap: 48px
 Container: 1120px max
+
+Updated layout includes:
+- Sidebar: headline (italic), timezone with overlap, preferred stack bars, role pattern, "How They Build" (agent workflow)
+- Content: aggregate impact row, split projects (currently building + shipped),
+  shipping timeline, burn map, tribes, collaborator network
 ```
 
 ### Sidebar Details
@@ -108,6 +113,18 @@ Links: icon (16px, text-tertiary) + label (body-sm, accent)
   GitHub, Twitter/X, LinkedIn, Website — each with appropriate Lucide icon
 
 Joined date: body-sm, text-tertiary
+
+HOW THEY BUILD (agent workflow):
+  Overline: "HOW THEY BUILD"
+  Workflow label: body-sm, bg-accent-subtle, px-2.5, py-1, rounded-md
+    e.g. "Pair builder" / "Swarm builder" / "Autonomous"
+  Tools: wrapped tags (same style as skill tags but accent-subtle bg)
+    e.g. "Claude Code" · "Cursor"
+  Human/AI bar: single horizontal bar, 4px height, rounded-full
+    Left segment: ink-tertiary (human proportion)
+    Right segment: accent (AI proportion)
+    Label below: "60% human · 40% AI" (caption, ink-tertiary)
+  If no data: section hidden entirely (not "No data")
 ```
 
 ### Main Content Area
@@ -121,6 +138,18 @@ SHIPPED PROJECTS section:
   Gap: 20px
   Cards: full project cards (see components.md)
   If no projects: empty state with "No projects yet" + "Add a project" CTA
+
+BUILDING ACTIVITY (burn map) section:
+  Overline: "BUILDING ACTIVITY"
+  Container: surface-elevated, rounded-xl, p-6, shadow-sm
+  Dot grid: 52 columns (weeks) × 7 rows (days), 10px cells, 2px gap
+  Dot colors by activity level:
+    0: surface-secondary (no activity)
+    1-2: accent-subtle (low)
+    3-5: accent-muted (medium)
+    6+: accent (high)
+  Summary stats below grid: "X active weeks · Y total events" (caption, ink-tertiary)
+  If no events in 52 weeks: "No recent activity" (body-sm, ink-tertiary, centered)
 
 COLLABORATORS section:
   List layout (not grid)
