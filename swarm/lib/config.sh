@@ -26,6 +26,7 @@ DEFAULT_MAX_PARALLEL=3
 DEFAULT_MAX_BUDGET=10
 DEFAULT_MODEL="sonnet"
 DEFAULT_TASK_BUDGET=2
+DEFAULT_AGENT_TIMEOUT=600
 BRANCH_PREFIX="tribe"
 
 # ── Colors ───────────────────────────────────────────────────────

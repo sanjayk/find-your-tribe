@@ -7,6 +7,14 @@
 # The -p (print/pipe) mode is non-interactive and safe to nest.
 unset CLAUDECODE 2>/dev/null || true
 
+# Resolve timeout command (GNU coreutils: timeout on Linux, gtimeout on macOS)
+_TIMEOUT_CMD=""
+if command -v timeout &>/dev/null; then
+    _TIMEOUT_CMD="timeout"
+elif command -v gtimeout &>/dev/null; then
+    _TIMEOUT_CMD="gtimeout"
+fi
+
 # Spawn a Claude agent with a system prompt and user message
 # Returns the agent's output on stdout
 claude_run() {
@@ -25,12 +33,23 @@ claude_run() {
         context="$(cat "$CLAUDE_MD")"$'\n\n---\n\n'
     fi
 
-    "$CLAUDE_BIN" -p \
-        --model "$model" \
-        --allowedTools "$allowed_tools" \
-        --max-turns 50 \
-        "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
-        2>/dev/null
+    local agent_timeout="${DEFAULT_AGENT_TIMEOUT:-600}"
+    if [[ -n "$_TIMEOUT_CMD" ]]; then
+        "$_TIMEOUT_CMD" "$agent_timeout" \
+            "$CLAUDE_BIN" -p \
+            --model "$model" \
+            --allowedTools "$allowed_tools" \
+            --max-turns 50 \
+            "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
+            2>/dev/null
+    else
+        "$CLAUDE_BIN" -p \
+            --model "$model" \
+            --allowedTools "$allowed_tools" \
+            --max-turns 50 \
+            "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
+            2>/dev/null
+    fi
 }
 
 # Spawn a Claude agent that outputs structured JSON
@@ -92,14 +111,35 @@ claude_spawn_bg() {
 
     # Write a marker file when process completes
     local done_marker="${output_file}.done"
-    rm -f "$done_marker"
+    local timeout_marker="${output_file}.timeout"
+    rm -f "$done_marker" "$timeout_marker"
 
-    "$CLAUDE_BIN" -p \
-        --model "$model" \
-        --allowedTools "$allowed_tools" \
-        --max-turns 50 \
-        "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
-        > "$output_file" 2>&1; touch "$done_marker" &
+    local agent_timeout="${DEFAULT_AGENT_TIMEOUT:-600}"
+    if [[ -n "$_TIMEOUT_CMD" ]]; then
+        ( "$_TIMEOUT_CMD" "$agent_timeout" \
+            "$CLAUDE_BIN" -p \
+            --model "$model" \
+            --allowedTools "$allowed_tools" \
+            --max-turns 50 \
+            "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
+            > "$output_file" 2>&1
+          local rc=$?
+          if [[ $rc -eq 124 ]]; then
+              touch "$timeout_marker"
+              echo '{"status":"blocked","blocked_reason":"timeout","uncertain_about":"Agent timed out after '"$agent_timeout"'s"}' >> "$output_file"
+          fi
+          touch "$done_marker"
+        ) &
+    else
+        ( "$CLAUDE_BIN" -p \
+            --model "$model" \
+            --allowedTools "$allowed_tools" \
+            --max-turns 50 \
+            "${context}${system_prompt}"$'\n\n---\n\n'"${user_message}" \
+            > "$output_file" 2>&1
+          touch "$done_marker"
+        ) &
+    fi
 
     echo $!
 }

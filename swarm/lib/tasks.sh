@@ -309,5 +309,28 @@ task_topo_sort() {
 
     rm -rf "$tmpdir"
 
+    # Cycle detection: if not all tasks were sorted, there's a cycle
+    if [[ ${#sorted[@]} -ne ${#all_ids[@]} ]]; then
+        log_error "Circular dependency detected! Sorted ${#sorted[@]} of ${#all_ids[@]} tasks."
+        # Find the tasks that weren't sorted (they form the cycle)
+        local unsorted=()
+        for id in "${all_ids[@]}"; do
+            local found=false
+            if [[ ${#sorted[@]} -gt 0 ]]; then
+                for sid in "${sorted[@]}"; do
+                    if [[ "$id" == "$sid" ]]; then
+                        found=true
+                        break
+                    fi
+                done
+            fi
+            if ! $found; then
+                unsorted+=("$id")
+            fi
+        done
+        log_error "Tasks in cycle: ${unsorted[*]}"
+        return 1
+    fi
+
     printf '%s\n' "${sorted[@]}"
 }

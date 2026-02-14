@@ -115,10 +115,14 @@ grounding_check_declared_files() {
 
     while IFS= read -r declared_file; do
         [[ -z "$declared_file" ]] && continue
-        # Check if file exists on the branch
+        # Check if file exists on the branch OR was intentionally deleted
         if ! _git show "${branch}:${declared_file}" &>/dev/null; then
-            log_error "Declared file missing: ${declared_file}"
-            missing=true
+            if _git show "main:${declared_file}" &>/dev/null; then
+                # File existed on main but was removed on branch — intentional deletion, not missing
+                continue
+            fi
+            # File never existed on main OR branch — spec error, warn but don't fail
+            log_warn "Declared file never existed: ${declared_file} (spec may be incorrect)"
         fi
     done <<< "$files_touched"
 
@@ -385,43 +389,31 @@ regression_run() {
     local all_passed=true
     local results=()
 
-    # Run all configured test suites from CLAUDE.md
-    local test_cmd
-    test_cmd=$(gates_get_config "test")
-    if [[ -n "$test_cmd" ]]; then
-        if gate_run_command "Regression tests" "$test_cmd"; then
-            results+=("${GREEN}${SYM_CHECK} Test suite passed${RESET}")
-        else
-            results+=("${RED}${SYM_CROSS} Test suite FAILED${RESET}")
-            all_passed=false
-        fi
-    else
-        results+=("${DIM}○ Tests (not configured)${RESET}")
-    fi
+    # Regression runs ALL gate commands (no subsystem filter — "both")
+    local gate_type gate_label
+    for gate_type in test lint typecheck; do
+        case "$gate_type" in
+            test)      gate_label="Tests" ;;
+            lint)      gate_label="Lint" ;;
+            typecheck) gate_label="Typecheck" ;;
+        esac
 
-    # Run lint as well — regression can introduce lint issues
-    local lint_cmd
-    lint_cmd=$(gates_get_config "lint")
-    if [[ -n "$lint_cmd" ]]; then
-        if gate_run_command "Regression lint" "$lint_cmd"; then
-            results+=("${GREEN}${SYM_CHECK} Lint passed${RESET}")
+        local cmds
+        cmds=$(gates_get_config "$gate_type" "both")
+        if [[ -n "$cmds" ]]; then
+            while IFS= read -r cmd; do
+                [[ -z "$cmd" ]] && continue
+                if gate_run_command "Regression ${gate_label}" "$cmd"; then
+                    results+=("${GREEN}${SYM_CHECK} ${gate_label}: ${DIM}${cmd}${RESET}")
+                else
+                    results+=("${RED}${SYM_CROSS} ${gate_label} FAILED: ${DIM}${cmd}${RESET}")
+                    all_passed=false
+                fi
+            done <<< "$cmds"
         else
-            results+=("${RED}${SYM_CROSS} Lint FAILED${RESET}")
-            all_passed=false
+            results+=("${DIM}○ ${gate_label} (not configured)${RESET}")
         fi
-    fi
-
-    # Typecheck
-    local typecheck_cmd
-    typecheck_cmd=$(gates_get_config "typecheck")
-    if [[ -n "$typecheck_cmd" ]]; then
-        if gate_run_command "Regression typecheck" "$typecheck_cmd"; then
-            results+=("${GREEN}${SYM_CHECK} Typecheck passed${RESET}")
-        else
-            results+=("${RED}${SYM_CROSS} Typecheck FAILED${RESET}")
-            all_passed=false
-        fi
-    fi
+    done
 
     echo ""
     echo -e "  ${BOLD}Regression Check:${RESET}"

@@ -587,6 +587,12 @@ cmd_run() {
     log_header "Running Swarm"
     log_info "Max parallel: ${max_parallel} | Budget: \$${max_budget} | Model: ${model}"
 
+    # Check for circular dependencies before starting
+    if ! task_topo_sort > /dev/null; then
+        log_error "Cannot run: circular dependencies in task graph. Fix depends_on fields."
+        exit 1
+    fi
+
     # Ensure working tree is committed so task branches see all files
     git_create_baseline
 
@@ -728,6 +734,19 @@ except:
                         task_update "$task_id" "status" "done"
                         task_update "$task_id" "completed_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
                         log_success "Task ${task_id}: ${GREEN}DONE${RESET}"
+
+                        # Progressive merge: merge completed branch into main immediately
+                        # so dependent tasks branch from up-to-date main
+                        local done_branch
+                        done_branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
+                        if [[ -n "$done_branch" ]] && [[ "$done_branch" != "null" ]] && git_branch_exists "$done_branch"; then
+                            log_step "Progressive merge: ${done_branch} → main"
+                            if git_safe_merge "$done_branch" "$main_branch"; then
+                                log_success "Merged ${done_branch} into ${main_branch}"
+                            else
+                                log_warn "Progressive merge failed for ${done_branch} — will retry at integration"
+                            fi
+                        fi
                     else
                         task_update "$task_id" "status" "failed"
                         task_update "$task_id" "error" "Quality gates failed"
@@ -1468,6 +1487,12 @@ Check that all these task implementations compose correctly. Focus on interfaces
 cmd_integrate() {
     log_header "Integrating Completed Work"
 
+    # Check for circular dependencies
+    if ! task_topo_sort > /dev/null; then
+        log_error "Cannot integrate: circular dependencies in task graph."
+        exit 1
+    fi
+
     local done_tasks
     done_tasks=$(task_list_by_status "done")
 
@@ -1488,6 +1513,11 @@ cmd_integrate() {
             local branch
             branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json")
             if git_branch_exists "$branch"; then
+                # Skip branches already merged into main (idempotent)
+                if _git merge-base --is-ancestor "$branch" main 2>/dev/null; then
+                    log_step "Branch ${branch} already merged — skipping"
+                    continue
+                fi
                 branches+=("$branch")
             fi
         fi

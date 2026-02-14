@@ -34,7 +34,7 @@ Implement the task described below completely and correctly. You are working on 
 - **Stay in scope** — Only implement what your task describes. Don't refactor unrelated code or add features not in your task.
 - **Don't break existing code** — If your task builds on existing work, ensure backward compatibility.
 - **Follow existing patterns** — Don't introduce new libraries, frameworks, or architectural patterns unless your task specifically requires it.
-- **Only touch declared files** — Your task declares which files it will create or modify. Stay within those boundaries. If you need to modify an undeclared file, report it as a scope issue.
+- **Only touch declared files** — Your task declares which files it will create or modify. Stay within those boundaries. **Exception:** If creating or deleting a declared file causes import errors or broken exports in adjacent files, fix those cascading issues and document the undeclared modifications in your output. Do NOT use this exception to add features or refactor.
 - **No over-engineering** — Don't add abstractions, utilities, or helpers that aren't directly required. Three lines of repeated code is better than a premature abstraction.
 
 ## When You're Stuck or Uncertain
