@@ -1,42 +1,53 @@
 {
-  "core_question": "After cleanup, does the codebase contain any references to endorsements?",
+  "core_question": "Can UserType be constructed from a User model instance using UserType.from_model()?",
   "entities": [
     {
-      "name": "Endorsement",
-      "table": "endorsements",
-      "created_by_task": null,
-      "key_fields": []
+      "name": "UserType",
+      "table": "N/A (GraphQL type, not DB table)",
+      "created_by_task": "1",
+      "key_fields": [
+        "agent_tools",
+        "agent_workflow_style",
+        "human_agent_ratio",
+        "_skills",
+        "_owned_projects",
+        "_tribes"
+      ]
     }
   ],
   "relationships": [
     {
-      "from": "users",
-      "to": "endorsements",
+      "from": "UserType",
+      "to": "SkillType",
       "type": "has_many",
-      "via": "endorsements.endorsee_id",
-      "created_by_task": null
+      "via": "_skills private field resolved by skills() method",
+      "created_by_task": "1"
+    },
+    {
+      "from": "UserType",
+      "to": "ProjectType",
+      "type": "has_many",
+      "via": "_owned_projects private field resolved by owned_projects() method",
+      "created_by_task": "1"
+    },
+    {
+      "from": "UserType",
+      "to": "TribeType",
+      "type": "has_many",
+      "via": "_tribes private field resolved by tribes() method",
+      "created_by_task": "1"
     }
   ],
   "core_queries": [
     {
-      "description": "Verify no endorsements table exists in database",
-      "traversal": "PostgreSQL system catalog → pg_tables WHERE tablename = 'endorsements'",
-      "answers": "Returns 0 rows after task 17 completes"
+      "description": "Fetch a single user by username with all relationships",
+      "traversal": "UserType.from_model(user, skills=user.skills, projects=user.owned_projects, tribes=user.tribes)",
+      "answers": "Can UserType be constructed from a User model instance using UserType.from_model()?"
     },
     {
-      "description": "Verify no endorsement imports exist in backend",
-      "traversal": "grep -ri 'from.*endorsement' src/backend/app/",
-      "answers": "Returns no matches after all backend tasks complete"
-    },
-    {
-      "description": "Verify no endorsement types exist in frontend",
-      "traversal": "grep -r 'Endorsement' src/frontend/src/ (excluding node_modules)",
-      "answers": "Returns no matches after all frontend tasks complete"
-    },
-    {
-      "description": "Verify GraphQL schema does not expose endorsements",
-      "traversal": "GraphQL introspection query → User type fields",
-      "answers": "User type does not have an 'endorsements' field after task 9"
+      "description": "Fetch builders list with skills",
+      "traversal": "UserType.from_model(user, skills=user.skills)",
+      "answers": "Can UserType be constructed from a User model instance using UserType.from_model()?"
     }
   ]
 }

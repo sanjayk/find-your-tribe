@@ -1,23 +1,19 @@
 {
   "id": "1",
-  "title": "Remove endorsement from backend model layer",
-  "description": "Delete src/backend/app/models/endorsement.py entirely. Then edit src/backend/app/models/user.py to remove the TYPE_CHECKING import of Endorsement and the endorsements_received relationship (lines 27, 198-202). Then edit src/backend/app/models/__init__.py to remove the Endorsement import (line 4) and remove \"Endorsement\" from __all__ (line 28). Finally delete src/backend/app/seed/endorsements.py entirely and edit src/backend/app/seed/run.py to remove the Endorsement import, the DROP TABLE IF EXISTS endorsements line, and the endorsement seeding block.",
-  "acceptance_criteria": "- src/backend/app/models/endorsement.py does not exist\n- src/backend/app/seed/endorsements.py does not exist\n- No reference to endorsement in user.py, __init__.py, or run.py\n- python -c \"from app.models import User\" succeeds\n- python -c \"from app.seed.run import main\" succeeds (no import errors)",
+  "title": "Add from_model() classmethod and missing fields to UserType",
+  "description": "Modify `src/backend/app/graphql/types/user.py` to:\n\n1. Add missing fields to UserType class:\n   - `agent_tools: list[str]` (maps to JSONB list in User model)\n   - `agent_workflow_style: str | None`\n   - `human_agent_ratio: float | None`\n   - `_skills: strawberry.Private[list]` (private field for lazy resolution)\n   - `_owned_projects: strawberry.Private[list]` (private field for lazy resolution)\n   - `_tribes: strawberry.Private[list]` (private field for lazy resolution)\n\n2. Convert the existing `skills()` method to resolve from `_skills` private field:\n   - Change from returning empty list to: `return self._skills  # type: ignore[return-value]`\n\n3. Add two new `@strawberry.field` resolvers:\n   - `owned_projects(self) -> list[\"ProjectType\"]` that returns `self._owned_projects`\n   - `tribes(self) -> list[\"TribeType\"]` that returns `self._tribes`\n\n4. Add `from_model()` classmethod with signature:\n```python\n@classmethod\ndef from_model(\n    cls,\n    user: \"User\",\n    skills: \"list | None\" = None,\n    projects: \"list | None\" = None,\n    tribes: \"list | None\" = None,\n) -> \"UserType\":\n```\n\nThe method should:\n- Map all User model fields to UserType constructor\n- Convert `agent_tools` from model (JSONB list) to `list[str]`\n- Convert relationships using their respective `from_model()` methods:\n  - `skills` → `[SkillType.from_model(s) for s in (skills or [])]`\n  - `projects` → `[ProjectType.from_model(p, owner=user) for p in (projects or [])]`\n  - `tribes` → `[TribeType.from_model(t) for t in (tribes or [])]`\n- Pass converted relations to private fields `_skills`, `_owned_projects`, `_tribes`\n\n5. Add TYPE_CHECKING imports at top:\n```python\nfrom typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from app.models.user import User\n    from app.graphql.types.project import ProjectType\n    from app.graphql.types.tribe import TribeType\n```\n\n6. Add bottom-of-file imports to avoid circular import (after class definition):\n```python\n# Import after class definitions to avoid circular import at module level\nfrom app.graphql.types.project import ProjectType  # noqa: E402\nfrom app.graphql.types.tribe import TribeType  # noqa: E402\n```\n\nFollow the exact pattern used in `project.py` and `tribe.py` for handling circular imports and private field resolution.",
+  "acceptance_criteria": "- UserType has all fields: `agent_tools`, `agent_workflow_style`, `human_agent_ratio`, `_skills`, `_owned_projects`, `_tribes`\n- `skills()` resolver returns `self._skills` instead of empty list\n- `owned_projects()` resolver exists and returns `self._owned_projects`\n- `tribes()` resolver exists and returns `self._tribes`\n- `from_model()` classmethod exists with correct signature\n- `from_model(user)` works with no relationships (uses empty lists for private fields)\n- `from_model(user, skills=..., projects=..., tribes=...)` correctly converts relationships using their `from_model()` methods\n- Circular imports handled correctly via TYPE_CHECKING and bottom-of-file imports\n- `cd src/backend && ruff check .` passes\n- The `user(username)` query in `health.py:49` no longer crashes at runtime\n- The `builders` query in `health.py:74` no longer crashes at runtime",
   "depends_on": [],
   "status": "pending",
-  "branch": "tribe/task-1-remove-endorsement-backend-models",
+  "branch": "tribe/task-1-add-from-model-classmethod-and-missing-f",
   "agent_model": "sonnet",
-  "created_at": "2026-02-14T06:30:00Z",
+  "created_at": "2026-02-14T08:20:05Z",
   "started_at": null,
   "completed_at": null,
   "agent_pid": null,
   "error": null,
   "review_feedback": null,
   "files_touched": [
-    "src/backend/app/models/endorsement.py",
-    "src/backend/app/models/user.py",
-    "src/backend/app/models/__init__.py",
-    "src/backend/app/seed/endorsements.py",
-    "src/backend/app/seed/run.py"
+    "src/backend/app/graphql/types/user.py"
   ]
 }
