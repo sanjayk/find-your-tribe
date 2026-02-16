@@ -1,6 +1,6 @@
 """Seed data for tribes."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -85,7 +85,7 @@ async def seed_tribes(session: AsyncSession, users_dict: dict[str, str]) -> dict
 
     # Create TribeMember relationships
     member_relationships = []
-    current_time = datetime.now(timezone.utc)
+    current_time = datetime.now(UTC)
 
     for tribe_data in tribes_data:
         tribe_id = tribe_lookup[tribe_data["name"]]

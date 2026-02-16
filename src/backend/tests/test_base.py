@@ -1,7 +1,8 @@
 """Tests for database base classes and mixins."""
 
-import pytest
 from datetime import datetime
+
+import pytest
 from sqlalchemy import inspect, select
 
 from app.db.base import Base, TimestampMixin, ULIDMixin

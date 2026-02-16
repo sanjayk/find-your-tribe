@@ -1,6 +1,5 @@
 """Test that seed package exports all functions correctly."""
 
-import pytest
 
 
 def test_seed_package_imports():

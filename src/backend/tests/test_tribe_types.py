@@ -1,6 +1,6 @@
 """Tests for TribeType, TribeMemberType, and OpenRoleType GraphQL types."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 import strawberry
@@ -108,7 +108,7 @@ def test_tribe_type_open_roles_field():
 
 def test_tribe_type_instantiation():
     """Test that TribeType can be instantiated with required fields."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     tribe = TribeType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -131,7 +131,7 @@ def test_tribe_type_instantiation():
 
 def test_tribe_type_with_minimal_fields():
     """Test that TribeType can be instantiated with minimal required fields."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     tribe = TribeType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -152,7 +152,7 @@ def test_tribe_type_with_minimal_fields():
 
 def test_tribe_type_owner_raises_not_implemented():
     """Test that owner field raises NotImplementedError (placeholder)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     tribe = TribeType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -171,7 +171,7 @@ def test_tribe_type_owner_raises_not_implemented():
 
 def test_tribe_type_members_returns_empty_list():
     """Test that members field returns empty list by default."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     tribe = TribeType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -190,7 +190,7 @@ def test_tribe_type_members_returns_empty_list():
 
 def test_tribe_type_open_roles_returns_empty_list():
     """Test that open_roles field returns empty list by default."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     tribe = TribeType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -254,7 +254,7 @@ def test_tribe_member_type_optional_fields():
 
 def test_tribe_member_type_instantiation():
     """Test that TribeMemberType can be instantiated with required fields."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Create a UserType instance for the member
     user = UserType(
@@ -293,7 +293,7 @@ def test_tribe_member_type_instantiation():
 
 def test_tribe_member_type_with_owner_role():
     """Test TribeMemberType with owner role."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -331,7 +331,7 @@ def test_tribe_member_type_with_owner_role():
 
 def test_tribe_member_type_with_pending_status():
     """Test TribeMemberType with pending status (no joined_at)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -449,7 +449,7 @@ def test_open_role_type_filled():
 
 def test_all_tribe_status_values():
     """Test TribeType with all possible status values."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for status in TribeStatus:
         tribe = TribeType(
@@ -466,7 +466,7 @@ def test_all_tribe_status_values():
 
 def test_all_member_role_values():
     """Test TribeMemberType with all possible role values."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -501,7 +501,7 @@ def test_all_member_role_values():
 
 def test_all_member_status_values():
     """Test TribeMemberType with all possible status values."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserType(
         id="01HQZXYZ123456789ABCDEFGH",

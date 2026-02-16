@@ -1,9 +1,9 @@
 """Enumerations for the Find Your Tribe application."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """Roles that users can have on the platform."""
 
     ENGINEER = "engineer"
@@ -15,7 +15,7 @@ class UserRole(str, Enum):
     OTHER = "other"
 
 
-class AvailabilityStatus(str, Enum):
+class AvailabilityStatus(StrEnum):
     """User availability status for collaboration."""
 
     OPEN_TO_TRIBE = "open_to_tribe"
@@ -23,7 +23,7 @@ class AvailabilityStatus(str, Enum):
     JUST_BROWSING = "just_browsing"
 
 
-class ProjectStatus(str, Enum):
+class ProjectStatus(StrEnum):
     """Status of a project."""
 
     SHIPPED = "shipped"
@@ -31,7 +31,7 @@ class ProjectStatus(str, Enum):
     ARCHIVED = "archived"
 
 
-class CollaboratorStatus(str, Enum):
+class CollaboratorStatus(StrEnum):
     """Status of a collaboration invitation."""
 
     PENDING = "pending"
@@ -39,7 +39,7 @@ class CollaboratorStatus(str, Enum):
     DECLINED = "declined"
 
 
-class TribeStatus(str, Enum):
+class TribeStatus(StrEnum):
     """Status of a tribe."""
 
     OPEN = "open"
@@ -47,14 +47,14 @@ class TribeStatus(str, Enum):
     ALUMNI = "alumni"
 
 
-class MemberRole(str, Enum):
+class MemberRole(StrEnum):
     """Role of a member within a tribe."""
 
     OWNER = "owner"
     MEMBER = "member"
 
 
-class MemberStatus(str, Enum):
+class MemberStatus(StrEnum):
     """Status of a tribe membership."""
 
     PENDING = "pending"
@@ -64,7 +64,7 @@ class MemberStatus(str, Enum):
     REMOVED = "removed"
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Types of feed events that can occur."""
 
     PROJECT_CREATED = "project_created"
@@ -75,7 +75,7 @@ class EventType(str, Enum):
     BUILDER_JOINED = "builder_joined"
 
 
-class AgentWorkflowStyle(str, Enum):
+class AgentWorkflowStyle(StrEnum):
     """How a builder collaborates with AI agents."""
 
     PAIR = "pair"
@@ -85,7 +85,7 @@ class AgentWorkflowStyle(str, Enum):
     MINIMAL = "minimal"
 
 
-class SkillCategory(str, Enum):
+class SkillCategory(StrEnum):
     """Categories for skills."""
 
     ENGINEERING = "engineering"

@@ -1,6 +1,6 @@
 """Seed data for projects."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -201,7 +201,7 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
 
     # Create ProjectCollaborator relationships
     collaborator_relationships = []
-    current_time = datetime.now(timezone.utc)
+    current_time = datetime.now(UTC)
 
     for project_data in projects_data:
         if "collaborators" in project_data:

@@ -18,7 +18,7 @@ class Context(BaseContext):
 
 async def context_getter(
     request: Request,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> Context:
     """Context getter for Strawberry GraphQL Router."""
     return Context(session=session, current_user_id=None)

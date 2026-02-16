@@ -1,6 +1,6 @@
 """Tests for ProjectType and CollaboratorType GraphQL types."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 import strawberry
@@ -176,7 +176,7 @@ def test_collaborator_type_optional_fields():
 
 def test_project_type_instantiation():
     """Test that ProjectType can be instantiated with required fields."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     project = ProjectType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -211,7 +211,7 @@ def test_project_type_instantiation():
 
 def test_project_type_with_minimal_fields():
     """Test that ProjectType can be instantiated with minimal required fields."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     project = ProjectType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -244,7 +244,7 @@ def test_project_type_with_minimal_fields():
 
 def test_collaborator_type_instantiation():
     """Test that CollaboratorType can be instantiated with required fields."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Create a UserType instance for the collaborator
     user = UserType(
@@ -285,7 +285,7 @@ def test_collaborator_type_instantiation():
 
 def test_collaborator_type_with_pending_status():
     """Test CollaboratorType with pending status (no confirmed_at)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user = UserType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -325,7 +325,7 @@ def test_collaborator_type_with_pending_status():
 
 def test_project_type_collaborators_returns_empty_list():
     """Test that collaborators field returns empty list by default."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     project = ProjectType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -350,7 +350,7 @@ def test_project_type_collaborators_returns_empty_list():
 
 def test_project_type_owner_raises_not_implemented():
     """Test that owner field raises NotImplementedError (placeholder)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     project = ProjectType(
         id="01HQZXYZ123456789ABCDEFGH",

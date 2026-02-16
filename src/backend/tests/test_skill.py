@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import inspect
 
 from app.db.base import Base
-from app.models.skill import Skill
 from app.models.enums import SkillCategory
+from app.models.skill import Skill
 
 
 def test_skill_model_exists():
@@ -137,8 +137,9 @@ async def test_skill_database_integration():
 @pytest.mark.skip(reason="Requires running database")
 async def test_skill_unique_constraints():
     """Test that name and slug unique constraints are enforced."""
-    from app.db.engine import async_session_factory, engine
     from sqlalchemy.exc import IntegrityError
+
+    from app.db.engine import async_session_factory, engine
 
     # Create table
     async with engine.begin() as conn:

@@ -2,6 +2,7 @@
 
 import pytest
 from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 
 from app.db.base import Base
 from app.models.enums import CollaboratorStatus, ProjectStatus
@@ -479,7 +480,7 @@ async def test_project_github_repo_unique_constraint():
             session.add(project2)
 
             # This should raise an integrity error
-            with pytest.raises(Exception):
+            with pytest.raises(IntegrityError):
                 await session.commit()
     finally:
         # Clean up

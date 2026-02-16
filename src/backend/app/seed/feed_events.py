@@ -1,6 +1,6 @@
 """Seed data for feed events."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +32,7 @@ async def seed_feed_events(
         Dictionary mapping event index to event ID
     """
     # Base timestamp for events (2 hours ago from now)
-    base_time = datetime.now(timezone.utc) - timedelta(hours=2)
+    base_time = datetime.now(UTC) - timedelta(hours=2)
 
     # Define events in reverse chronological order (newest first)
     # Each event gets a progressively older timestamp

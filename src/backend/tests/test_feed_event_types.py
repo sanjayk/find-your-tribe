@@ -1,6 +1,6 @@
 """Tests for FeedEventType GraphQL type."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 import strawberry
@@ -69,7 +69,7 @@ def test_feed_event_type_actor_field():
 
 def test_feed_event_type_instantiation():
     """Test that FeedEventType can be instantiated with required fields."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     feed_event = FeedEventType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -90,7 +90,7 @@ def test_feed_event_type_instantiation():
 
 def test_feed_event_type_with_empty_metadata():
     """Test that FeedEventType can be instantiated with empty metadata."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     feed_event = FeedEventType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -111,7 +111,7 @@ def test_feed_event_type_with_empty_metadata():
 
 def test_feed_event_type_actor_raises_not_implemented():
     """Test that actor field raises NotImplementedError (placeholder)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     feed_event = FeedEventType(
         id="01HQZXYZ123456789ABCDEFGH",
@@ -129,7 +129,7 @@ def test_feed_event_type_actor_raises_not_implemented():
 
 def test_all_event_type_values():
     """Test FeedEventType with all possible event_type values."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for event_type in EventType:
         feed_event = FeedEventType(
@@ -145,7 +145,7 @@ def test_all_event_type_values():
 
 def test_feed_event_type_with_complex_metadata():
     """Test FeedEventType with complex nested metadata."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     complex_metadata = {
         "project_title": "AI Assistant",
@@ -173,7 +173,7 @@ def test_feed_event_type_with_complex_metadata():
 
 def test_feed_event_type_different_target_types():
     """Test FeedEventType with different target types."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     target_types = ["project", "user", "tribe", "collaboration"]
 

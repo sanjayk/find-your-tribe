@@ -3,10 +3,9 @@
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-
-from alembic import context
 
 # Import the engine from our app
 from app.db.engine import engine as app_engine
