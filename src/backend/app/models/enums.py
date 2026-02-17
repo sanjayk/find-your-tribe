@@ -96,3 +96,13 @@ class SkillCategory(StrEnum):
     DATA = "data"
     OPERATIONS = "operations"
     OTHER = "other"
+
+
+class BuildActivitySource(StrEnum):
+    """Source of a build activity token burn record."""
+
+    ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+    GOOGLE = "google"
+    MANUAL = "manual"
+    OTHER = "other"

@@ -26,6 +26,7 @@ from app.db.base import Base, TimestampMixin, ULIDMixin
 from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
 
 if TYPE_CHECKING:
+    from app.models.build_activity import BuildActivity
     from app.models.project import Project
     from app.models.skill import Skill
     from app.models.tribe import Tribe
@@ -195,6 +196,11 @@ class User(Base, ULIDMixin, TimestampMixin):
         "Tribe",
         secondary="tribe_members",
         viewonly=True,
+    )
+    build_activities: Mapped[list["BuildActivity"]] = relationship(
+        "BuildActivity",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
