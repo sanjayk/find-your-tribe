@@ -8,9 +8,25 @@ This spec covers builder profiles for **Find Your Tribe**, a proof-of-work socia
 
 ---
 
+## Core Principle: Tokens Are the Universal Unit of Work
+
+Every builder on this platform uses AI agents to build — engineers, designers, PMs, marketers, legal, support. **Token burn is the universal, discipline-agnostic proof of work.** It is to Find Your Tribe what the contribution graph is to GitHub, except it works for every role, not just engineers.
+
+This is the platform's fundamental differentiator. We do not track commits, hours logged, or self-reported activity. We track the one thing all agentic builders have in common: tokens burned to ship.
+
+### Trust Hierarchy: PROVE → VOUCH → STATE
+
+The profile is a **trust document**, not a resume. Information is ordered by how hard it is to fake:
+
+1. **PROVE** (~70% of page): Burn pattern + shipped projects — hard evidence
+2. **VOUCH** (~20% of page): Tribe membership + collaborators who witnessed the building — social proof
+3. **STATE** (~10% of page): Skills, availability, links, workflow style — self-reported claims
+
+---
+
 ## Feature Summary
 
-Builder profiles are the core identity layer of the platform. A profile is not a resume -- it is a portfolio of shipped work. Profiles display a builder's role, skills, timezone, availability status, projects (as a grid), verified collaborators, Builder Score, and external contact links. Both the profile owner and visitors can view profiles. Builders can edit their own profiles to keep them current.
+Builder profiles are the core identity layer of the platform. A profile is not a resume -- it is a trust document backed by proof of work. Profiles display a builder's token burn activity, shipped projects (with burn receipts), verified collaborators ("witnesses"), tribe membership (teams that ship together), and self-reported context (skills, availability, workflow style). Both the profile owner and visitors can view profiles. Builders can edit their own profiles to keep them current.
 
 ---
 
@@ -43,13 +59,31 @@ A builder profile consists of:
 
 - **Identity:** Full name, avatar (optional), headline (e.g., "Full-stack engineer building fintech tools")
 - **Role:** Primary role from predefined list (Engineer, Designer, PM, Marketer, Growth, Founder, Other)
+- **Burn activity:** Token burn heatmap (52 weeks × 7 days), with per-project attribution. Data sourced from `build_activities` table.
+- **Projects:** All projects created by or verified for the builder, each with a burn receipt (sparkline, duration, total tokens, peak week). Projects may be attributed to a tribe (`tribe_id` on project).
+- **Witnesses:** Collaborators deduplicated across all projects, shown with the projects they co-built. Derived from `project_collaborators`.
+- **Tribes:** Teams the builder ships with. A tribe's credibility = its shipped projects. Shown with project count.
 - **Skills:** Up to 10 skills from a searchable list, plus custom skills
 - **Timezone:** Builder's timezone
 - **Availability status:** Open to tribe / Available for projects / Just browsing
-- **Projects grid:** All projects created by or verified for the builder, displayed as a visual grid
-- **Verified collaborators:** List of builders with mutually confirmed collaboration relationships
+- **AI workflow:** Workflow style, agent tools, human/AI ratio
 - **Builder Score:** Computed reputation metric (displayed when available, see F7)
 - **External contact links:** Twitter, email, Calendly, or other external contact methods (for V1 outreach -- no in-platform messaging)
+
+### Entity Relationships
+
+```
+User ──member of──▶ Tribe ──ships──▶ Project ◀──attributed to── BuildActivity
+  │                                     │
+  └── owns solo Projects (tribe_id=null)┘
+                                        │
+                                        └── has collaborators (Users) = "witnesses"
+```
+
+- **Tribe ships projects.** Projects have an optional `tribe_id`. A tribe is a team that ships together.
+- **Witnessed by = project collaborators.** Derived, not stored separately.
+- **Burn is attributed to projects.** Each BuildActivity has an optional `project_id`.
+- **BuildActivity** tracks tokens burned per user per day, with source and project attribution.
 
 ---
 
@@ -169,24 +203,28 @@ This positions FYT as the only professional network that understands how modern 
 | P-7 | As a builder, I want to set my AI workflow style so that potential collaborators understand how I work. | Should |
 | P-8 | As a visitor, I want to see a builder's AI tools and workflow on their profile so that I can assess compatibility. | Should |
 
-### Building Activity ("Burn Map")
+### Building Activity ("Burn")
 
-The burn map is proof-of-work made visual. It answers: "Is this builder actively shipping, or is this a stale profile?" For tribe formation, this is critical — you want active co-builders, not dormant ones.
+The burn visualization is proof-of-work made visual. It answers: "Does this person ship?" The unit is **tokens burned** — the universal measure of agentic building across all disciplines.
 
-Displayed as a dot grid (similar to GitHub's contribution graph but simpler), showing building activity over the past 12 months. Each dot represents a week; intensity indicates activity level.
+Displayed as a heatmap grid (52 weeks × 7 days), with project markers below showing when each project was active. Each cell's intensity represents tokens burned that day.
 
-**V1 data source**: Platform activity events — project creation/updates, collaborator confirmations, tribe activity. These already exist as feed events.
+**Data source**: `build_activities` table — tracks `user_id`, `project_id`, `activity_date`, `tokens_burned`, `source`.
 
-**Future**: Integration with AI tool providers for actual token consumption data.
+**V1 sources**:
+- API key integration (Anthropic/OpenAI usage data)
+- Manual session logging ("burned 15K tokens on Tribe Finder today")
+
+**V2 sources**:
+- Agent-reported (Claude Code, Cursor push usage data to the platform)
+
+Each project card includes a **burn receipt** — a sparkline showing the building intensity during that project's development, plus duration, total tokens, and peak week. This connects the macro burn signal to specific output.
 
 | ID | Story | Priority |
 |---|---|---|
-| P-9 | As a visitor, I want to see a builder's activity history so that I know they are actively shipping. | Should |
-
-### Working Style Signals (Sidebar)
-- **Timezone Overlap**: Shows builder's timezone plus calculated work-hour overlap (9am-6pm) with viewer's timezone.
-- **Preferred Stack**: Top 5 technologies derived from all projects' tech stacks, shown as horizontal bars proportional to frequency.
-- **Role Pattern**: Label derived from project ownership — "Usually the founder", "Versatile builder", or "Independent builder".
+| P-9 | As a visitor, I want to see a builder's token burn activity so that I know they are actively shipping. | Must |
+| P-10 | As a builder, I want to log a build session (tokens burned, project, date) so that my burn map reflects my work. | Must |
+| P-11 | As a builder, I want to connect my AI provider account so that token usage is tracked automatically. | Should |
 
 ### Existing Gaps Fixed
 - **Headline**: Rendered below display name in italic.

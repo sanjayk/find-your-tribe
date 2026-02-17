@@ -54,7 +54,55 @@
 | agent_workflow_style | VARCHAR(20) | NULLABLE | 'pair', 'swarm', 'review', 'autonomous', 'minimal' |
 | human_agent_ratio | FLOAT | NULLABLE | 0.0 (fully human) to 1.0 (fully AI-assisted) |
 
-**Activity tracking for burn map**: Derived from `feed_events` table — no additional columns needed. Query aggregates events by week where `actor_id = user.id`.
+### `build_activities`
+
+Token burn is the universal unit of work — every builder on the platform uses AI agents, regardless of discipline. This table tracks the raw evidence.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| id | ULID | PK | |
+| user_id | ULID | FK -> users(id) ON DELETE CASCADE, NOT NULL | The builder who burned tokens |
+| project_id | ULID | FK -> projects(id) ON DELETE SET NULL, NULLABLE | Which project (null = unattributed) |
+| activity_date | DATE | NOT NULL | Day of activity |
+| tokens_burned | INTEGER | NOT NULL, CHECK > 0 | Raw token count |
+| source | VARCHAR(20) | NOT NULL | 'anthropic', 'openai', 'google', 'manual', 'other' |
+| metadata | JSONB | DEFAULT '{}' | Source-specific data (model, session_id, etc.) |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | |
+
+**Unique constraint**: `(user_id, project_id, activity_date, source)` — one record per user per project per day per source. Multiple sources on the same day for the same project create separate records.
+
+**Indexes**:
+```sql
+CREATE INDEX idx_build_activities_user_date ON build_activities (user_id, activity_date DESC);
+CREATE INDEX idx_build_activities_project ON build_activities (project_id) WHERE project_id IS NOT NULL;
+CREATE INDEX idx_build_activities_date ON build_activities (activity_date DESC);
+```
+
+**Query for heatmap** (52 weeks of daily totals):
+```sql
+SELECT activity_date, SUM(tokens_burned) AS daily_tokens
+FROM build_activities
+WHERE user_id = ? AND activity_date >= CURRENT_DATE - INTERVAL '52 weeks'
+GROUP BY activity_date
+ORDER BY activity_date;
+```
+
+**Query for per-project burn receipt**:
+```sql
+SELECT activity_date, SUM(tokens_burned) AS daily_tokens
+FROM build_activities
+WHERE user_id = ? AND project_id = ?
+GROUP BY activity_date
+ORDER BY activity_date;
+```
+
+### `projects` — new column
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| tribe_id | ULID | FK -> tribes(id) ON DELETE SET NULL, NULLABLE | Which tribe shipped this project (null = solo) |
+
+A project is either a **tribe project** (`tribe_id` is set) or a **solo project** (`tribe_id` is null). A tribe's credibility = its shipped projects.
 
 ### `skills`
 

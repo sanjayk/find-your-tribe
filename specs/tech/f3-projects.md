@@ -38,6 +38,9 @@ class Project(Base):
     impact_metrics = Column(JSONB, default=dict)
     # {"users": 1000, "stars": 250, "downloads": 5000, "revenue": "10k MRR"}
 
+    # Tribe attribution (null = solo project)
+    tribe_id = Column(String(26), ForeignKey("tribes.id", ondelete="SET NULL"), nullable=True)
+
     # GitHub import metadata
     github_repo_full_name = Column(String(200), nullable=True, unique=True)
     github_stars = Column(Integer, nullable=True)

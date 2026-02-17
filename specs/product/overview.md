@@ -36,9 +36,10 @@ The platform answers one question: **What have you actually built, and who did y
 
 **Our differentiation:**
 
+- **Tokens as the universal unit of work.** Every builder on the platform uses AI agents to build — engineers, designers, PMs, marketers, legal, support. Token burn is the universal, discipline-agnostic proof of work. It is to Find Your Tribe what the contribution graph is to GitHub, except it works for every role, not just engineers.
 - **Projects as the atomic unit.** Not posts, not profiles, not job titles. Shipped work.
+- **Tribes ship projects.** A tribe is a team that ships together. A tribe's credibility = its shipped projects. Projects have an optional tribe attribution.
 - **Mutual verification.** Collaborators confirm each other. No unilateral claims.
-- **Tribe formation.** The only platform designed for assembling small, complementary teams -- not freelancer-client transactions.
 - **Computed reputation.** Builder Score is derived from artifacts, not gamed through activity.
 - **Inclusive by design.** Engineers, designers, PMs, marketers, growth operators, founders. Building is not just code.
 

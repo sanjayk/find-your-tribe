@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile Concept B — Proof of Work</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --surface-primary: #f9f8f6;
+    --surface-secondary: #f2f0ed;
+    --surface-elevated: #ffffff;
+    --surface-inverse: #1c1917;
+    --ink: #1c1917;
+    --ink-secondary: #57534e;
+    --ink-tertiary: #78736e;
+    --ink-inverse: #fafaf9;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --accent-subtle: #eef2ff;
+    --accent-muted: #a5b4fc;
+    --shipped: #16a34a;
+    --shipped-subtle: #f0fdf4;
+    --in-progress: #d97706;
+    --in-progress-subtle: #fffbeb;
+    --shadow-sm: 0 1px 3px rgba(28,25,23,0.05), 0 1px 2px rgba(28,25,23,0.03);
+    --shadow-md: 0 4px 12px rgba(28,25,23,0.06);
+    --shadow-lg: 0 8px 24px rgba(28,25,23,0.08);
+    --font-serif: "DM Serif Display", serif;
+    --font-sans: "DM Sans", sans-serif;
+    --font-mono: "IBM Plex Mono", monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--surface-primary);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .nav {
+    height: 64px;
+    background: var(--surface-elevated);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    padding: 0 48px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-logo {
+    font-family: var(--font-serif);
+    font-size: 20px;
+  }
+
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .concept-banner {
+    background: var(--surface-inverse);
+    color: var(--ink-inverse);
+    text-align: center;
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ═══ HERO: Identity + Burn Heatmap merged ═══ */
+  .hero {
+    padding: 56px 0 40px;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  .hero-identity {
+  }
+  .hero-avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-subtle), var(--accent-muted));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-serif);
+    font-size: 36px;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .hero-name {
+    font-family: var(--font-serif);
+    font-size: 40px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .hero-handle {
+    font-size: 14px;
+    color: var(--ink-tertiary);
+    margin-top: 4px;
+  }
+  .hero-headline {
+    font-size: 15px;
+    color: var(--ink-secondary);
+    line-height: 1.6;
+    margin-top: 12px;
+  }
+  .hero-badges {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 999px;
+    width: fit-content;
+  }
+  .badge.availability {
+    color: var(--shipped);
+    background: var(--shipped-subtle);
+  }
+  .badge-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .badge-dot.green { background: var(--shipped); }
+
+  .hero-domains {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+  }
+  .domain-tag {
+    font-size: 12px;
+    color: var(--ink-secondary);
+    background: var(--surface-secondary);
+    padding: 5px 12px;
+    border-radius: 6px;
+  }
+
+  /* Burn heatmap — the centerpiece */
+  .hero-burn {
+    position: relative;
+  }
+  .burn-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-tertiary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .burn-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--ink-tertiary);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
+  .legend-cell {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .heatmap-container {
+    background: var(--surface-elevated);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .heatmap-grid {
+    display: flex;
+    gap: 3px;
+  }
+  .heatmap-column {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .heatmap-cell {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    transition: transform 100ms ease;
+    cursor: pointer;
+    position: relative;
+  }
+  .heatmap-cell:hover {
+    transform: scale(1.4);
+    z-index: 2;
+  }
+  .heatmap-cell.level-0 { background: var(--surface-secondary); }
+  .heatmap-cell.level-1 { background: var(--accent-subtle); }
+  .heatmap-cell.level-2 { background: var(--accent-muted); }
+  .heatmap-cell.level-3 { background: var(--accent); opacity: 0.7; }
+  .heatmap-cell.level-4 { background: var(--accent); }
+
+  .heatmap-months {
+    display: flex;
+    margin-top: 8px;
+    padding-left: 0;
+  }
+  .heatmap-month {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .burn-summary {
+    display: flex;
+    gap: 28px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--surface-secondary);
+  }
+  .burn-stat {
+    display: flex;
+    flex-direction: column;
+  }
+  .burn-stat-value {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 18px;
+  }
+  .burn-stat-label {
+    font-size: 10px;
+    color: var(--ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+
+  /* Agent stack panel — below heatmap */
+  .agent-panel {
+    margin-top: 12px;
+    background: var(--accent-subtle);
+    border-radius: 12px;
+    padding: 20px 24px;
+    background-image: radial-gradient(circle, rgba(99, 102, 241, 0.07) 1px, transparent 1px);
+    background-size: 14px 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .agent-panel-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    min-width: 70px;
+  }
+  .agent-panel-tools {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .agent-tool {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .agent-tool-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .agent-tool-caps {
+    font-size: 11px;
+    color: var(--ink-tertiary);
+  }
+  .agent-panel-workflow {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+  }
+  .agent-panel-ratio {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ratio-bar {
+    width: 60px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--surface-secondary);
+    overflow: hidden;
+    display: flex;
+  }
+  .ratio-bar .human { background: var(--ink-tertiary); }
+  .ratio-bar .ai { background: var(--accent); }
+  .ratio-label {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--ink-tertiary);
+  }
+
+  /* ═══ PROVE: Projects as "Proof Cards" ═══ */
+  .section-label {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-tertiary);
+    margin-bottom: 24px;
+  }
+  .section-label::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 3px;
+    background: var(--accent);
+    margin-bottom: 12px;
+    border-radius: 2px;
+  }
+
+  .projects-section {
+    margin-top: 12px;
+  }
+
+  .proof-card {
+    background: var(--surface-elevated);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    margin-bottom: 20px;
+    transition: transform 200ms cubic-bezier(0.25, 0.1, 0.25, 1),
+      box-shadow 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+    cursor: pointer;
+  }
+  .proof-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(28, 25, 23, 0.10);
+  }
+
+  .proof-card-inner {
+    display: grid;
+    grid-template-columns: 1fr 240px;
+  }
+
+  .proof-content {
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    background-image: radial-gradient(circle, rgba(28, 25, 23, 0.05) 1.2px, transparent 1.2px);
+    background-size: 14px 14px;
+  }
+
+  .proof-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    width: fit-content;
+  }
+  .proof-status.shipped { color: var(--shipped); }
+  .proof-status.building { color: var(--in-progress); }
+  .proof-status .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+  .proof-status.shipped .dot { background: var(--shipped); }
+  .proof-status.building .dot { background: var(--in-progress); }
+
+  .proof-title {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .proof-desc {
+    font-size: 14px;
+    color: var(--ink-secondary);
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+
+  .proof-tech {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .tech-tag {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--ink-tertiary);
+    background: var(--surface-secondary);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .proof-footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: auto;
+  }
+  .proof-builders {
+    display: flex;
+    align-items: center;
+  }
+  .proof-builder-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--surface-secondary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 500; color: var(--ink-secondary);
+    margin-right: -6px;
+    outline: 2px solid var(--surface-elevated);
+  }
+  .proof-builder-label {
+    font-size: 11px;
+    color: var(--ink-tertiary);
+    margin-left: 12px;
+  }
+
+  /* Right panel: the burn receipt */
+  .proof-receipt {
+    background: var(--accent-subtle);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+  }
+  .receipt-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  .receipt-sparkline {
+    height: 40px;
+    width: 100%;
+  }
+  .receipt-sparkline canvas {
+    width: 100%;
+    height: 100%;
+  }
+  .receipt-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .receipt-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .receipt-stat-label {
+    font-size: 11px;
+    color: var(--ink-tertiary);
+  }
+  .receipt-stat-value {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* ═══ Compact project cards ═══ */
+  .projects-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-top: 4px;
+  }
+  .compact-card {
+    background: var(--surface-elevated);
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: transform 200ms cubic-bezier(0.25, 0.1, 0.25, 1),
+      box-shadow 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+    display: flex;
+    flex-direction: column;
+  }
+  .compact-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(28, 25, 23, 0.10);
+  }
+  .compact-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .compact-status.shipped { color: var(--shipped); }
+  .compact-status .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--shipped); }
+  .compact-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  .compact-desc {
+    font-size: 13px;
+    color: var(--ink-secondary);
+    line-height: 1.55;
+    margin-bottom: 12px;
+    flex: 1;
+  }
+  .compact-burn-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .compact-spark {
+    flex: 1;
+    height: 16px;
+  }
+  .compact-spark canvas {
+    width: 100%;
+    height: 100%;
+  }
+  .compact-burn-stat {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--ink-tertiary);
+    white-space: nowrap;
+  }
+  .proof-tribe-label {
+    font-size: 11px;
+    color: var(--ink-tertiary);
+    font-style: italic;
+  }
+  .compact-tribe-label {
+    font-size: 11px;
+    color: var(--ink-tertiary);
+    font-style: italic;
+    margin-top: 8px;
+  }
+
+  /* ═══ VOUCH: Witnessed Building ═══ */
+  .vouch-section {
+    margin-top: 56px;
+  }
+  .credits {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .credit-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 14px 0;
+  }
+  .credit-row + .credit-row {
+    box-shadow: 0 -1px 0 var(--surface-secondary);
+  }
+  .credit-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 220px;
+  }
+  .credit-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--surface-secondary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 500; color: var(--ink-secondary);
+    flex-shrink: 0;
+  }
+  .credit-name {
+    font-weight: 500;
+    font-size: 14px;
+  }
+  .credit-role {
+    font-size: 12px;
+    color: var(--ink-tertiary);
+    font-family: var(--font-mono);
+    min-width: 140px;
+  }
+  .credit-projects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+  }
+  .credit-project {
+    font-size: 13px;
+    color: var(--ink-secondary);
+  }
+  .credit-project-role {
+    font-size: 11px;
+    color: var(--ink-tertiary);
+  }
+
+  /* ═══ STATE: Footer strip ═══ */
+  .state-strip {
+    margin-top: 56px;
+    padding: 40px 0 80px;
+    border-top: 1px solid var(--surface-secondary);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px;
+  }
+  .overline {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-tertiary);
+    margin-bottom: 10px;
+  }
+
+  /* Tribes (footer) */
+  .tribe-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .tribe-item + .tribe-item {
+    margin-top: 8px;
+  }
+  .tribe-item-name {
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .tribe-item-detail {
+    font-size: 12px;
+    color: var(--ink-tertiary);
+  }
+
+  .info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .info-item-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-tertiary);
+  }
+  .info-item-value {
+    font-size: 13px;
+    color: var(--ink-secondary);
+  }
+  .info-item-value a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="concept-banner">
+  CONCEPT B — PROOF OF WORK &middot; Burn receipts live inside each project, witnesses vouch for building
+</div>
+
+<nav class="nav">
+  <div class="nav-logo">Find Your Tribe</div>
+</nav>
+
+<main class="container">
+
+  <!-- ═══ HERO: Identity + Burn Heatmap side by side ═══ -->
+  <section class="hero">
+    <div class="hero-identity">
+      <div class="hero-avatar">M</div>
+      <h1 class="hero-name">Maya Chen</h1>
+      <div class="hero-handle">@mayachen</div>
+      <p class="hero-headline">Building AI tools for small teams. Previously infrastructure at Stripe.</p>
+      <div class="hero-badges">
+        <span class="badge availability">
+          <span class="badge-dot green"></span>
+          Open to tribe
+        </span>
+      </div>
+      <div class="hero-domains">
+        <span class="domain-tag">System Design</span>
+        <span class="domain-tag">Product</span>
+        <span class="domain-tag">Infrastructure</span>
+        <span class="domain-tag">ML / AI</span>
+      </div>
+    </div>
+
+    <div class="hero-burn">
+      <div class="burn-label">
+        <span>Building activity</span>
+        <span class="burn-legend">
+          Less
+          <span class="legend-cell" style="background:var(--surface-secondary)"></span>
+          <span class="legend-cell" style="background:var(--accent-subtle)"></span>
+          <span class="legend-cell" style="background:var(--accent-muted)"></span>
+          <span class="legend-cell" style="background:var(--accent);opacity:0.7"></span>
+          <span class="legend-cell" style="background:var(--accent)"></span>
+          More
+        </span>
+      </div>
+      <div class="heatmap-container">
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+        <div class="heatmap-months" id="heatmapMonths"></div>
+        <div class="burn-summary">
+          <div class="burn-stat">
+            <span class="burn-stat-value">247</span>
+            <span class="burn-stat-label">Days active</span>
+          </div>
+          <div class="burn-stat">
+            <span class="burn-stat-value">1.2M</span>
+            <span class="burn-stat-label">Tokens burned</span>
+          </div>
+          <div class="burn-stat">
+            <span class="burn-stat-value">46 / 52</span>
+            <span class="burn-stat-label">Active weeks</span>
+          </div>
+          <div class="burn-stat">
+            <span class="burn-stat-value">4 / 5</span>
+            <span class="burn-stat-label">Shipped</span>
+          </div>
+        </div>
+      </div>
+      <div class="agent-panel">
+        <span class="agent-panel-label">How I build</span>
+        <div class="agent-panel-tools">
+          <div class="agent-tool">
+            <span class="agent-tool-name">Claude Code</span>
+            <span class="agent-tool-caps">backend, testing</span>
+          </div>
+          <div class="agent-tool">
+            <span class="agent-tool-name">Cursor</span>
+            <span class="agent-tool-caps">frontend</span>
+          </div>
+          <div class="agent-tool">
+            <span class="agent-tool-name">v0</span>
+            <span class="agent-tool-caps">prototyping</span>
+          </div>
+        </div>
+        <div class="agent-panel-workflow">
+          Pair builder
+          <div class="agent-panel-ratio">
+            <div class="ratio-bar">
+              <div class="human" style="width:55%"></div>
+              <div class="ai" style="width:45%"></div>
+            </div>
+            <span class="ratio-label">55/45</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ PROVE: Projects as Proof Cards with burn receipts ═══ -->
+  <section class="projects-section">
+    <div class="section-label">Proof of work</div>
+
+    <!-- Featured: Currently building -->
+    <div class="proof-card">
+      <div class="proof-card-inner">
+        <div class="proof-content">
+          <div class="proof-status building">
+            <span class="dot"></span>
+            Currently building
+          </div>
+          <h3 class="proof-title">Tribe Finder</h3>
+          <p class="proof-desc">AI-powered matching engine that connects builders based on complementary skills, shipping history, and work style compatibility. Uses embedding similarity on builder profiles.</p>
+          <div class="proof-tech">
+            <span class="tech-tag">Claude Code</span>
+            <span class="tech-tag">Cursor</span>
+          </div>
+          <div class="proof-footer">
+            <div class="proof-builders">
+              <div class="proof-builder-avatar">MC</div>
+              <div class="proof-builder-avatar">JO</div>
+              <div class="proof-builder-avatar">PS</div>
+              <span class="proof-builder-label">3 builders</span>
+            </div>
+            <span class="proof-tribe-label">via Buildspace Alumni</span>
+          </div>
+        </div>
+        <div class="proof-receipt">
+          <div class="receipt-label">Burn receipt</div>
+          <div class="receipt-sparkline"><canvas id="receipt0"></canvas></div>
+          <div class="receipt-stats">
+            <div class="receipt-stat">
+              <span class="receipt-stat-label">Duration</span>
+              <span class="receipt-stat-value">14 weeks</span>
+            </div>
+            <div class="receipt-stat">
+              <span class="receipt-stat-label">Tokens</span>
+              <span class="receipt-stat-value">485K</span>
+            </div>
+            <div class="receipt-stat">
+              <span class="receipt-stat-label">Peak week</span>
+              <span class="receipt-stat-value">52K</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compact cards -->
+    <div class="projects-compact">
+      <div class="compact-card">
+        <div class="compact-status shipped"><span class="dot"></span> Shipped</div>
+        <h4 class="compact-title">CodeReview Bot</h4>
+        <p class="compact-desc">Automated PR reviewer using LLM analysis. Used by 12 teams internally.</p>
+        <div class="compact-burn-row">
+          <div class="compact-spark"><canvas id="compact0"></canvas></div>
+          <span class="compact-burn-stat">420K &middot; 13 wks</span>
+        </div>
+        <div class="compact-tribe-label">via Buildspace Alumni</div>
+      </div>
+      <div class="compact-card">
+        <div class="compact-status shipped"><span class="dot"></span> Shipped</div>
+        <h4 class="compact-title">Schema Forge</h4>
+        <p class="compact-desc">Visual database schema designer that generates migration files.</p>
+        <div class="compact-burn-row">
+          <div class="compact-spark"><canvas id="compact1"></canvas></div>
+          <span class="compact-burn-stat">310K &middot; 11 wks</span>
+        </div>
+      </div>
+      <div class="compact-card">
+        <div class="compact-status shipped"><span class="dot"></span> Shipped</div>
+        <h4 class="compact-title">Latency Dashboard</h4>
+        <p class="compact-desc">Real-time API performance monitoring with anomaly detection.</p>
+        <div class="compact-burn-row">
+          <div class="compact-spark"><canvas id="compact2"></canvas></div>
+          <span class="compact-burn-stat">185K &middot; 11 wks</span>
+        </div>
+        <div class="compact-tribe-label">via Infra Nerds</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ VOUCH: Witnesses as credits ═══ -->
+  <section class="vouch-section">
+    <div class="section-label">Witnessed by</div>
+    <div class="credits">
+      <div class="credit-row">
+        <div class="credit-identity">
+          <div class="credit-avatar">JO</div>
+          <span class="credit-name">James Okafor</span>
+        </div>
+        <span class="credit-role">Product Designer</span>
+        <div class="credit-projects">
+          <span class="credit-project">Tribe Finder <span class="credit-project-role">(design)</span></span>
+          <span class="credit-project">&middot;</span>
+          <span class="credit-project">Schema Forge <span class="credit-project-role">(UI)</span></span>
+          <span class="credit-project">&middot;</span>
+          <span class="credit-project">CodeReview Bot <span class="credit-project-role">(UX)</span></span>
+        </div>
+      </div>
+      <div class="credit-row">
+        <div class="credit-identity">
+          <div class="credit-avatar">PS</div>
+          <span class="credit-name">Priya Sharma</span>
+        </div>
+        <span class="credit-role">Backend Engineer</span>
+        <div class="credit-projects">
+          <span class="credit-project">Tribe Finder <span class="credit-project-role">(API)</span></span>
+          <span class="credit-project">&middot;</span>
+          <span class="credit-project">Latency Dashboard <span class="credit-project-role">(pipeline)</span></span>
+        </div>
+      </div>
+      <div class="credit-row">
+        <div class="credit-identity">
+          <div class="credit-avatar">DM</div>
+          <span class="credit-name">David Morales</span>
+        </div>
+        <span class="credit-role">PM &middot; Growth</span>
+        <div class="credit-projects">
+          <span class="credit-project">CodeReview Bot <span class="credit-project-role">(product)</span></span>
+        </div>
+      </div>
+      <div class="credit-row">
+        <div class="credit-identity">
+          <div class="credit-avatar">LK</div>
+          <span class="credit-name">Lena Kim</span>
+        </div>
+        <span class="credit-role">ML Engineer</span>
+        <div class="credit-projects">
+          <span class="credit-project">Tribe Finder <span class="credit-project-role">(embeddings)</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ STATE: Tribes, links, info ═══ -->
+  <section class="state-strip">
+    <div>
+      <div class="overline">Tribes</div>
+      <div class="tribe-item">
+        <span class="tribe-item-name">Buildspace Alumni</span>
+        <span class="tribe-item-detail">12 builders</span>
+      </div>
+      <div class="tribe-item">
+        <span class="tribe-item-name">Infra Nerds</span>
+        <span class="tribe-item-detail">8 builders</span>
+      </div>
+    </div>
+    <div>
+      <div class="overline">Links</div>
+      <div class="info-list">
+        <div>
+          <div class="info-item-label">GitHub</div>
+          <div class="info-item-value"><a href="#">@mayachen</a></div>
+        </div>
+        <div>
+          <div class="info-item-label">Twitter</div>
+          <div class="info-item-value"><a href="#">@maya_ships</a></div>
+        </div>
+        <div>
+          <div class="info-item-label">Website</div>
+          <div class="info-item-value"><a href="#">mayachen.dev</a></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="overline">Info</div>
+      <div class="info-list">
+        <div>
+          <div class="info-item-label">Timezone</div>
+          <div class="info-item-value">PST &middot; UTC-8</div>
+        </div>
+        <div>
+          <div class="info-item-label">Primary role</div>
+          <div class="info-item-value">Full-Stack Engineer</div>
+        </div>
+        <div>
+          <div class="info-item-label">Joined</div>
+          <div class="info-item-value">March 2025</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ─── Burn Data ───
+function generateDayData(weeks) {
+  const data = [];
+  const spikes = [
+    { start: 4, end: 10, intensity: 4 },
+    { start: 12, end: 22, intensity: 5 },
+    { start: 20, end: 30, intensity: 6 },
+    { start: 28, end: 40, intensity: 7 },
+    { start: 38, end: 51, intensity: 8 },
+  ];
+
+  for (let w = 0; w < weeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      let val = Math.random() * 1.5;
+      for (const s of spikes) {
+        if (w >= s.start && w <= s.end) {
+          const mid = (s.start + s.end) / 2;
+          const dist = Math.abs(w - mid) / ((s.end - s.start) / 2);
+          val += s.intensity * (1 - dist * 0.6) * (0.5 + Math.random() * 0.5);
+        }
+      }
+      if (d >= 5) val *= 0.3;
+      data.push(Math.max(0, val));
+    }
+  }
+  return data;
+}
+
+const burnData = generateDayData(52);
+
+// ─── Heatmap ───
+function buildHeatmap() {
+  const grid = document.getElementById('heatmapGrid');
+  grid.innerHTML = '';
+
+  const maxVal = Math.max(...burnData);
+  const thresholds = [0.05, 0.25, 0.5, 0.75].map(t => t * maxVal);
+
+  for (let w = 0; w < 52; w++) {
+    const col = document.createElement('div');
+    col.className = 'heatmap-column';
+    for (let d = 0; d < 7; d++) {
+      const val = burnData[w * 7 + d];
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      if (val < thresholds[0]) cell.classList.add('level-0');
+      else if (val < thresholds[1]) cell.classList.add('level-1');
+      else if (val < thresholds[2]) cell.classList.add('level-2');
+      else if (val < thresholds[3]) cell.classList.add('level-3');
+      else cell.classList.add('level-4');
+      col.appendChild(cell);
+    }
+    grid.appendChild(col);
+  }
+
+  // Month labels
+  const months = ['Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb'];
+  const monthsDiv = document.getElementById('heatmapMonths');
+  monthsDiv.innerHTML = '';
+  const cellW = 11 + 3; // cell + gap
+  const monthWidth = (52 * cellW) / 12;
+  months.forEach(m => {
+    const span = document.createElement('span');
+    span.className = 'heatmap-month';
+    span.style.width = monthWidth + 'px';
+    span.textContent = m;
+    monthsDiv.appendChild(span);
+  });
+}
+
+// ─── Sparklines ───
+function drawSparkline(canvasId, weekStart, weekEnd, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+
+  const weeklyData = [];
+  for (let i = weekStart; i <= weekEnd; i++) {
+    const s = burnData.slice(i * 7, (i + 1) * 7);
+    weeklyData.push(s.reduce((a, b) => a + b, 0) / 7);
+  }
+
+  const maxVal = Math.max(...weeklyData, 1);
+  const points = weeklyData.map((v, i) => ({
+    x: (i / (weeklyData.length - 1)) * w,
+    y: h - (v / maxVal) * (h - 4) - 2
+  }));
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, h);
+  gradient.addColorStop(0, color + '25');
+  gradient.addColorStop(1, color + '05');
+
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for (let i = 0; i < points.length; i++) {
+    if (i === 0) ctx.lineTo(points[i].x, points[i].y);
+    else {
+      const cpx = (points[i - 1].x + points[i].x) / 2;
+      ctx.bezierCurveTo(cpx, points[i - 1].y, cpx, points[i].y, points[i].x, points[i].y);
+    }
+  }
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  ctx.beginPath();
+  for (let i = 0; i < points.length; i++) {
+    if (i === 0) ctx.moveTo(points[i].x, points[i].y);
+    else {
+      const cpx = (points[i - 1].x + points[i].x) / 2;
+      ctx.bezierCurveTo(cpx, points[i - 1].y, cpx, points[i].y, points[i].x, points[i].y);
+    }
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// ─── Init ───
+function drawAll() {
+  buildHeatmap();
+  drawSparkline('receipt0', 38, 51, '#6366f1');
+  drawSparkline('compact0', 28, 40, '#6366f1');
+  drawSparkline('compact1', 20, 30, '#6366f1');
+  drawSparkline('compact2', 12, 22, '#6366f1');
+}
+window.addEventListener('load', drawAll);
+window.addEventListener('resize', drawAll);
+</script>
+
+</body>
+</html>

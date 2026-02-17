@@ -60,31 +60,132 @@ class User(Base, ULIDMixin):
     # 0.0 = fully human, 1.0 = fully AI-assisted
 ```
 
-## Burn Map (Activity Derivation)
+## BuildActivity Model
 
-The burn map is derived from `feed_events` — no separate activity tracking table needed in V1.
+Token burn is the universal unit of work — every builder uses AI agents. This table tracks the raw evidence.
 
 ```python
-# Query: aggregate feed events by week for the past 52 weeks
+# backend/models/build_activity.py
+class BuildActivitySource(str, enum.Enum):
+    ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+    GOOGLE = "google"
+    MANUAL = "manual"
+    OTHER = "other"
+
+class BuildActivity(Base, ULIDMixin):
+    __tablename__ = "build_activities"
+
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    activity_date: Mapped[date] = mapped_column(Date, nullable=False)
+    tokens_burned: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(
+        SQLEnum(BuildActivitySource, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, default=dict)
+
+    # Relationships
+    user: Mapped["User"] = relationship(back_populates="build_activities")
+    project: Mapped["Project | None"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "project_id", "activity_date", "source",
+                         name="uq_build_activity_per_day"),
+        Index("ix_build_activities_user_date", "user_id", activity_date.desc()),
+        Index("ix_build_activities_project", "project_id",
+              postgresql_where=text("project_id IS NOT NULL")),
+    )
+```
+
+### Burn Heatmap Query (52 weeks of daily totals)
+
+```python
 stmt = (
     select(
-        func.date_trunc("week", FeedEvent.created_at).label("week"),
-        func.count().label("count"),
+        BuildActivity.activity_date,
+        func.sum(BuildActivity.tokens_burned).label("daily_tokens"),
     )
     .where(
-        FeedEvent.actor_id == user_id,
-        FeedEvent.created_at >= datetime.now() - timedelta(weeks=52),
+        BuildActivity.user_id == user_id,
+        BuildActivity.activity_date >= date.today() - timedelta(weeks=52),
     )
-    .group_by("week")
-    .order_by("week")
+    .group_by(BuildActivity.activity_date)
+    .order_by(BuildActivity.activity_date)
 )
 ```
 
-Returns 52 data points (one per week), each with an activity count. Frontend maps counts to intensity levels (0 = no activity, 1-2 = low, 3-5 = medium, 6+ = high).
+### Per-Project Burn Receipt Query
+
+```python
+stmt = (
+    select(
+        BuildActivity.activity_date,
+        func.sum(BuildActivity.tokens_burned).label("daily_tokens"),
+    )
+    .where(
+        BuildActivity.user_id == user_id,
+        BuildActivity.project_id == project_id,
+    )
+    .group_by(BuildActivity.activity_date)
+    .order_by(BuildActivity.activity_date)
+)
+```
+
+### Project.tribe_id (new column)
+
+```python
+# Added to Project model (src/backend/app/models/project.py)
+class Project(Base, ULIDMixin):
+    # ... existing fields ...
+
+    tribe_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("tribes.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Relationships
+    tribe: Mapped["Tribe | None"] = relationship(back_populates="projects")
+```
+
+The Tribe model gains a `projects` relationship:
+```python
+class Tribe(Base, ULIDMixin):
+    # ... existing fields ...
+    projects: Mapped[list["Project"]] = relationship(back_populates="tribe")
+```
 
 ## GraphQL Types
 
 ```python
+@strawberry.type
+class BurnDayType:
+    date: datetime.date
+    tokens: int
+
+@strawberry.type
+class BurnReceiptType:
+    """Per-project burn stats for the burn receipt panel."""
+    project_id: strawberry.ID
+    total_tokens: int
+    duration_weeks: int
+    peak_week_tokens: int
+    daily_activity: list[BurnDayType]
+
+@strawberry.type
+class BurnSummaryType:
+    """Aggregate burn stats for the heatmap section."""
+    days_active: int
+    total_tokens: int
+    active_weeks: int
+    total_weeks: int
+    weekly_streak: int  # current consecutive active weeks
+    daily_activity: list[BurnDayType]  # 52 weeks of daily data
+
 @strawberry.type
 class SkillType:
     id: strawberry.ID
@@ -156,6 +257,16 @@ class Query:
     @strawberry.field
     async def skills(self, category: str | None = None, info: strawberry.types.Info) -> list[SkillType]:
         return await skill_service.list_skills(category=category)
+
+    @strawberry.field
+    async def burn_summary(self, user_id: strawberry.ID, weeks: int = 52, info: strawberry.types.Info) -> BurnSummaryType:
+        """Get burn heatmap data for a user's profile."""
+        return await burn_service.get_summary(user_id, weeks=weeks)
+
+    @strawberry.field
+    async def burn_receipt(self, user_id: strawberry.ID, project_id: strawberry.ID, info: strawberry.types.Info) -> BurnReceiptType:
+        """Get per-project burn receipt for a project card."""
+        return await burn_service.get_receipt(user_id, project_id)
 ```
 
 ## Mutations
@@ -192,6 +303,26 @@ class Mutation:
         user = require_auth(info)
         await user_service.remove_skill(user.id, skill_id)
         return UserType.from_model(await user_service.get_by_id(user.id))
+
+    @strawberry.mutation
+    async def log_build_session(
+        self,
+        tokens_burned: int,
+        source: str,
+        project_id: strawberry.ID | None = None,
+        activity_date: datetime.date | None = None,  # defaults to today
+        info: strawberry.types.Info = None,
+    ) -> BurnSummaryType:
+        """Log a build session. Creates or updates the BuildActivity for the day."""
+        user = require_auth(info)
+        await burn_service.log_session(
+            user_id=user.id,
+            tokens_burned=tokens_burned,
+            source=source,
+            project_id=project_id,
+            activity_date=activity_date or date.today(),
+        )
+        return await burn_service.get_summary(user.id)
 ```
 
 ## DataLoaders (N+1 prevention)
@@ -289,9 +420,16 @@ app/
 │           └── page.tsx      # Edit profile form (client component)
 ```
 
-### Profile Page Layout
-- **Left Sidebar (320px, sticky)**: avatar, display_name, headline (italic), @username, role badge, builder score, bio, skills, availability dot, timezone with overlap calculation, contact links (GitHub, Twitter, LinkedIn, website), joined date, preferred stack bars, role pattern label, "How They Build" (agent workflow)
-- **Right Content**: aggregate impact row (stars/shipped/users), "Currently Building" section (IN_PROGRESS projects with amber pulse dot), "Shipped" section (SHIPPED projects with impact metric pills), shipping timeline, burn map, tribes (cards with member avatars), collaborator network ("Built With")
+### Profile Page Layout (PROVE → VOUCH → STATE)
+
+Full-width editorial flow — **no sidebar**. Hierarchy enforced by scroll position.
+
+1. **Identity strip**: avatar (80px), name, handle, headline, availability badge, builder score, timezone — compact horizontal row
+2. **Shipping activity (burn)**: 52-week heatmap with project markers, summary stats (days active, tokens burned, weekly streak, projects shipped)
+3. **Proof of work (projects)**: Featured card (currently building) with burn receipt panel. 2-column grid for shipped projects, each with inline sparkline and token stats. Tribe projects show "via [Tribe Name]"
+4. **Witnessed by**: 2-column grid of witness cards — collaborators with the projects they co-built
+5. **Tribes**: Compact chips with project count and member avatars
+6. **Skills / How they build / Links**: 3-column footer strip, lowest trust weight
 
 ### GraphQL Query (Eager-Loading Chain)
 
@@ -315,11 +453,9 @@ stmt = (
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| `ShippingTimeline` | `components/features/shipping-timeline.tsx` | Horizontal time axis with project dots |
-| `CollaboratorNetwork` | `components/features/collaborator-network.tsx` | Deduplicated collaborator avatars across all projects |
+| `BurnHeatmap` | `components/features/burn-heatmap.tsx` | 52-week × 7-day token burn grid with project markers |
+| `BurnReceipt` | `components/features/burn-receipt.tsx` | Per-project sparkline + duration/tokens/peak stats |
+| `ProofCard` | `components/features/proof-card.tsx` | Project card with burn receipt panel |
+| `WitnessCard` | `components/features/witness-card.tsx` | Collaborator with co-built projects listed |
+| `TribeChip` | `components/features/tribe-chip.tsx` | Compact tribe display with project count |
 | `AgentWorkflowCard` | `components/features/agent-workflow-card.tsx` | AI workflow style, tools, human/AI ratio |
-| `BurnMap` | `components/features/burn-map.tsx` | Building activity dot grid |
-| `AggregateImpact` | Inline in profile page | Big mono numbers: stars, shipped, users |
-| `PreferredStack` | Inline in profile page | Top 5 tech frequencies as horizontal bars |
-| `TimezoneOverlap` | Inline in profile page | Timezone + work-hour overlap calculation |
-| `RolePattern` | Inline in profile page | Derived label from project ownership patterns |
