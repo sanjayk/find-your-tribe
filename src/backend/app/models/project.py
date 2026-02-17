@@ -24,6 +24,7 @@ from app.db.base import Base, TimestampMixin, ULIDMixin
 from app.models.enums import CollaboratorStatus, ProjectStatus
 
 if TYPE_CHECKING:
+    from app.models.tribe import Tribe
     from app.models.user import User
 
 
@@ -149,6 +150,13 @@ class Project(Base, ULIDMixin, TimestampMixin):
         nullable=True,
     )
 
+    # Tribe membership
+    tribe_id: Mapped[str | None] = mapped_column(
+        String(26),
+        ForeignKey("tribes.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     # Relationships
     owner: Mapped["User"] = relationship(
         "User",
@@ -158,6 +166,10 @@ class Project(Base, ULIDMixin, TimestampMixin):
         "User",
         secondary=project_collaborators,
         back_populates="collaborated_projects",
+    )
+    tribe: Mapped["Tribe | None"] = relationship(
+        "Tribe",
+        back_populates="projects",
     )
 
     __table_args__ = (

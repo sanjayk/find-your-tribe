@@ -24,6 +24,7 @@ from app.db.base import Base, TimestampMixin, ULIDMixin
 from app.models.enums import MemberRole, MemberStatus, TribeStatus
 
 if TYPE_CHECKING:
+    from app.models.project import Project
     from app.models.user import User
 
 
@@ -123,6 +124,10 @@ class Tribe(Base, ULIDMixin, TimestampMixin):
         "TribeOpenRole",
         back_populates="tribe",
         cascade="all, delete-orphan",
+    )
+    projects: Mapped[list["Project"]] = relationship(
+        "Project",
+        back_populates="tribe",
     )
 
     __table_args__ = (

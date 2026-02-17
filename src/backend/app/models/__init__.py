@@ -1,9 +1,11 @@
 """Data models for the Find Your Tribe application."""
 
 from app.db.base import Base
+from app.models.build_activity import BuildActivity
 from app.models.enums import (
     AgentWorkflowStyle,
     AvailabilityStatus,
+    BuildActivitySource,
     CollaboratorStatus,
     EventType,
     MemberRole,
@@ -23,6 +25,8 @@ __all__ = [
     "AgentWorkflowStyle",
     "AvailabilityStatus",
     "Base",
+    "BuildActivity",
+    "BuildActivitySource",
     "CollaboratorStatus",
     "EventType",
     "FeedEvent",
