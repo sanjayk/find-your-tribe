@@ -5,6 +5,7 @@
 def test_seed_package_imports():
     """Test that all seed functions can be imported from app.seed package."""
     from app.seed import (
+        seed_build_activities,
         seed_feed_events,
         seed_projects,
         seed_skills,
@@ -18,6 +19,7 @@ def test_seed_package_imports():
     assert callable(seed_projects)
     assert callable(seed_tribes)
     assert callable(seed_feed_events)
+    assert callable(seed_build_activities)
 
 
 def test_seed_package_all_list():
@@ -34,6 +36,7 @@ def test_seed_package_all_list():
         "seed_projects",
         "seed_tribes",
         "seed_feed_events",
+        "seed_build_activities",
     ]
     assert set(app.seed.__all__) == set(expected_functions)
 
@@ -41,12 +44,14 @@ def test_seed_package_all_list():
 def test_seed_functions_are_actual_functions():
     """Test that imported seed functions are the actual implementations."""
     from app.seed import (
+        seed_build_activities,
         seed_feed_events,
         seed_projects,
         seed_skills,
         seed_tribes,
         seed_users,
     )
+    from app.seed.build_activities import seed_build_activities as actual_seed_build_activities
     from app.seed.feed_events import seed_feed_events as actual_seed_feed_events
     from app.seed.projects import seed_projects as actual_seed_projects
     from app.seed.skills import seed_skills as actual_seed_skills
@@ -59,3 +64,4 @@ def test_seed_functions_are_actual_functions():
     assert seed_projects is actual_seed_projects
     assert seed_tribes is actual_seed_tribes
     assert seed_feed_events is actual_seed_feed_events
+    assert seed_build_activities is actual_seed_build_activities
