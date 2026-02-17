@@ -361,7 +361,6 @@ def test_tribe_open_role_has_relationships():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_tribe_database_integration():
     """Test that Tribe model works with database operations."""
     from app.db.engine import async_session_factory, engine
@@ -411,7 +410,6 @@ async def test_tribe_database_integration():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_tribe_cascade_delete():
     """Test that tribes are deleted when owner is deleted."""
     from app.db.engine import async_session_factory, engine
@@ -464,7 +462,6 @@ async def test_tribe_cascade_delete():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_tribe_open_role_cascade_delete():
     """Test that open roles are deleted when tribe is deleted."""
     from app.db.engine import async_session_factory, engine

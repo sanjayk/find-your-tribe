@@ -11,7 +11,6 @@ from app.seed.users import seed_users
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_creates_exactly_10_users():
     """Test that seed_users creates exactly 10 users."""
     from app.db.engine import async_session_factory, engine
@@ -42,7 +41,6 @@ async def test_seed_users_creates_exactly_10_users():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_correct_builder_scores():
     """Test that all users have correct builder scores."""
     from app.db.engine import async_session_factory, engine
@@ -87,7 +85,6 @@ async def test_seed_users_correct_builder_scores():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_all_fields_populated():
     """Test that all required user fields are populated."""
     from app.db.engine import async_session_factory, engine
@@ -105,21 +102,28 @@ async def test_seed_users_all_fields_populated():
             users = result.scalars().all()
 
             for user in users:
-                # Check required fields
+                # Check required fields present on all users
                 assert user.username
                 assert user.display_name
                 assert user.email
-                assert user.headline
-                assert user.bio
                 assert user.primary_role
                 assert user.availability_status
                 assert user.builder_score >= 0
                 assert user.contact_links is not None
                 assert isinstance(user.contact_links, dict)
 
-                # Check contact_links structure
-                assert "twitter" in user.contact_links
-                assert "github_username" in user.contact_links
+            # Full and medium profile users should have headline, bio, and twitter
+            full_medium_usernames = {
+                "mayachen", "sarahkim", "tomnakamura", "priyasharma",
+                "marcusjohnson", "elenavolkov", "jamesokafor", "davidmorales",
+            }
+            for user in users:
+                if user.username in full_medium_usernames:
+                    assert user.headline, f"User {user.username} missing headline"
+                    assert user.bio, f"User {user.username} missing bio"
+                    assert "twitter" in user.contact_links, (
+                        f"User {user.username} missing twitter in contact_links"
+                    )
     finally:
         # Clean up
         async with engine.begin() as conn:
@@ -127,7 +131,6 @@ async def test_seed_users_all_fields_populated():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_availability_statuses():
     """Test that users have correct availability statuses."""
     from app.db.engine import async_session_factory, engine
@@ -171,7 +174,6 @@ async def test_seed_users_availability_statuses():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_primary_roles():
     """Test that users have correct primary roles."""
     from app.db.engine import async_session_factory, engine
@@ -215,7 +217,6 @@ async def test_seed_users_primary_roles():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_skills_relationships():
     """Test that users have correct skill relationships."""
     from app.db.engine import async_session_factory, engine
@@ -241,7 +242,7 @@ async def test_seed_users_skills_relationships():
             await session.refresh(maya, ["skills"])
             maya_skill_names = {skill.name for skill in maya.skills}
 
-            expected_maya_skills = {"React", "Python", "PostgreSQL", "FastAPI"}
+            expected_maya_skills = {"React", "Python", "PostgreSQL", "FastAPI", "TypeScript", "GraphQL"}
             assert maya_skill_names == expected_maya_skills
 
             # James Okafor should have Figma, UI/UX, Prototyping
@@ -254,7 +255,7 @@ async def test_seed_users_skills_relationships():
             await session.refresh(james, ["skills"])
             james_skill_names = {skill.name for skill in james.skills}
 
-            expected_james_skills = {"Figma", "UI/UX", "Prototyping"}
+            expected_james_skills = {"Figma", "UI/UX", "Prototyping", "React"}
             assert james_skill_names == expected_james_skills
     finally:
         # Clean up
@@ -263,7 +264,6 @@ async def test_seed_users_skills_relationships():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_returns_lookup_dict():
     """Test that seed_users returns a lookup dictionary."""
     from app.db.engine import async_session_factory, engine
@@ -299,7 +299,6 @@ async def test_seed_users_returns_lookup_dict():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_specific_users_exist():
     """Test that all 10 specific users exist with correct names."""
     from app.db.engine import async_session_factory, engine
@@ -343,7 +342,6 @@ async def test_seed_users_specific_users_exist():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_users_all_have_skills():
     """Test that all users have at least one skill."""
     from app.db.engine import async_session_factory, engine

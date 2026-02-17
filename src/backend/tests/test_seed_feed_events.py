@@ -14,7 +14,6 @@ from app.seed.users import seed_users
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_creates_correct_count():
     """Test that seed_feed_events creates exactly 15 feed events."""
     from app.db.engine import async_session_factory, engine
@@ -50,7 +49,6 @@ async def test_seed_feed_events_creates_correct_count():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_returns_dict():
     """Test that seed_feed_events returns a dictionary mapping indices to IDs."""
     from app.db.engine import async_session_factory, engine
@@ -83,7 +81,6 @@ async def test_seed_feed_events_returns_dict():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_has_correct_event_types():
     """Test that feed events have correct event types."""
     from app.db.engine import async_session_factory, engine
@@ -136,7 +133,6 @@ async def test_seed_feed_events_has_correct_event_types():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_has_valid_actor_ids():
     """Test that all feed events have valid actor_id references."""
     from app.db.engine import async_session_factory, engine
@@ -172,7 +168,6 @@ async def test_seed_feed_events_has_valid_actor_ids():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_has_valid_target_ids():
     """Test that all feed events have valid target_id references."""
     from app.db.engine import async_session_factory, engine
@@ -212,7 +207,6 @@ async def test_seed_feed_events_has_valid_target_ids():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_has_metadata():
     """Test that all feed events have proper metadata."""
     from app.db.engine import async_session_factory, engine
@@ -249,7 +243,6 @@ async def test_seed_feed_events_has_metadata():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_project_shipped_metadata():
     """Test that PROJECT_SHIPPED events have correct metadata structure."""
     from app.db.engine import async_session_factory, engine
@@ -288,7 +281,6 @@ async def test_seed_feed_events_project_shipped_metadata():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_tribe_created_metadata():
     """Test that TRIBE_CREATED events have correct metadata structure."""
     from app.db.engine import async_session_factory, engine
@@ -326,7 +318,6 @@ async def test_seed_feed_events_tribe_created_metadata():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_chronological_order():
     """Test that feed events are in reverse chronological order."""
     from app.db.engine import async_session_factory, engine
@@ -361,7 +352,6 @@ async def test_seed_feed_events_chronological_order():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_ulid_ordering():
     """Test that feed event ULIDs are time-ordered (older events have earlier ULIDs)."""
     from app.db.engine import async_session_factory, engine
@@ -397,7 +387,6 @@ async def test_seed_feed_events_ulid_ordering():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_feed_events_specific_actors():
     """Test that specific events have correct actors."""
     from app.db.engine import async_session_factory, engine

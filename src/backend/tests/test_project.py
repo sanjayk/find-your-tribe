@@ -331,7 +331,6 @@ def test_project_collaborators_confirmed_at_column():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_project_database_integration():
     """Test that Project model works with database operations."""
     from app.db.engine import async_session_factory, engine
@@ -387,7 +386,6 @@ async def test_project_database_integration():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_project_cascade_delete():
     """Test that projects are deleted when owner is deleted."""
     from app.db.engine import async_session_factory, engine
@@ -440,7 +438,6 @@ async def test_project_cascade_delete():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_project_github_repo_unique_constraint():
     """Test that github_repo_full_name must be unique."""
     from app.db.engine import async_session_factory, engine

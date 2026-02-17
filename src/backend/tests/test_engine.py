@@ -22,7 +22,6 @@ async def test_session_factory_creation():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_session_factory_creates_session():
     """Test that the session factory creates a valid AsyncSession."""
     async with async_session_factory() as session:
@@ -45,7 +44,6 @@ async def test_get_session_yields_session():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_session_can_execute_query():
     """Test that a session can execute a simple query."""
     async with async_session_factory() as session:

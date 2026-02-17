@@ -16,9 +16,9 @@ def test_settings_default_values():
     try:
         settings = Settings()
 
-        assert settings.DATABASE_URL == "postgresql+asyncpg://tribe:tribe@localhost:5432/tribe"
-        assert settings.ENVIRONMENT == "development"
-        assert settings.DEBUG is True
+        assert settings.database_url == "postgresql+asyncpg://tribe:tribe@localhost:5433/tribe"
+        assert settings.environment == "development"
+        assert settings.debug is True
     finally:
         # Restore original environment
         for var, value in original_values.items():
@@ -36,9 +36,9 @@ def test_settings_loads_from_environment():
     try:
         settings = Settings()
 
-        assert settings.DATABASE_URL == "postgresql+asyncpg://custom:custom@example.com:5432/custom"
-        assert settings.ENVIRONMENT == "production"
-        assert settings.DEBUG is False
+        assert settings.database_url == "postgresql+asyncpg://custom:custom@example.com:5432/custom"
+        assert settings.environment == "production"
+        assert settings.debug is False
     finally:
         # Clean up
         os.environ.pop("DATABASE_URL", None)
@@ -50,12 +50,9 @@ def test_settings_proper_typing():
     """Test that Settings fields have proper typing."""
     settings = Settings()
 
-    # DATABASE_URL should be a string
-    assert isinstance(settings.DATABASE_URL, str)
-    # ENVIRONMENT should be a string
-    assert isinstance(settings.ENVIRONMENT, str)
-    # DEBUG should be a boolean
-    assert isinstance(settings.DEBUG, bool)
+    assert isinstance(settings.database_url, str)
+    assert isinstance(settings.environment, str)
+    assert isinstance(settings.debug, bool)
 
 
 def test_settings_singleton_behavior():
@@ -63,7 +60,6 @@ def test_settings_singleton_behavior():
     settings1 = Settings()
     settings2 = Settings()
 
-    # Both should have the same default values
-    assert settings1.DATABASE_URL == settings2.DATABASE_URL
-    assert settings1.ENVIRONMENT == settings2.ENVIRONMENT
-    assert settings1.DEBUG == settings2.DEBUG
+    assert settings1.database_url == settings2.database_url
+    assert settings1.environment == settings2.environment
+    assert settings1.debug == settings2.debug

@@ -12,7 +12,6 @@ from app.seed.users import seed_users
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_creates_exactly_6_projects():
     """Test that seed_projects creates exactly 6 projects."""
     from app.db.engine import async_session_factory, engine
@@ -30,13 +29,13 @@ async def test_seed_projects_creates_exactly_6_projects():
             # Seed projects
             project_lookup = await seed_projects(session, users_dict)
 
-            # Verify exactly 6 projects were created
-            assert len(project_lookup) == 6
+            # Verify exactly 14 projects were created
+            assert len(project_lookup) == 14
 
             # Verify projects exist in database
             result = await session.execute(select(Project))
             projects = result.scalars().all()
-            assert len(projects) == 6
+            assert len(projects) == 14
     finally:
         # Clean up
         async with engine.begin() as conn:
@@ -44,7 +43,6 @@ async def test_seed_projects_creates_exactly_6_projects():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_correct_titles():
     """Test that all projects have correct titles."""
     from app.db.engine import async_session_factory, engine
@@ -63,9 +61,17 @@ async def test_seed_projects_correct_titles():
             expected_titles = {
                 "AI Resume Builder",
                 "Tribe Finder",
-                "Open Source CRM",
-                "Design System Kit",
+                "GraphQL Playground Pro",
                 "ML Pipeline Framework",
+                "DataLens",
+                "NeuralSearch",
+                "DevSync",
+                "ShipLog",
+                "go-queue",
+                "MicroMon",
+                "InfraBlocks",
+                "Design System Kit",
+                "Open Source CRM",
                 "Growth Analytics Dashboard",
             }
 
@@ -78,7 +84,6 @@ async def test_seed_projects_correct_titles():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_correct_statuses():
     """Test that projects have correct statuses."""
     from app.db.engine import async_session_factory, engine
@@ -119,7 +124,6 @@ async def test_seed_projects_correct_statuses():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_correct_github_stars():
     """Test that projects have correct GitHub stars."""
     from app.db.engine import async_session_factory, engine
@@ -158,7 +162,6 @@ async def test_seed_projects_correct_github_stars():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_correct_tech_stacks():
     """Test that projects have correct tech stacks."""
     from app.db.engine import async_session_factory, engine
@@ -176,11 +179,19 @@ async def test_seed_projects_correct_tech_stacks():
             # Expected tech stacks
             expected_tech_stacks = {
                 "AI Resume Builder": ["React", "Python", "OpenAI", "PostgreSQL"],
-                "Tribe Finder": ["Next.js", "Go", "PostgreSQL"],
+                "Tribe Finder": ["Next.js", "FastAPI", "PostgreSQL", "GraphQL"],
+                "GraphQL Playground Pro": ["TypeScript", "React", "GraphQL", "Electron"],
+                "ML Pipeline Framework": ["Python", "TensorFlow", "Docker", "Kubernetes"],
+                "DataLens": ["Python", "React", "D3.js", "FastAPI"],
+                "NeuralSearch": ["Python", "pgvector", "OpenAI", "FastAPI"],
+                "DevSync": ["TypeScript", "Go", "WebSocket", "PostgreSQL"],
+                "ShipLog": ["Next.js", "Python", "PostgreSQL", "GitHub API"],
+                "go-queue": ["Go", "Redis", "gRPC", "Docker"],
+                "MicroMon": ["Go", "Kubernetes", "ClickHouse", "React"],
+                "InfraBlocks": ["Terraform", "AWS", "Docker", "GitHub Actions"],
+                "Design System Kit": ["Figma", "React", "Storybook", "TypeScript"],
                 "Open Source CRM": ["React", "Node.js", "PostgreSQL"],
-                "Design System Kit": ["Figma", "React", "Storybook"],
-                "ML Pipeline Framework": ["Python", "TensorFlow", "Docker"],
-                "Growth Analytics Dashboard": ["Next.js", "Python", "Grafana"],
+                "Growth Analytics Dashboard": ["Next.js", "Python", "Grafana", "PostgreSQL"],
             }
 
             for title, expected_stack in expected_tech_stacks.items():
@@ -199,7 +210,6 @@ async def test_seed_projects_correct_tech_stacks():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_impact_metrics():
     """Test that shipped projects have impact_metrics populated."""
     from app.db.engine import async_session_factory, engine
@@ -248,7 +258,6 @@ async def test_seed_projects_impact_metrics():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_correct_owners():
     """Test that projects have correct owners."""
     from app.db.engine import async_session_factory, engine
@@ -290,7 +299,6 @@ async def test_seed_projects_correct_owners():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_collaborators():
     """Test that projects have correct collaborators."""
     from app.db.engine import async_session_factory, engine
@@ -337,7 +345,6 @@ async def test_seed_projects_collaborators():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_collaborator_status():
     """Test that all collaborators have CONFIRMED status."""
     from app.db.engine import async_session_factory, engine
@@ -367,7 +374,6 @@ async def test_seed_projects_collaborator_status():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_returns_lookup_dict():
     """Test that seed_projects returns a lookup dictionary."""
     from app.db.engine import async_session_factory, engine
@@ -404,7 +410,6 @@ async def test_seed_projects_returns_lookup_dict():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_all_have_descriptions():
     """Test that all projects have descriptions."""
     from app.db.engine import async_session_factory, engine
@@ -434,7 +439,6 @@ async def test_seed_projects_all_have_descriptions():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_projects_all_have_tech_stacks():
     """Test that all projects have tech stacks."""
     from app.db.engine import async_session_factory, engine

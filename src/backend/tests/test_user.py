@@ -444,7 +444,6 @@ def test_user_skills_added_at_column():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_user_database_integration():
     """Test that User model works with database operations."""
     from app.db.engine import async_session_factory, engine
@@ -487,7 +486,6 @@ async def test_user_database_integration():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_refresh_token_cascade_delete():
     """Test that refresh tokens are deleted when user is deleted."""
     from datetime import datetime, timedelta

@@ -84,7 +84,6 @@ async def test_health_query_handles_db_error():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_health_query_with_real_database():
     """Integration test with real database connection."""
     from app.db.engine import async_session_factory

@@ -56,7 +56,10 @@ def test_skill_slug_column():
     assert slug_col.type.length == 100
     assert slug_col.nullable is False
     assert slug_col.unique is True
-    assert slug_col.index is True
+
+    # Index is defined via __table_args__, not on the column itself
+    indexes = {idx.name for idx in Skill.__table__.indexes}
+    assert "ix_skills_slug" in indexes
 
 
 def test_skill_category_column():
@@ -98,7 +101,6 @@ def test_skill_inherits_timestamp_mixin():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_skill_database_integration():
     """Test that Skill model works with database operations."""
     from app.db.engine import async_session_factory, engine
@@ -134,7 +136,6 @@ async def test_skill_database_integration():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_skill_unique_constraints():
     """Test that name and slug unique constraints are enforced."""
     from sqlalchemy.exc import IntegrityError

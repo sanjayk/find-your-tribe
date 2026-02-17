@@ -142,13 +142,15 @@ class TestMemberStatus:
 
     def test_has_all_required_values(self):
         """MemberStatus should have all specified values."""
-        assert MemberStatus.ACTIVE == "active"
         assert MemberStatus.PENDING == "pending"
+        assert MemberStatus.ACTIVE == "active"
         assert MemberStatus.REJECTED == "rejected"
+        assert MemberStatus.LEFT == "left"
+        assert MemberStatus.REMOVED == "removed"
 
     def test_value_count(self):
-        """MemberStatus should have exactly 3 values."""
-        assert len(MemberStatus) == 3
+        """MemberStatus should have exactly 5 values."""
+        assert len(MemberStatus) == 5
 
 
 class TestEventType:

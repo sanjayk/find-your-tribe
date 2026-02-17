@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime
 
-import pytest
 import strawberry
 
 from app.graphql.types.tribe import OpenRoleType, TribeMemberType, TribeType
@@ -118,6 +117,9 @@ def test_tribe_type_instantiation():
         max_members=8,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _members=[],
+        _open_roles=[],
     )
 
     assert tribe.id == "01HQZXYZ123456789ABCDEFGH"
@@ -141,6 +143,9 @@ def test_tribe_type_with_minimal_fields():
         max_members=5,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _members=[],
+        _open_roles=[],
     )
 
     assert tribe.id == "01HQZXYZ123456789ABCDEFGH"
@@ -150,8 +155,8 @@ def test_tribe_type_with_minimal_fields():
     assert tribe.max_members == 5
 
 
-def test_tribe_type_owner_raises_not_implemented():
-    """Test that owner field raises NotImplementedError (placeholder)."""
+def test_tribe_type_owner_returns_none_when_not_loaded():
+    """Test that owner field returns None when no owner is loaded."""
     now = datetime.now(UTC)
 
     tribe = TribeType(
@@ -162,11 +167,13 @@ def test_tribe_type_owner_raises_not_implemented():
         max_members=5,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _members=[],
+        _open_roles=[],
     )
 
-    # The owner field should raise NotImplementedError as it's a placeholder
-    with pytest.raises(NotImplementedError, match="Owner loading not yet implemented"):
-        tribe.owner()
+    # The owner field returns the stored _owner value (None when not loaded)
+    assert tribe.owner() is None
 
 
 def test_tribe_type_members_returns_empty_list():
@@ -181,6 +188,9 @@ def test_tribe_type_members_returns_empty_list():
         max_members=5,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _members=[],
+        _open_roles=[],
     )
 
     # The members field should return an empty list
@@ -200,6 +210,9 @@ def test_tribe_type_open_roles_returns_empty_list():
         max_members=5,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _members=[],
+        _open_roles=[],
     )
 
     # The open_roles field should return an empty list
@@ -276,6 +289,9 @@ def test_tribe_member_type_instantiation():
         agent_workflow_style=None,
         human_agent_ratio=None,
         created_at=now,
+        _skills=[],
+        _owned_projects=[],
+        _tribes=[],
     )
 
     member = TribeMemberType(
@@ -314,6 +330,9 @@ def test_tribe_member_type_with_owner_role():
         agent_workflow_style=None,
         human_agent_ratio=None,
         created_at=now,
+        _skills=[],
+        _owned_projects=[],
+        _tribes=[],
     )
 
     member = TribeMemberType(
@@ -352,6 +371,9 @@ def test_tribe_member_type_with_pending_status():
         agent_workflow_style=None,
         human_agent_ratio=None,
         created_at=now,
+        _skills=[],
+        _owned_projects=[],
+        _tribes=[],
     )
 
     member = TribeMemberType(
@@ -460,6 +482,9 @@ def test_all_tribe_status_values():
             max_members=5,
             created_at=now,
             updated_at=now,
+            _owner=None,
+            _members=[],
+            _open_roles=[],
         )
         assert tribe.status == status
 
@@ -487,6 +512,9 @@ def test_all_member_role_values():
         agent_workflow_style=None,
         human_agent_ratio=None,
         created_at=now,
+        _skills=[],
+        _owned_projects=[],
+        _tribes=[],
     )
 
     for role in MemberRole:
@@ -522,6 +550,9 @@ def test_all_member_status_values():
         agent_workflow_style=None,
         human_agent_ratio=None,
         created_at=now,
+        _skills=[],
+        _owned_projects=[],
+        _tribes=[],
     )
 
     for status in MemberStatus:

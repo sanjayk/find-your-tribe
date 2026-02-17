@@ -29,7 +29,6 @@ def test_slugify_with_special_chars():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_skills_creates_all_skills():
     """Test that seed_skills creates 80+ skills."""
     from app.db.engine import async_session_factory, engine
@@ -56,7 +55,6 @@ async def test_seed_skills_creates_all_skills():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_skills_covers_all_categories():
     """Test that all 8 skill categories are covered."""
     from app.db.engine import async_session_factory, engine
@@ -83,7 +81,6 @@ async def test_seed_skills_covers_all_categories():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_skills_slug_format():
     """Test that all skill slugs are in kebab-case."""
     from app.db.engine import async_session_factory, engine
@@ -111,7 +108,6 @@ async def test_seed_skills_slug_format():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_skills_returns_lookup_dict():
     """Test that seed_skills returns a lookup dictionary."""
     from app.db.engine import async_session_factory, engine
@@ -146,7 +142,6 @@ async def test_seed_skills_returns_lookup_dict():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_skills_specific_skills_exist():
     """Test that specific skills from the spec exist."""
     from app.db.engine import async_session_factory, engine
@@ -183,7 +178,6 @@ async def test_seed_skills_specific_skills_exist():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_skills_category_counts():
     """Test that each category has a reasonable number of skills."""
     from app.db.engine import async_session_factory, engine

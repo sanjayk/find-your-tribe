@@ -12,9 +12,36 @@ from sqlalchemy.pool import NullPool
 from app.config import settings
 from app.db.base import Base
 from app.main import app
-from app.models.enums import AvailabilityStatus, UserRole
+from app.models.enums import AvailabilityStatus, SkillCategory, UserRole
 from app.models.skill import Skill
 from app.models.user import User, user_skills
+
+
+@pytest.fixture(autouse=True)
+async def _reset_app_engine(request):
+    """Discard the app's singleton engine pool between tests.
+
+    Tests that import ``from app.db.engine import engine`` use a module-level
+    singleton.  Its pooled connections are bound to whatever event loop was
+    active when they were created.  pytest-asyncio gives each test function its
+    own loop, so stale connections cause "attached to a different loop" errors.
+
+    Skipped for tests using the conftest's ``async_engine``/``async_session``
+    fixtures, which create their own NullPool engine and don't need this.
+    """
+    uses_conftest_engine = (
+        "async_engine" in request.fixturenames
+        or "async_session" in request.fixturenames
+    )
+    if uses_conftest_engine:
+        yield
+        return
+
+    from app.db.engine import engine
+
+    await engine.dispose(close=False)
+    yield
+    await engine.dispose(close=False)
 
 
 @pytest.fixture(scope="session")
@@ -175,9 +202,9 @@ async def seed_test_data(async_session: AsyncSession) -> dict[str, Any]:
     """
     # Create skills
     skills_data = [
-        {"name": "Python", "category": "Language"},
-        {"name": "React", "category": "Framework"},
-        {"name": "PostgreSQL", "category": "Database"},
+        {"name": "Python", "slug": "python", "category": SkillCategory.ENGINEERING},
+        {"name": "React", "slug": "react", "category": SkillCategory.ENGINEERING},
+        {"name": "PostgreSQL", "slug": "postgresql", "category": SkillCategory.DATA},
     ]
 
     skills = {}

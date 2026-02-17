@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime
 
-import pytest
 import strawberry
 
 from app.graphql.types.project import CollaboratorType, ProjectType
@@ -192,6 +191,8 @@ def test_project_type_instantiation():
         github_stars=50,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _collaborators=[],
     )
 
     assert project.id == "01HQZXYZ123456789ABCDEFGH"
@@ -227,6 +228,8 @@ def test_project_type_with_minimal_fields():
         github_stars=None,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _collaborators=[],
     )
 
     assert project.id == "01HQZXYZ123456789ABCDEFGH"
@@ -266,6 +269,9 @@ def test_collaborator_type_instantiation():
         agent_workflow_style=None,
         human_agent_ratio=None,
         created_at=now,
+        _skills=[],
+        _owned_projects=[],
+        _tribes=[],
     )
 
     collaborator = CollaboratorType(
@@ -306,6 +312,9 @@ def test_collaborator_type_with_pending_status():
         agent_workflow_style=None,
         human_agent_ratio=None,
         created_at=now,
+        _skills=[],
+        _owned_projects=[],
+        _tribes=[],
     )
 
     collaborator = CollaboratorType(
@@ -341,6 +350,8 @@ def test_project_type_collaborators_returns_empty_list():
         github_stars=None,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _collaborators=[],
     )
 
     # The collaborators field should return an empty list
@@ -348,8 +359,8 @@ def test_project_type_collaborators_returns_empty_list():
     assert collaborators == []
 
 
-def test_project_type_owner_raises_not_implemented():
-    """Test that owner field raises NotImplementedError (placeholder)."""
+def test_project_type_owner_returns_none_when_not_loaded():
+    """Test that owner field returns None when no owner is loaded."""
     now = datetime.now(UTC)
 
     project = ProjectType(
@@ -366,8 +377,9 @@ def test_project_type_owner_raises_not_implemented():
         github_stars=None,
         created_at=now,
         updated_at=now,
+        _owner=None,
+        _collaborators=[],
     )
 
-    # The owner field should raise NotImplementedError as it's a placeholder
-    with pytest.raises(NotImplementedError, match="Owner loading not yet implemented"):
-        project.owner()
+    # The owner field returns the stored _owner value (None when not loaded)
+    assert project.owner() is None

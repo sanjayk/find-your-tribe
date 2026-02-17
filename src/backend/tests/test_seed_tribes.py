@@ -12,7 +12,6 @@ from app.seed.users import seed_users
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_creates_exactly_3_tribes():
     """Test that seed_tribes creates exactly 3 tribes."""
     from app.db.engine import async_session_factory, engine
@@ -44,7 +43,6 @@ async def test_seed_tribes_creates_exactly_3_tribes():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_correct_names_and_statuses():
     """Test that tribes have correct names and statuses."""
     from app.db.engine import async_session_factory, engine
@@ -84,7 +82,6 @@ async def test_seed_tribes_correct_names_and_statuses():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_correct_missions():
     """Test that tribes have correct missions."""
     from app.db.engine import async_session_factory, engine
@@ -122,7 +119,6 @@ async def test_seed_tribes_correct_missions():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_correct_owners():
     """Test that tribes have correct owners."""
     from app.db.engine import async_session_factory, engine
@@ -161,7 +157,6 @@ async def test_seed_tribes_correct_owners():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_member_relationships():
     """Test that tribes have correct member relationships."""
     from app.db.engine import async_session_factory, engine
@@ -229,7 +224,6 @@ async def test_seed_tribes_member_relationships():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_member_roles_and_status():
     """Test that tribe members have correct roles and ACTIVE status."""
     from app.db.engine import async_session_factory, engine
@@ -286,7 +280,6 @@ async def test_seed_tribes_member_roles_and_status():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_open_roles():
     """Test that tribes have correct open roles."""
     from app.db.engine import async_session_factory, engine
@@ -361,7 +354,6 @@ async def test_seed_tribes_open_roles():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_seed_tribes_returns_lookup_dict():
     """Test that seed_tribes returns a lookup dictionary."""
     from app.db.engine import async_session_factory, engine

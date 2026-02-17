@@ -124,7 +124,6 @@ def test_ulid_default_generates_valid_ulid():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_timestamp_mixin_database_integration():
     """Test that TimestampMixin works correctly with database operations."""
     from app.db.engine import async_session_factory, engine
@@ -172,7 +171,6 @@ async def test_timestamp_mixin_database_integration():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Requires running database")
 async def test_ulid_mixin_database_integration():
     """Test that ULIDMixin works correctly with database operations."""
     from app.db.engine import async_session_factory, engine

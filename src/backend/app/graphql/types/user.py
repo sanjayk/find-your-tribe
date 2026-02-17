@@ -100,4 +100,5 @@ class UserType:
 
 # Import after class definitions to avoid circular import at module level
 from app.graphql.types.project import ProjectType  # noqa: E402
+from app.graphql.types.skill import SkillType  # noqa: E402, F811
 from app.graphql.types.tribe import TribeType  # noqa: E402
