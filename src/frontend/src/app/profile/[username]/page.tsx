@@ -1,30 +1,23 @@
 'use client';
 
-import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
-import Link from 'next/link';
-import { Github, Globe, MapPin, Calendar, Twitter, Linkedin } from 'lucide-react';
 
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
-import type { GetBuilderData, Builder, AvailabilityStatus, ProjectStatus, AgentWorkflowStyle } from '@/lib/graphql/types';
-import { ScoreDisplay } from '@/components/features/score-display';
-import { ProjectCard } from '@/components/features/project-card';
-import { BurnMapDotGrid, generateMockBurnData } from '@/components/features/burn-map';
-
-/* ─── Mock burn patterns per user (until real token data exists) ─── */
-const BURN_PATTERNS: Record<string, 'heavy' | 'moderate' | 'sporadic' | 'new' | 'dormant'> = {
-  mayachen: 'heavy',
-  sarahkim: 'heavy',
-  tomnakamura: 'moderate',
-  priyasharma: 'moderate',
-  marcusjohnson: 'sporadic',
-  elenavolkov: 'sporadic',
-  jamesokafor: 'new',
-  davidmorales: 'new',
-  alexrivera: 'dormant',
-  aishapatel: 'dormant',
-};
+import type {
+  GetBuilderData,
+  Builder,
+  AvailabilityStatus,
+  AgentWorkflowStyle,
+  Project,
+} from '@/lib/graphql/types';
+import { BurnHeatmap, type BurnDay } from '@/components/features/burn-heatmap';
+import { AgentPanel, type AgentTool } from '@/components/features/agent-panel';
+import { ProofCard } from '@/components/features/proof-card';
+import type { BurnReceiptProps } from '@/components/features/burn-receipt';
+import { WitnessCredits, type Witness } from '@/components/features/witness-credits';
+import { ProfileFooter, type TribeItem, type LinkItem, type InfoItem } from '@/components/features/profile-footer';
+import { DomainTags } from '@/components/features/domain-tags';
 
 /* ─── Helpers ─── */
 
@@ -34,36 +27,21 @@ function getInitials(displayName: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-const AVATAR_COLORS = [
-  { bg: 'bg-[#e8ddd3]', text: 'text-[#6b4c3b]' },
-  { bg: 'bg-[#dde0d5]', text: 'text-[#4a5240]' },
-  { bg: 'bg-[#e2d5cd]', text: 'text-[#7a5a4a]' },
-  { bg: 'bg-[#d9d5d0]', text: 'text-[#5c5650]' },
-  { bg: 'bg-[#e0d3d0]', text: 'text-[#7a5555]' },
-  { bg: 'bg-[#dfd8c8]', text: 'text-[#6b5e3e]' },
-];
-
-function getAvatarColor(username: string) {
-  let hash = 0;
-  for (const ch of username) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function mapAvailabilityStatus(status: AvailabilityStatus) {
-  const map: Record<AvailabilityStatus, { label: string; dotColor: string }> = {
-    OPEN_TO_TRIBE: { label: 'Open to tribe', dotColor: 'bg-shipped' },
-    AVAILABLE_FOR_PROJECTS: { label: 'Available for projects', dotColor: 'bg-shipped' },
-    JUST_BROWSING: { label: 'Just browsing', dotColor: 'bg-ink-tertiary' },
+function mapAvailabilityLabel(status: AvailabilityStatus): string {
+  const map: Record<AvailabilityStatus, string> = {
+    OPEN_TO_TRIBE: 'Open to tribe',
+    AVAILABLE_FOR_PROJECTS: 'Available for projects',
+    JUST_BROWSING: 'Just browsing',
   };
   return map[status];
 }
 
-function mapProjectStatus(status: ProjectStatus): 'shipped' | 'in-progress' {
-  return status === 'SHIPPED' ? 'shipped' : 'in-progress';
+function isAvailable(status: AvailabilityStatus): boolean {
+  return status === 'OPEN_TO_TRIBE' || status === 'AVAILABLE_FOR_PROJECTS';
 }
 
 const WORKFLOW_LABELS: Record<AgentWorkflowStyle, string> = {
-  PAIR: 'Pair programming',
+  PAIR: 'Pair builder',
   SWARM: 'Swarm delegation',
   REVIEW: 'AI review',
   AUTONOMOUS: 'Autonomous agents',
@@ -91,137 +69,244 @@ function formatDate(iso: string): string {
   });
 }
 
-const WORKFLOW_DESCRIPTIONS: Record<AgentWorkflowStyle, string> = {
-  PAIR: 'Builds as a pair with AI',
-  SWARM: 'Delegates to AI swarms',
-  REVIEW: 'Uses AI for code review',
-  AUTONOMOUS: 'Runs autonomous AI agents',
-  MINIMAL: 'Minimal AI assistance',
-};
-
-function getWorkflowLabel(style: AgentWorkflowStyle): string {
-  return WORKFLOW_LABELS[style] || style;
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000) return Math.round(n / 1_000) + 'K';
+  return String(n);
 }
 
-/* ─── Burn Stats ─── */
+/* ─── Mock Burn Data (TODO: replace with real GraphQL burn_summary query) ─── */
 
-const BURN_STATS: Record<string, { tokens: string; streak: string; thisWeek: string }> = {
-  heavy: { tokens: '2.4M', streak: '18', thisWeek: '62K' },
-  moderate: { tokens: '1.1M', streak: '12', thisWeek: '18K' },
-  sporadic: { tokens: '480K', streak: '4', thisWeek: '11K' },
-  new: { tokens: '120K', streak: '3', thisWeek: '24K' },
-  dormant: { tokens: '12K', streak: '0', thisWeek: '—' },
+const BURN_PATTERNS: Record<string, 'heavy' | 'moderate' | 'sporadic' | 'new' | 'dormant'> = {
+  mayachen: 'heavy',
+  sarahkim: 'heavy',
+  tomnakamura: 'moderate',
+  priyasharma: 'moderate',
+  marcusjohnson: 'sporadic',
+  elenavolkov: 'sporadic',
+  jamesokafor: 'new',
+  davidmorales: 'new',
+  alexrivera: 'dormant',
+  aishapatel: 'dormant',
 };
 
-function BurnStats({ pattern }: { pattern: string }) {
-  const stats = BURN_STATS[pattern] || BURN_STATS.dormant;
+const PATTERN_CONFIG: Record<string, { weekdayRange: [number, number]; weekendRange: [number, number]; activeProbability: number; spikeWeeks: number[] }> = {
+  heavy: { weekdayRange: [8000, 60000], weekendRange: [2000, 20000], activeProbability: 0.75, spikeWeeks: [8, 20, 35, 48] },
+  moderate: { weekdayRange: [4000, 30000], weekendRange: [1000, 10000], activeProbability: 0.55, spikeWeeks: [15, 30, 45] },
+  sporadic: { weekdayRange: [2000, 15000], weekendRange: [500, 5000], activeProbability: 0.35, spikeWeeks: [12, 38] },
+  new: { weekdayRange: [1000, 12000], weekendRange: [500, 4000], activeProbability: 0.2, spikeWeeks: [48, 50] },
+  dormant: { weekdayRange: [500, 3000], weekendRange: [0, 1000], activeProbability: 0.08, spikeWeeks: [] },
+};
 
-  return (
-    <div className="flex items-center gap-6 flex-wrap">
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-[20px] font-medium text-accent">{stats.tokens}</span>
-        <span className="text-[11px] text-ink-tertiary">burned</span>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-[14px] font-medium text-ink">{stats.streak}</span>
-        <span className="text-[11px] text-ink-tertiary">week streak</span>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-[14px] font-medium text-ink">{stats.thisWeek}</span>
-        <span className="text-[11px] text-ink-tertiary">this week</span>
-      </div>
-    </div>
-  );
+function seededRandom(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
 }
 
-/* ─── Timezone Display ─── */
+function generateMockBurnData(username: string): { dailyActivity: BurnDay[]; weeklyBuckets: number[] } {
+  const pattern = BURN_PATTERNS[username] || 'dormant';
+  const config = PATTERN_CONFIG[pattern];
+  let seed = 0;
+  for (const ch of username) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+  const rand = seededRandom(Math.abs(seed) + 1);
 
-function TimezoneDisplay({ timezone }: { timezone: string }) {
-  try {
-    const viewerTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const now = new Date();
-    const viewerOffset = getTimezoneOffset(now, viewerTz);
-    const builderOffset = getTimezoneOffset(now, timezone);
-    const diffHours = Math.abs(viewerOffset - builderOffset) / 60;
-    const overlapHours = Math.max(0, 9 - diffHours);
-    const overlapText = viewerTz === timezone
-      ? null
-      : overlapHours > 0
-        ? `${Math.round(overlapHours)}hrs overlap`
-        : 'No overlap';
+  const dailyActivity: BurnDay[] = [];
+  const weeklyBuckets: number[] = [];
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(startDate.getDate() - 364);
 
-    return (
-      <div>
-        <span className="flex items-center gap-1.5 text-[13px] text-ink-secondary">
-          <MapPin className="w-4 h-4 text-ink-tertiary" />
-          {timezone.split('/').pop()?.replace(/_/g, ' ')}
-        </span>
-        {overlapText && (
-          <span className="text-[11px] text-ink-tertiary pl-6">{overlapText}</span>
-        )}
-      </div>
-    );
-  } catch {
-    return (
-      <span className="flex items-center gap-1.5 text-[13px] text-ink-secondary">
-        <MapPin className="w-4 h-4 text-ink-tertiary" />
-        {timezone}
-      </span>
-    );
+  for (let w = 0; w < 52; w++) {
+    let weekTotal = 0;
+    const isSpikeWeek = config.spikeWeeks.includes(w);
+    for (let d = 0; d < 7; d++) {
+      const dayIndex = w * 7 + d;
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + dayIndex);
+      const iso = date.toISOString().slice(0, 10);
+      const dayOfWeek = date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      const prob = isSpikeWeek ? Math.min(config.activeProbability * 1.5, 0.95) : config.activeProbability;
+      if (rand() > prob) {
+        dailyActivity.push({ date: iso, tokens: 0 });
+        continue;
+      }
+
+      const [lo, hi] = isWeekend ? config.weekendRange : config.weekdayRange;
+      const multiplier = isSpikeWeek ? 1.8 : 1;
+      const tokens = Math.round((lo + rand() * (hi - lo)) * multiplier);
+      dailyActivity.push({ date: iso, tokens });
+      weekTotal += tokens;
+    }
+    weeklyBuckets.push(weekTotal);
   }
+
+  return { dailyActivity, weeklyBuckets };
 }
 
-function getTimezoneOffset(date: Date, tz: string): number {
-  const str = date.toLocaleString('en-US', { timeZone: tz });
-  const localDate = new Date(str);
-  return (localDate.getTime() - date.getTime()) / 60000;
+/* ─── Domain Tags (derived from skills categories) ─── */
+
+const CATEGORY_DOMAINS: Record<string, string> = {
+  ENGINEERING: 'Engineering',
+  DESIGN: 'Design',
+  PRODUCT: 'Product',
+  MARKETING: 'Marketing',
+  GROWTH: 'Growth',
+  DATA: 'Data & ML',
+  OPERATIONS: 'Infrastructure',
+};
+
+function deriveDomains(builder: Builder): string[] {
+  const categories = new Set(builder.skills.map((s) => s.category));
+  return Array.from(categories)
+    .map((c) => CATEGORY_DOMAINS[c])
+    .filter(Boolean)
+    .slice(0, 4);
 }
 
-/* ─── Bio with expand/collapse ─── */
+/* ─── Agent tools mapping ─── */
 
-function ExpandableBio({ bio }: { bio: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const isLong = bio.length > 200;
+const AGENT_TOOL_CAPABILITIES: Record<string, string> = {
+  'Claude Code': 'backend, testing',
+  'Claude': 'backend, testing',
+  'Cursor': 'frontend, full-stack',
+  'v0': 'UI prototyping',
+  'GitHub Copilot': 'autocomplete',
+  'Windsurf': 'full-stack',
+  'Devin': 'autonomous tasks',
+};
 
-  return (
-    <div>
-      <p className={`text-[15px] leading-relaxed text-ink ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
-        {bio}
-      </p>
-      {isLong && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="text-[13px] text-accent hover:text-accent-hover transition-colors mt-1"
-        >
-          {expanded ? 'Show less' : 'Read more'}
-        </button>
-      )}
-    </div>
-  );
+function mapAgentTools(tools: string[]): AgentTool[] {
+  return tools.map((name) => ({
+    name,
+    capabilities: AGENT_TOOL_CAPABILITIES[name] || '',
+  }));
+}
+
+/* ─── Witness extraction ─── */
+
+function extractWitnesses(builder: Builder): Witness[] {
+  const witnessMap = new Map<string, Witness>();
+
+  for (const project of builder.projects) {
+    for (const collab of project.collaborators || []) {
+      if (collab.user.username === builder.username) continue;
+
+      const existing = witnessMap.get(collab.user.username);
+      if (existing) {
+        existing.projects.push({
+          name: project.title,
+          role: collab.role || 'contributor',
+        });
+      } else {
+        witnessMap.set(collab.user.username, {
+          initials: getInitials(collab.user.displayName),
+          name: collab.user.displayName,
+          role: collab.role || 'Collaborator',
+          projects: [{ name: project.title, role: collab.role || 'contributor' }],
+        });
+      }
+    }
+  }
+
+  return Array.from(witnessMap.values());
+}
+
+/* ─── Footer data extraction ─── */
+
+function extractFooterData(builder: Builder): {
+  tribes: TribeItem[];
+  links: LinkItem[];
+  info: InfoItem[];
+} {
+  const tribes: TribeItem[] = (builder.tribes || []).map((t) => ({
+    name: t.name,
+    memberCount: t.members.length,
+  }));
+
+  const links: LinkItem[] = [];
+  if (builder.githubUsername) {
+    links.push({
+      label: 'GitHub',
+      value: `@${builder.githubUsername}`,
+      href: `https://github.com/${builder.githubUsername}`,
+    });
+  }
+  const contactLinks = builder.contactLinks || {};
+  if (contactLinks.twitter) {
+    const handle = contactLinks.twitter.replace(/^https?:\/\/(www\.)?twitter\.com\//, '').replace(/^@/, '');
+    links.push({
+      label: 'Twitter',
+      value: `@${handle}`,
+      href: contactLinks.twitter.startsWith('http') ? contactLinks.twitter : `https://twitter.com/${handle}`,
+    });
+  }
+  if (contactLinks.website) {
+    links.push({
+      label: 'Website',
+      value: contactLinks.website.replace(/^https?:\/\//, ''),
+      href: contactLinks.website.startsWith('http') ? contactLinks.website : `https://${contactLinks.website}`,
+    });
+  }
+
+  const info: InfoItem[] = [];
+  if (builder.timezone) {
+    const city = builder.timezone.split('/').pop()?.replace(/_/g, ' ') || builder.timezone;
+    info.push({ label: 'Timezone', value: city });
+  }
+  if (builder.primaryRole) {
+    info.push({ label: 'Primary role', value: formatRole(builder.primaryRole) });
+  }
+  info.push({ label: 'Joined', value: formatDate(builder.createdAt) });
+
+  return { tribes, links, info };
+}
+
+/* ─── Proof card data ─── */
+
+function makeReceiptProps(weeklyBuckets: number[], project: Project): BurnReceiptProps {
+  // Slice the weekly data to approximate project duration
+  const totalTokens = weeklyBuckets.reduce((a, b) => a + b, 0);
+  const activeWeeks = weeklyBuckets.filter((w) => w > 0).length;
+  const peakWeek = Math.max(...weeklyBuckets, 0);
+
+  return {
+    weeklyData: weeklyBuckets.slice(-Math.min(activeWeeks, 20)),
+    duration: `${activeWeeks} weeks`,
+    tokens: formatTokens(Math.round(totalTokens * 0.4)), // rough per-project share
+    peakWeek: formatTokens(peakWeek),
+  };
+}
+
+function makeBurnStat(weeklyBuckets: number[]): string {
+  const total = weeklyBuckets.reduce((a, b) => a + b, 0);
+  const activeWeeks = weeklyBuckets.filter((w) => w > 0).length;
+  return `${formatTokens(Math.round(total * 0.25))} \u00b7 ${activeWeeks} wks`;
+}
+
+function makeSparklineData(weeklyBuckets: number[]): number[] {
+  return weeklyBuckets.slice(-12);
 }
 
 /* ─── Loading Skeleton ─── */
 
 function ProfileSkeleton() {
   return (
-    <div className="mx-auto max-w-[1120px] px-6 py-16 animate-pulse">
-      <div className="flex gap-12">
-        <div className="w-[320px] shrink-0 space-y-5">
+    <div className="mx-auto max-w-[1080px] px-6 py-16 animate-pulse" data-testid="profile-skeleton">
+      <div className="grid gap-12" style={{ gridTemplateColumns: '280px 1fr' }}>
+        <div className="space-y-4">
           <div className="w-[88px] h-[88px] rounded-full bg-surface-secondary" />
           <div className="h-10 w-48 bg-surface-secondary rounded" />
           <div className="h-5 w-32 bg-surface-secondary rounded" />
-          <div className="h-16 w-16 rounded-full bg-surface-secondary" />
           <div className="h-20 w-full bg-surface-secondary rounded" />
-          <div className="h-12 w-full bg-surface-secondary rounded" />
         </div>
-        <div className="flex-1 space-y-6">
-          <div className="h-48 w-full bg-surface-secondary rounded-xl" />
-          <div className="h-12 w-64 bg-surface-secondary rounded" />
-          <div className="grid grid-cols-2 gap-5">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-56 bg-surface-secondary rounded-xl" />
-            ))}
-          </div>
+        <div className="space-y-4">
+          <div className="h-48 w-full bg-surface-elevated rounded-2xl" />
+          <div className="h-16 w-full bg-accent-subtle rounded-xl" />
         </div>
       </div>
     </div>
@@ -232,7 +317,7 @@ function ProfileSkeleton() {
 
 function ProfileNotFound({ username }: { username: string }) {
   return (
-    <div className="mx-auto max-w-[1120px] px-6 py-24 text-center">
+    <div className="mx-auto max-w-[1080px] px-6 py-24 text-center">
       <h1 className="font-serif text-4xl text-ink mb-3">Builder not found</h1>
       <p className="text-ink-secondary">
         No builder with username <span className="font-mono text-ink">@{username}</span> exists.
@@ -244,433 +329,185 @@ function ProfileNotFound({ username }: { username: string }) {
 /* ─── Profile Content ─── */
 
 function ProfileContent({ builder }: { builder: Builder }) {
-  const avatar = getAvatarColor(builder.username);
-  const availability = mapAvailabilityStatus(builder.availabilityStatus);
-  const contactLinks = builder.contactLinks as Record<string, string>;
+  const availability = mapAvailabilityLabel(builder.availabilityStatus);
+  const available = isAvailable(builder.availabilityStatus);
 
+  // Burn data (mock until real query available)
+  const { dailyActivity, weeklyBuckets } = generateMockBurnData(builder.username);
+  const totalTokens = dailyActivity.reduce((sum, d) => sum + d.tokens, 0);
+  const daysActive = dailyActivity.filter((d) => d.tokens > 0).length;
+  const activeWeeks = weeklyBuckets.filter((w) => w > 0).length;
+  const shippedCount = builder.projects.filter((p) => p.status === 'SHIPPED').length;
+  const totalProjects = builder.projects.length;
+
+  // Split projects
   const inProgress = builder.projects.filter((p) => p.status === 'IN_PROGRESS');
   const shipped = builder.projects.filter((p) => p.status === 'SHIPPED');
+  const heroProject = inProgress[0] || shipped[0];
+  const compactProjects = heroProject
+    ? builder.projects.filter((p) => p.id !== heroProject.id).slice(0, 6)
+    : [];
 
-  const burnPattern = BURN_PATTERNS[builder.username] || 'dormant';
+  // Agent panel data
+  const agentTools = mapAgentTools(builder.agentTools || []);
+  const workflowStyle = builder.agentWorkflowStyle
+    ? WORKFLOW_LABELS[builder.agentWorkflowStyle]
+    : 'Pair builder';
+  const humanRatio = builder.humanAgentRatio !== null && builder.humanAgentRatio !== undefined
+    ? Math.round(builder.humanAgentRatio * 100)
+    : 50;
 
-  // Aggregate impact
-  const totalStars = builder.projects.reduce((sum, p) => sum + (p.githubStars || 0), 0);
-  const shippedCount = shipped.length;
-  const totalUsers = builder.projects.reduce((sum, p) => {
-    const users = p.impactMetrics?.users;
-    return sum + (typeof users === 'number' ? users : 0);
-  }, 0);
+  // Domain tags
+  const domains = deriveDomains(builder);
 
-  // Built With — deduplicate collaborators and count shared projects
-  const collabMap = new Map<string, {
-    username: string;
-    displayName: string;
-    avatarUrl: string | null;
-    projectCount: number;
-  }>();
-  for (const project of builder.projects) {
-    for (const c of project.collaborators || []) {
-      if (c.user.username === builder.username) continue;
-      const existing = collabMap.get(c.user.username);
-      if (existing) {
-        existing.projectCount++;
-      } else {
-        collabMap.set(c.user.username, {
-          username: c.user.username,
-          displayName: c.user.displayName,
-          avatarUrl: c.user.avatarUrl,
-          projectCount: 1,
-        });
-      }
-    }
-  }
-  const builtWithList = Array.from(collabMap.values()).sort(
-    (a, b) => b.projectCount - a.projectCount,
-  );
+  // Witnesses
+  const witnesses = extractWitnesses(builder);
 
-  // Agent workflow data
-  const agentTools = builder.agentTools || [];
-  const hasAgentData = agentTools.length > 0 || builder.agentWorkflowStyle || builder.humanAgentRatio !== null;
+  // Footer
+  const footerData = extractFooterData(builder);
 
   return (
-    <div className="mx-auto max-w-[1120px] px-6 py-16">
-      <div className="flex gap-12">
-        {/* ─── SIDEBAR (320px, sticky) ─── */}
-        <aside className="w-[320px] shrink-0">
-          <div className="sticky top-20 space-y-5">
-            {/* Avatar */}
-            {builder.avatarUrl ? (
-              <img
-                src={builder.avatarUrl}
-                alt={builder.displayName}
-                className={`w-[88px] h-[88px] rounded-full object-cover ${avatar.bg}`}
-              />
-            ) : (
-              <div
-                className={`w-[88px] h-[88px] rounded-full flex items-center justify-center ${avatar.bg} ${avatar.text}`}
-              >
-                <span className="text-2xl font-medium">
-                  {getInitials(builder.displayName)}
-                </span>
-              </div>
-            )}
-
-            {/* Name */}
-            <h1 className="font-serif text-[40px] leading-tight text-ink">
-              {builder.displayName}
-            </h1>
-
-            {/* Handle */}
-            <p className="text-[13px] text-ink-tertiary">@{builder.username}</p>
-
-            {/* Role + availability */}
-            <div>
-              {builder.primaryRole && (
-                <p className="text-[16px] font-semibold text-ink-secondary">
-                  {formatRole(builder.primaryRole)}
-                </p>
-              )}
-              <span className="flex items-center gap-1.5 mt-1">
-                <span className={`w-2 h-2 rounded-full ${availability.dotColor}`} />
-                <span className="text-[13px] text-ink-secondary">{availability.label}</span>
-              </span>
-            </div>
-
-            {/* Builder Score */}
-            <ScoreDisplay score={builder.builderScore} variant="profile" />
-
-            <div className="h-px bg-surface-secondary" />
-
-            {/* Bio */}
-            {builder.bio && <ExpandableBio bio={builder.bio} />}
-
-            <div className="h-px bg-surface-secondary" />
-
-            {/* How They Build — AI Workflow */}
-            {hasAgentData && (
-              <div className="space-y-3">
-                <p className="text-[11px] font-mono font-medium tracking-[0.08em] text-ink-tertiary uppercase">
-                  How They Build
-                </p>
-
-                {/* Workflow description */}
-                {builder.agentWorkflowStyle && (
-                  <p className="text-[14px] text-ink-secondary">
-                    {WORKFLOW_DESCRIPTIONS[builder.agentWorkflowStyle]}
-                  </p>
-                )}
-
-                {/* AI tools */}
-                {agentTools.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {agentTools.map((tool) => (
-                      <span
-                        key={tool}
-                        className="font-mono text-[11px] bg-accent-subtle text-accent px-2.5 py-1 rounded-md"
-                      >
-                        {tool}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Human / AI ratio */}
-                {builder.humanAgentRatio !== null && builder.humanAgentRatio !== undefined && (
-                  <div className="space-y-1">
-                    <div className="flex h-2 rounded-full overflow-hidden bg-surface-secondary">
-                      <div
-                        className="h-full bg-[#a08870] rounded-l-full"
-                        style={{ width: `${builder.humanAgentRatio * 100}%` }}
-                      />
-                      <div
-                        className="h-full bg-accent-muted rounded-r-full flex-1"
-                      />
-                    </div>
-                    <div className="flex justify-between text-[10px] text-ink-tertiary font-mono">
-                      <span>{Math.round(builder.humanAgentRatio * 100)}% human</span>
-                      <span>{Math.round((1 - builder.humanAgentRatio) * 100)}% AI</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Skills — demoted, compact */}
-            {builder.skills.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {builder.skills.slice(0, 8).map((s) => (
-                  <span
-                    key={s.id}
-                    className="font-mono text-[10px] bg-surface-secondary text-ink-tertiary px-2 py-0.5 rounded"
-                  >
-                    {s.name}
-                  </span>
-                ))}
-                {builder.skills.length > 8 && (
-                  <span className="text-[10px] text-ink-tertiary">
-                    +{builder.skills.length - 8}
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div className="h-px bg-surface-secondary" />
-
-            {/* Timezone */}
-            {builder.timezone && <TimezoneDisplay timezone={builder.timezone} />}
-
-            {/* Links */}
-            <div className="space-y-1.5">
-              {builder.githubUsername && (
-                <a href={`https://github.com/${builder.githubUsername}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[13px] text-accent hover:text-accent-hover transition-colors">
-                  <Github className="w-4 h-4 text-ink-tertiary" />
-                  GitHub
-                </a>
-              )}
-              {contactLinks.twitter && (
-                <a href={contactLinks.twitter.startsWith('http') ? contactLinks.twitter : `https://twitter.com/${contactLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[13px] text-accent hover:text-accent-hover transition-colors">
-                  <Twitter className="w-4 h-4 text-ink-tertiary" />
-                  Twitter
-                </a>
-              )}
-              {contactLinks.linkedin && (
-                <a href={contactLinks.linkedin.startsWith('http') ? contactLinks.linkedin : `https://linkedin.com/in/${contactLinks.linkedin}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[13px] text-accent hover:text-accent-hover transition-colors">
-                  <Linkedin className="w-4 h-4 text-ink-tertiary" />
-                  LinkedIn
-                </a>
-              )}
-              {contactLinks.website && (
-                <a href={contactLinks.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[13px] text-accent hover:text-accent-hover transition-colors">
-                  <Globe className="w-4 h-4 text-ink-tertiary" />
-                  Website
-                </a>
-              )}
-            </div>
-
-            {/* Joined */}
-            <div className="flex items-center gap-2 text-[13px] text-ink-tertiary">
-              <Calendar className="w-4 h-4" />
-              <span>Joined {formatDate(builder.createdAt)}</span>
-            </div>
+    <div className="mx-auto max-w-[1080px] px-6 py-16">
+      {/* ─── HERO SECTION ─── */}
+      <section className="grid gap-12 mb-16" style={{ gridTemplateColumns: '280px 1fr' }}>
+        {/* Left: Identity */}
+        <div>
+          {/* Avatar */}
+          <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center bg-gradient-to-br from-accent-subtle to-accent-muted mb-5">
+            <span className="font-serif text-2xl text-accent">
+              {getInitials(builder.displayName)}
+            </span>
           </div>
-        </aside>
 
-        {/* ─── MAIN CONTENT (fluid) ─── */}
-        <main className="flex-1 min-w-0 space-y-12">
-          {/* ─── Token Burn (top of right column) ─── */}
-          <section>
-            <p className="text-[11px] font-mono font-medium tracking-[0.08em] text-ink-tertiary uppercase mb-6">
-              Token Burn
+          {/* Name */}
+          <h1
+            className="font-serif text-ink leading-tight mb-1"
+            style={{ fontSize: '40px', letterSpacing: '-0.01em' }}
+          >
+            {builder.displayName}
+          </h1>
+
+          {/* Handle */}
+          <p className="text-[14px] text-ink-tertiary mb-4">
+            @{builder.username}
+          </p>
+
+          {/* Headline */}
+          {builder.headline && (
+            <p className="text-[15px] text-ink-secondary leading-relaxed mb-4">
+              {builder.headline}
             </p>
-            <div className="bg-surface-elevated rounded-xl p-6 shadow-sm space-y-5">
-              <BurnMapDotGrid data={generateMockBurnData(burnPattern)} />
-              <BurnStats pattern={burnPattern} />
-            </div>
-          </section>
-
-          {/* ─── Aggregate Impact ─── */}
-          {(totalStars > 0 || shippedCount > 0 || totalUsers > 0) && (
-            <div className="flex items-baseline gap-3 flex-wrap">
-              {totalStars > 0 && (
-                <span className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[24px] font-medium text-ink">{totalStars.toLocaleString()}</span>
-                  <span className="text-[13px] text-ink-tertiary">stars</span>
-                </span>
-              )}
-              {totalStars > 0 && shippedCount > 0 && <span className="text-ink-tertiary">&middot;</span>}
-              {shippedCount > 0 && (
-                <span className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[24px] font-medium text-ink">{shippedCount}</span>
-                  <span className="text-[13px] text-ink-tertiary">shipped</span>
-                </span>
-              )}
-              {(totalStars > 0 || shippedCount > 0) && totalUsers > 0 && <span className="text-ink-tertiary">&middot;</span>}
-              {totalUsers > 0 && (
-                <span className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[24px] font-medium text-ink">{totalUsers.toLocaleString()}</span>
-                  <span className="text-[13px] text-ink-tertiary">users</span>
-                </span>
-              )}
-            </div>
           )}
 
-          {/* ─── Currently Building ─── */}
-          {inProgress.length > 0 && (
-            <section>
-              <p className="text-[11px] font-mono font-medium tracking-[0.08em] text-ink-tertiary uppercase mb-6">
-                Currently Building
-              </p>
-              <div className="space-y-5">
-                {inProgress.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    title={project.title}
-                    description={project.description || ''}
-                    status={mapProjectStatus(project.status)}
-                    role={project.role || undefined}
-                    agentTools={builder.agentTools}
-                    workflowStyle={builder.agentWorkflowStyle ? getWorkflowLabel(builder.agentWorkflowStyle) : undefined}
-                    techStack={Array.isArray(project.techStack) ? project.techStack : []}
-                  />
-                ))}
-              </div>
-            </section>
+          {/* Availability badge */}
+          <span
+            className={`inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 ${
+              available
+                ? 'bg-shipped-subtle text-shipped'
+                : 'bg-surface-secondary text-ink-tertiary'
+            }`}
+            style={{ borderRadius: '999px' }}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${available ? 'bg-shipped' : 'bg-ink-tertiary'}`} />
+            {availability}
+          </span>
+
+          {/* Domain tags */}
+          {domains.length > 0 && <DomainTags domains={domains} />}
+        </div>
+
+        {/* Right: Burn + Agent Panel */}
+        <div className="flex flex-col gap-3">
+          <BurnHeatmap
+            dailyActivity={dailyActivity}
+            stats={{
+              daysActive,
+              totalTokens: formatTokens(totalTokens),
+              activeWeeks: `${activeWeeks} / 52`,
+              shipped: `${shippedCount} / ${totalProjects}`,
+            }}
+          />
+          {agentTools.length > 0 && (
+            <AgentPanel
+              tools={agentTools}
+              workflowStyle={workflowStyle}
+              humanRatio={humanRatio}
+            />
           )}
+        </div>
+      </section>
 
-          {/* ─── Built With (social graph) ─── */}
-          {builtWithList.length > 0 && (
-            <section>
-              <p className="text-[11px] font-mono font-medium tracking-[0.08em] text-ink-tertiary uppercase mb-6">
-                Built With
-              </p>
-              <div className="space-y-3">
-                {builtWithList.map((collab) => {
-                  const collabAvatar = getAvatarColor(collab.username);
-                  return (
-                    <Link
-                      key={collab.username}
-                      href={`/profile/${collab.username}`}
-                      className="flex items-center gap-3 group"
-                    >
-                      {collab.avatarUrl ? (
-                        <img
-                          src={collab.avatarUrl}
-                          alt={collab.displayName}
-                          className={`w-9 h-9 rounded-full object-cover ${collabAvatar.bg}`}
-                        />
-                      ) : (
-                        <div
-                          className={`w-9 h-9 rounded-full flex items-center justify-center ${collabAvatar.bg} ${collabAvatar.text}`}
-                        >
-                          <span className="text-[11px] font-medium">
-                            {getInitials(collab.displayName)}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-medium text-ink group-hover:text-accent transition-colors">
-                          {collab.displayName}
-                        </p>
-                        <p className="text-[11px] text-ink-tertiary">
-                          {collab.projectCount} {collab.projectCount === 1 ? 'project' : 'projects'} together
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+      {/* ─── PROOF OF WORK ─── */}
+      {builder.projects.length > 0 && (
+        <section className="mb-16">
+          <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
+            Proof of Work
+          </div>
 
-          {/* ─── Tribes ─── */}
-          {builder.tribes && builder.tribes.length > 0 && (
-            <section>
-              <p className="text-[11px] font-mono font-medium tracking-[0.08em] text-ink-tertiary uppercase mb-6">
-                Tribes
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {builder.tribes.map((tribe) => {
-                  const unfilledRoles = tribe.openRoles.filter((r) => !r.filled);
-                  const isOpen = tribe.status === 'OPEN' || unfilledRoles.length > 0;
-
-                  return (
-                    <Link
-                      key={tribe.id}
-                      href={`/tribe/${tribe.name.toLowerCase().replace(/\s+/g, '-')}`}
-                      className="bg-surface-elevated rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow group"
-                    >
-                      {/* Status overline */}
-                      <p className={`text-[10px] font-mono font-medium tracking-[0.08em] uppercase mb-2 ${isOpen ? 'text-accent' : 'text-ink-tertiary'}`}>
-                        {isOpen ? 'Open Tribe' : 'Active Tribe'}
-                      </p>
-
-                      {/* Name */}
-                      <h4 className="font-serif text-lg text-ink group-hover:text-accent transition-colors mb-1">
-                        {tribe.name}
-                      </h4>
-
-                      {/* Mission */}
-                      {tribe.mission && (
-                        <p className="text-[13px] text-ink-secondary line-clamp-2 mb-3">
-                          {tribe.mission}
-                        </p>
-                      )}
-
-                      {/* Looking for roles */}
-                      {unfilledRoles.length > 0 && (
-                        <div className="bg-surface-secondary rounded-md px-3 py-2 mb-3">
-                          <p className="text-[10px] text-ink-tertiary mb-1">Looking for:</p>
-                          <p className="text-[12px] text-ink-secondary">
-                            {unfilledRoles.map((r) => r.title).join(' · ')}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Members */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex -space-x-1.5">
-                          {tribe.members.slice(0, 5).map((member) => {
-                            const memberAvatar = getAvatarColor(member.user.username);
-                            return member.user.avatarUrl ? (
-                              <img
-                                key={member.user.id}
-                                src={member.user.avatarUrl}
-                                alt={member.user.displayName}
-                                className={`w-7 h-7 rounded-full object-cover ring-2 ring-surface-elevated ${memberAvatar.bg}`}
-                              />
-                            ) : (
-                              <div
-                                key={member.user.id}
-                                className={`w-7 h-7 rounded-full flex items-center justify-center ring-2 ring-surface-elevated ${memberAvatar.bg} ${memberAvatar.text}`}
-                              >
-                                <span className="text-[9px] font-medium">
-                                  {getInitials(member.user.displayName)}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <span className="text-[11px] text-ink-tertiary">
-                          {tribe.members.length}/{tribe.maxMembers} members
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* ─── Shipped Projects (end of right column) ─── */}
-          {shipped.length > 0 && (
-            <section>
-              <p className="text-[11px] font-mono font-medium tracking-[0.08em] text-ink-tertiary uppercase mb-6">
-                Shipped Projects
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {shipped.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    title={project.title}
-                    description={project.description || ''}
-                    status={mapProjectStatus(project.status)}
-                    role={project.role || undefined}
-                    agentTools={builder.agentTools}
-                    workflowStyle={builder.agentWorkflowStyle ? getWorkflowLabel(builder.agentWorkflowStyle) : undefined}
-                    techStack={Array.isArray(project.techStack) ? project.techStack : []}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {builder.projects.length === 0 && (
-            <div className="rounded-xl bg-surface-secondary p-12 text-center">
-              <p className="text-[15px] text-ink-tertiary">No projects yet.</p>
+          {/* Hero card */}
+          {heroProject && (
+            <div className="mb-4">
+              <ProofCard
+                variant="hero"
+                title={heroProject.title}
+                description={heroProject.description || ''}
+                status={heroProject.status === 'SHIPPED' ? 'shipped' : 'in_progress'}
+                agentTools={builder.agentTools}
+                builders={(heroProject.collaborators || [])
+                  .filter((c) => c.user.username !== builder.username)
+                  .slice(0, 5)
+                  .map((c) => ({
+                    initials: getInitials(c.user.displayName),
+                    name: c.user.displayName,
+                  }))}
+                receipt={makeReceiptProps(weeklyBuckets, heroProject)}
+              />
             </div>
           )}
-        </main>
-      </div>
+
+          {/* Compact grid */}
+          {compactProjects.length > 0 && (
+            <div className="grid grid-cols-3 gap-4">
+              {compactProjects.map((project) => (
+                <ProofCard
+                  key={project.id}
+                  variant="compact"
+                  title={project.title}
+                  description={project.description || ''}
+                  status={project.status === 'SHIPPED' ? 'shipped' : 'in_progress'}
+                  sparklineData={makeSparklineData(weeklyBuckets)}
+                  burnStat={makeBurnStat(weeklyBuckets)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {builder.projects.length === 0 && (
+        <section className="mb-16">
+          <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
+            Proof of Work
+          </div>
+          <div className="rounded-xl bg-surface-secondary p-12 text-center">
+            <p className="text-[15px] text-ink-tertiary">No projects yet.</p>
+          </div>
+        </section>
+      )}
+
+      {/* ─── WITNESSED BY ─── */}
+      {witnesses.length > 0 && (
+        <section className="mb-16">
+          <WitnessCredits witnesses={witnesses} />
+        </section>
+      )}
+
+      {/* ─── FOOTER ─── */}
+      <ProfileFooter
+        tribes={footerData.tribes}
+        links={footerData.links}
+        info={footerData.info}
+      />
     </div>
   );
 }
