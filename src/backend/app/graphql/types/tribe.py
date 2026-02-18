@@ -43,55 +43,11 @@ class TribeType:
     def from_model(cls, tribe: "TribeModel") -> "TribeType":
         owner_type = None
         if tribe.owner is not None:
-            owner_type = UserType(
-                id=tribe.owner.id,
-                email=tribe.owner.email,
-                username=tribe.owner.username,
-                display_name=tribe.owner.display_name,
-                avatar_url=tribe.owner.avatar_url,
-                headline=tribe.owner.headline,
-                primary_role=tribe.owner.primary_role,
-                timezone=tribe.owner.timezone,
-                availability_status=tribe.owner.availability_status,
-                builder_score=tribe.owner.builder_score,
-                bio=tribe.owner.bio,
-                contact_links=tribe.owner.contact_links,
-                github_username=tribe.owner.github_username,
-                onboarding_completed=tribe.owner.onboarding_completed,
-                agent_tools=[],
-                agent_workflow_style=None,
-                human_agent_ratio=None,
-                created_at=tribe.owner.created_at,
-                _skills=[],
-                _owned_projects=[],
-                _tribes=[],
-            )
+            owner_type = UserType.from_model(tribe.owner)
 
         member_types = []
         for member in (tribe.members or []):
-            member_user = UserType(
-                id=member.id,
-                email=member.email,
-                username=member.username,
-                display_name=member.display_name,
-                avatar_url=member.avatar_url,
-                headline=member.headline,
-                primary_role=member.primary_role,
-                timezone=member.timezone,
-                availability_status=member.availability_status,
-                builder_score=member.builder_score,
-                bio=member.bio,
-                contact_links=member.contact_links,
-                github_username=member.github_username,
-                onboarding_completed=member.onboarding_completed,
-                agent_tools=[],
-                agent_workflow_style=None,
-                human_agent_ratio=None,
-                created_at=member.created_at,
-                _skills=[],
-                _owned_projects=[],
-                _tribes=[],
-            )
+            member_user = UserType.from_model(member)
             member_types.append(
                 TribeMemberType(
                     user=member_user,

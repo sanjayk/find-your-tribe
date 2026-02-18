@@ -51,57 +51,13 @@ class ProjectType:
     ) -> "ProjectType":
         owner_type = None
         if owner is not None:
-            owner_type = UserType(
-                id=owner.id,
-                email=owner.email,
-                username=owner.username,
-                display_name=owner.display_name,
-                avatar_url=owner.avatar_url,
-                headline=owner.headline,
-                primary_role=owner.primary_role,
-                timezone=owner.timezone,
-                availability_status=owner.availability_status,
-                builder_score=owner.builder_score,
-                bio=owner.bio,
-                contact_links=owner.contact_links,
-                github_username=owner.github_username,
-                onboarding_completed=owner.onboarding_completed,
-                agent_tools=[],
-                agent_workflow_style=None,
-                human_agent_ratio=None,
-                created_at=owner.created_at,
-                _skills=[],
-                _owned_projects=[],
-                _tribes=[],
-            )
+            owner_type = UserType.from_model(owner)
 
         _details = collab_details or {}
         collaborator_types = []
         for collab in (collaborators or []):
             info = _details.get(collab.id, {})
-            collab_user = UserType(
-                id=collab.id,
-                email=collab.email,
-                username=collab.username,
-                display_name=collab.display_name,
-                avatar_url=collab.avatar_url,
-                headline=collab.headline,
-                primary_role=collab.primary_role,
-                timezone=collab.timezone,
-                availability_status=collab.availability_status,
-                builder_score=collab.builder_score,
-                bio=collab.bio,
-                contact_links=collab.contact_links,
-                github_username=collab.github_username,
-                onboarding_completed=collab.onboarding_completed,
-                agent_tools=[],
-                agent_workflow_style=None,
-                human_agent_ratio=None,
-                created_at=collab.created_at,
-                _skills=[],
-                _owned_projects=[],
-                _tribes=[],
-            )
+            collab_user = UserType.from_model(collab)
             collaborator_types.append(
                 CollaboratorType(
                     user=collab_user,
