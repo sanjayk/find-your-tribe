@@ -4,6 +4,7 @@ import "./globals.css";
 import Nav from "@/components/layout/nav";
 import Footer from "@/components/layout/footer";
 import { GraphQLProvider } from "@/lib/graphql/provider";
+import { AuthGuard } from "@/components/layout/auth-guard";
 
 const dmSerifDisplay = DM_Serif_Display({
   weight: ["400"],
@@ -46,7 +47,7 @@ export default function RootLayout({
       <body>
         <GraphQLProvider>
           <Nav />
-          {children}
+          <AuthGuard>{children}</AuthGuard>
           <Footer />
         </GraphQLProvider>
       </body>

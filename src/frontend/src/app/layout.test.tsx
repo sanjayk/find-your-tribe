@@ -34,6 +34,11 @@ vi.mock('@/lib/graphql/provider', () => ({
   ),
 }));
 
+// Mock AuthGuard to pass through children
+vi.mock('@/components/layout/auth-guard', () => ({
+  AuthGuard: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 // Import after mocks so mocked dependencies are used
 import RootLayout, { metadata } from './layout';
 

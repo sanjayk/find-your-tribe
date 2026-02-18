@@ -3,13 +3,17 @@
 import { useParams } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 
+import { useAuth } from '@/hooks/use-auth';
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
+import { GET_BURN_SUMMARY } from '@/lib/graphql/queries/burn';
 import type {
   GetBuilderData,
+  GetBurnSummaryData,
   Builder,
   AvailabilityStatus,
   AgentWorkflowStyle,
   Project,
+  BurnDay as BurnDayType,
 } from '@/lib/graphql/types';
 import { BurnHeatmap, type BurnDay } from '@/components/features/burn-heatmap';
 import { AgentPanel, type AgentTool } from '@/components/features/agent-panel';
@@ -18,6 +22,7 @@ import type { BurnReceiptProps } from '@/components/features/burn-receipt';
 import { WitnessCredits, type Witness } from '@/components/features/witness-credits';
 import { ProfileFooter, type TribeItem, type LinkItem, type InfoItem } from '@/components/features/profile-footer';
 import { DomainTags } from '@/components/features/domain-tags';
+import { Package } from 'lucide-react';
 
 /* ─── Helpers ─── */
 
@@ -99,79 +104,6 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1_000) return Math.round(n / 1_000) + 'K';
   return String(n);
-}
-
-/* ─── Mock Burn Data (TODO: replace with real GraphQL burn_summary query) ─── */
-
-const BURN_PATTERNS: Record<string, 'heavy' | 'moderate' | 'sporadic' | 'new' | 'dormant'> = {
-  mayachen: 'heavy',
-  sarahkim: 'heavy',
-  tomnakamura: 'moderate',
-  priyasharma: 'moderate',
-  marcusjohnson: 'sporadic',
-  elenavolkov: 'sporadic',
-  jamesokafor: 'new',
-  davidmorales: 'new',
-  alexrivera: 'dormant',
-  aishapatel: 'dormant',
-};
-
-const PATTERN_CONFIG: Record<string, { weekdayRange: [number, number]; weekendRange: [number, number]; activeProbability: number; spikeWeeks: number[] }> = {
-  heavy: { weekdayRange: [8000, 60000], weekendRange: [2000, 20000], activeProbability: 0.75, spikeWeeks: [8, 20, 35, 48] },
-  moderate: { weekdayRange: [4000, 30000], weekendRange: [1000, 10000], activeProbability: 0.55, spikeWeeks: [15, 30, 45] },
-  sporadic: { weekdayRange: [2000, 15000], weekendRange: [500, 5000], activeProbability: 0.35, spikeWeeks: [12, 38] },
-  new: { weekdayRange: [1000, 12000], weekendRange: [500, 4000], activeProbability: 0.2, spikeWeeks: [48, 50] },
-  dormant: { weekdayRange: [500, 3000], weekendRange: [0, 1000], activeProbability: 0.08, spikeWeeks: [] },
-};
-
-function seededRandom(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
-
-function generateMockBurnData(username: string): { dailyActivity: BurnDay[]; weeklyBuckets: number[] } {
-  const pattern = BURN_PATTERNS[username] || 'dormant';
-  const config = PATTERN_CONFIG[pattern];
-  let seed = 0;
-  for (const ch of username) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
-  const rand = seededRandom(Math.abs(seed) + 1);
-
-  const dailyActivity: BurnDay[] = [];
-  const weeklyBuckets: number[] = [];
-  const now = new Date();
-  const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - 364);
-
-  for (let w = 0; w < 52; w++) {
-    let weekTotal = 0;
-    const isSpikeWeek = config.spikeWeeks.includes(w);
-    for (let d = 0; d < 7; d++) {
-      const dayIndex = w * 7 + d;
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + dayIndex);
-      const iso = date.toISOString().slice(0, 10);
-      const dayOfWeek = date.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-      const prob = isSpikeWeek ? Math.min(config.activeProbability * 1.5, 0.95) : config.activeProbability;
-      if (rand() > prob) {
-        dailyActivity.push({ date: iso, tokens: 0 });
-        continue;
-      }
-
-      const [lo, hi] = isWeekend ? config.weekendRange : config.weekdayRange;
-      const multiplier = isSpikeWeek ? 1.8 : 1;
-      const tokens = Math.round((lo + rand() * (hi - lo)) * multiplier);
-      dailyActivity.push({ date: iso, tokens });
-      weekTotal += tokens;
-    }
-    weeklyBuckets.push(weekTotal);
-  }
-
-  return { dailyActivity, weeklyBuckets };
 }
 
 /* ─── Domain Tags (derived from skills categories) ─── */
@@ -263,19 +195,12 @@ function extractFooterData(builder: Builder): {
     });
   }
   const contactLinks = builder.contactLinks || {};
-  if (contactLinks.twitter) {
-    const handle = contactLinks.twitter.replace(/^https?:\/\/(www\.)?twitter\.com\//, '').replace(/^@/, '');
+  for (const [label, url] of Object.entries(contactLinks)) {
+    const urlStr = url as string;
     links.push({
-      label: 'Twitter',
-      value: `@${handle}`,
-      href: contactLinks.twitter.startsWith('http') ? contactLinks.twitter : `https://twitter.com/${handle}`,
-    });
-  }
-  if (contactLinks.website) {
-    links.push({
-      label: 'Website',
-      value: contactLinks.website.replace(/^https?:\/\//, ''),
-      href: contactLinks.website.startsWith('http') ? contactLinks.website : `https://${contactLinks.website}`,
+      label,
+      value: urlStr.replace(/^https?:\/\//, ''),
+      href: urlStr.startsWith('http') ? urlStr : `https://${urlStr}`,
     });
   }
 
@@ -357,15 +282,40 @@ function ProfileNotFound({ username }: { username: string }) {
 
 /* ─── Profile Content ─── */
 
-function ProfileContent({ builder }: { builder: Builder }) {
+function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProfile: boolean }) {
   const availability = mapAvailabilityLabel(builder.availabilityStatus);
   const available = isAvailable(builder.availabilityStatus);
 
-  // Burn data (mock until real query available)
-  const { dailyActivity, weeklyBuckets } = generateMockBurnData(builder.username);
-  const totalTokens = dailyActivity.reduce((sum, d) => sum + d.tokens, 0);
-  const daysActive = dailyActivity.filter((d) => d.tokens > 0).length;
-  const activeWeeks = weeklyBuckets.filter((w) => w > 0).length;
+  // Burn data from real GraphQL query
+  const { data: burnData } = useQuery<GetBurnSummaryData>(GET_BURN_SUMMARY, {
+    variables: { userId: builder.id, weeks: 52 },
+  });
+
+  const burnSummary = burnData?.burnSummary;
+  const dailyActivity: BurnDay[] = burnSummary?.dailyActivity?.map((d: BurnDayType) => ({
+    date: d.date,
+    tokens: d.tokens,
+  })) ?? [];
+  const totalTokens = burnSummary?.totalTokens ?? 0;
+  const daysActive = burnSummary?.daysActive ?? 0;
+  const activeWeeks = burnSummary?.activeWeeks ?? 0;
+
+  // Aggregate daily activity into weekly buckets
+  const weeklyBuckets: number[] = [];
+  if (dailyActivity.length > 0) {
+    const weeks = new Map<number, number>();
+    const startDate = new Date(dailyActivity[0].date);
+    for (const day of dailyActivity) {
+      const dayDate = new Date(day.date);
+      const weekIndex = Math.floor((dayDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      weeks.set(weekIndex, (weeks.get(weekIndex) ?? 0) + day.tokens);
+    }
+    const maxWeek = Math.max(...weeks.keys(), 0);
+    for (let i = 0; i <= maxWeek; i++) {
+      weeklyBuckets.push(weeks.get(i) ?? 0);
+    }
+  }
+
   const shippedCount = builder.projects.filter((p) => p.status === 'SHIPPED').length;
   const totalProjects = builder.projects.length;
 
@@ -516,8 +466,12 @@ function ProfileContent({ builder }: { builder: Builder }) {
           <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
             Proof of Work
           </div>
-          <div className="rounded-xl bg-surface-secondary p-12 text-center">
-            <p className="text-[15px] text-ink-tertiary">No projects yet.</p>
+          <div className="py-16 text-center">
+            <Package className="mx-auto mb-3 text-ink-tertiary/40" size={28} strokeWidth={1.5} />
+            <p className="font-serif text-[17px] text-ink-tertiary">Nothing shipped yet</p>
+            {isOwnProfile && (
+              <p className="text-[13px] text-ink-tertiary/70 mt-1.5">Your proof of work will show up here</p>
+            )}
           </div>
         </section>
       )}
@@ -535,6 +489,7 @@ function ProfileContent({ builder }: { builder: Builder }) {
           tribes={footerData.tribes}
           links={footerData.links}
           info={footerData.info}
+          isOwnProfile={isOwnProfile}
         />
       </div>
     </div>
@@ -546,6 +501,7 @@ function ProfileContent({ builder }: { builder: Builder }) {
 export default function ProfilePage() {
   const params = useParams<{ username: string }>();
   const username = params.username;
+  const { user: authUser } = useAuth();
 
   const { data, loading, error } = useQuery<GetBuilderData>(GET_BUILDER, {
     variables: { username },
@@ -556,5 +512,7 @@ export default function ProfilePage() {
   if (error) return <ProfileNotFound username={username} />;
   if (!data?.user) return <ProfileNotFound username={username} />;
 
-  return <ProfileContent builder={data.user} />;
+  const isOwnProfile = authUser?.username === username;
+
+  return <ProfileContent builder={data.user} isOwnProfile={isOwnProfile} />;
 }

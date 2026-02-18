@@ -27,6 +27,17 @@ const AVAILABILITY_OPTIONS = [
   { value: 'JUST_BROWSING', label: 'Just browsing' },
 ] as const;
 
+const DEFAULT_LABELS = ['X', 'LinkedIn', 'Threads', 'GitHub', 'Linear'];
+
+type Section = 'profile' | 'links' | 'agent' | 'preferences';
+
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'links', label: 'Links' },
+  { id: 'agent', label: 'Agent' },
+  { id: 'preferences', label: 'Preferences' },
+];
+
 function buildTimezoneGroups(): { region: string; zones: { value: string; label: string }[] }[] {
   try {
     const allZones = Intl.supportedValuesOf('timeZone');
@@ -57,12 +68,14 @@ function buildTimezoneGroups(): { region: string; zones: { value: string; label:
 export default function SettingsPage() {
   const { user } = useAuth();
 
+  const [activeSection, setActiveSection] = useState<Section>('profile');
   const [displayName, setDisplayName] = useState('');
   const [headline, setHeadline] = useState('');
   const [bio, setBio] = useState('');
   const [primaryRole, setPrimaryRole] = useState('');
   const [timezone, setTimezone] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState('');
+  const [linkRows, setLinkRows] = useState<{ label: string; url: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [populated, setPopulated] = useState(false);
@@ -74,7 +87,6 @@ export default function SettingsPage() {
     skip: !user?.username,
   });
 
-  // Pre-fill form from query data
   useEffect(() => {
     if (data?.user && !populated) {
       const builder = data.user;
@@ -84,6 +96,17 @@ export default function SettingsPage() {
       setPrimaryRole(builder.primaryRole || '');
       setTimezone(builder.timezone || '');
       setAvailabilityStatus(builder.availabilityStatus || '');
+      const links = builder.contactLinks || {};
+      const rows: { label: string; url: string }[] = [];
+      for (const label of DEFAULT_LABELS) {
+        rows.push({ label, url: links[label] || '' });
+      }
+      for (const [key, value] of Object.entries(links)) {
+        if (!DEFAULT_LABELS.includes(key)) {
+          rows.push({ label: key, url: value as string });
+        }
+      }
+      setLinkRows(rows);
       setPopulated(true);
     }
   }, [data, populated]);
@@ -102,6 +125,12 @@ export default function SettingsPage() {
     e.preventDefault();
     setError(null);
     setSaved(false);
+    const contactLinks: Record<string, string> = {};
+    for (const row of linkRows) {
+      const label = row.label.trim();
+      const url = row.url.trim();
+      if (label && url) contactLinks[label] = url;
+    }
     updateProfile({
       variables: {
         displayName: displayName || null,
@@ -110,27 +139,37 @@ export default function SettingsPage() {
         primaryRole: primaryRole || null,
         timezone: timezone || null,
         availabilityStatus: availabilityStatus || null,
+        contactLinks,
       },
     });
   }
 
   const selectClasses =
     'w-full bg-surface-primary rounded-lg px-4 py-3 text-[14px] text-ink appearance-none outline-none transition-colors focus:ring-2 focus:ring-accent/30';
+  const inputClasses =
+    'w-full bg-surface-primary rounded-lg px-4 py-3 text-[14px] text-ink placeholder:text-ink-tertiary outline-none transition-colors focus:ring-2 focus:ring-accent/30';
 
   if (queryLoading) {
     return (
       <div className="flex min-h-[calc(100vh-160px)] items-center justify-center px-5 py-12">
-        <div className="w-full max-w-[480px]">
+        <div className="w-full max-w-[720px]">
           <div className="bg-surface-elevated rounded-2xl shadow-md p-8 animate-pulse" data-testid="settings-skeleton">
             <div className="h-8 w-48 bg-surface-secondary rounded mb-2" />
             <div className="h-4 w-64 bg-surface-secondary rounded mb-8" />
-            <div className="space-y-5">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i}>
-                  <div className="h-3 w-24 bg-surface-secondary rounded mb-2" />
-                  <div className="h-11 w-full bg-surface-secondary rounded" />
-                </div>
-              ))}
+            <div className="flex gap-8">
+              <div className="w-[160px] shrink-0 space-y-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-5 w-20 bg-surface-secondary rounded" />
+                ))}
+              </div>
+              <div className="flex-1 space-y-5">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i}>
+                    <div className="h-3 w-24 bg-surface-secondary rounded mb-2" />
+                    <div className="h-11 w-full bg-surface-secondary rounded" />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -140,7 +179,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-160px)] items-center justify-center px-5 py-12">
-      <div className="w-full max-w-[480px]">
+      <div className="w-full max-w-[720px]">
         <div className="bg-surface-elevated rounded-2xl shadow-md p-8">
           {/* Back link */}
           {user?.username && (
@@ -175,136 +214,199 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label
-                htmlFor="displayName"
-                className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
-              >
-                Display name
-              </label>
-              <input
-                id="displayName"
-                type="text"
-                required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Maya Chen"
-                className="w-full bg-surface-primary rounded-lg px-4 py-3 text-[14px] text-ink placeholder:text-ink-tertiary outline-none transition-colors focus:ring-2 focus:ring-accent/30"
-              />
-            </div>
+          {/* Sidebar + Content */}
+          <div className="flex flex-col sm:flex-row gap-8">
+            {/* Sidebar Nav */}
+            <nav className="flex sm:flex-col gap-1 sm:w-[160px] sm:shrink-0 sm:sticky sm:top-8 sm:self-start" aria-label="Settings sections">
+              {SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={`text-left text-[13px] py-1 px-2 sm:px-0 rounded-md sm:rounded-none transition-colors ${
+                    activeSection === section.id
+                      ? 'text-ink font-medium'
+                      : 'text-ink-tertiary hover:text-ink-secondary'
+                  }`}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </nav>
 
-            <div>
-              <label
-                htmlFor="headline"
-                className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
-              >
-                Headline
-              </label>
-              <input
-                id="headline"
-                type="text"
-                value={headline}
-                onChange={(e) => setHeadline(e.target.value)}
-                placeholder="Full-stack engineer who ships fast"
-                className="w-full bg-surface-primary rounded-lg px-4 py-3 text-[14px] text-ink placeholder:text-ink-tertiary outline-none transition-colors focus:ring-2 focus:ring-accent/30"
-              />
-            </div>
+            {/* Content Area */}
+            <div className="flex-1 min-w-0 min-h-[420px]">
+              {activeSection === 'profile' && (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-5">
+                    Profile
+                  </h2>
 
-            <div>
-              <label
-                htmlFor="bio"
-                className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
-              >
-                Bio
-              </label>
-              <textarea
-                id="bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Tell people about yourself and what you're building"
-                rows={3}
-                className="w-full bg-surface-primary rounded-lg px-4 py-3 text-[14px] text-ink placeholder:text-ink-tertiary outline-none transition-colors focus:ring-2 focus:ring-accent/30 resize-none"
-              />
-            </div>
+                  <div>
+                    <label
+                      htmlFor="displayName"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Display name
+                    </label>
+                    <input
+                      id="displayName"
+                      type="text"
+                      required
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Maya Chen"
+                      className={inputClasses}
+                    />
+                  </div>
 
-            <div>
-              <label
-                htmlFor="primaryRole"
-                className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
-              >
-                Primary role
-              </label>
-              <select
-                id="primaryRole"
-                value={primaryRole}
-                onChange={(e) => setPrimaryRole(e.target.value)}
-                className={selectClasses}
-              >
-                {PRIMARY_ROLES.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                  <div>
+                    <label
+                      htmlFor="headline"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Headline
+                    </label>
+                    <input
+                      id="headline"
+                      type="text"
+                      value={headline}
+                      onChange={(e) => setHeadline(e.target.value)}
+                      placeholder="Full-stack engineer who ships fast"
+                      className={inputClasses}
+                    />
+                  </div>
 
-            <div>
-              <label
-                htmlFor="timezone"
-                className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
-              >
-                Timezone
-              </label>
-              <select
-                id="timezone"
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                className={selectClasses}
-              >
-                <option value="">Select a timezone</option>
-                {timezoneGroups.map((group) => (
-                  <optgroup key={group.region} label={group.region}>
-                    {group.zones.map((tz) => (
-                      <option key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </option>
+                  <div>
+                    <label
+                      htmlFor="bio"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Bio
+                    </label>
+                    <textarea
+                      id="bio"
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Tell people about yourself and what you're building"
+                      rows={3}
+                      className={`${inputClasses} resize-none`}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="primaryRole"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Primary role
+                    </label>
+                    <select
+                      id="primaryRole"
+                      value={primaryRole}
+                      onChange={(e) => setPrimaryRole(e.target.value)}
+                      className={selectClasses}
+                    >
+                      {PRIMARY_ROLES.map((role) => (
+                        <option key={role.value} value={role.value}>
+                          {role.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full bg-accent text-white rounded-lg px-6 py-3 font-medium text-[14px] hover:bg-accent-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save changes'}
+                  </button>
+                </form>
+              )}
+
+              {activeSection === 'links' && (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-5">
+                    Links
+                  </h2>
+
+                  <div className="space-y-3">
+                    {linkRows.map((row, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={row.label}
+                          onChange={(e) => {
+                            const next = [...linkRows];
+                            next[index] = { ...row, label: e.target.value };
+                            setLinkRows(next);
+                          }}
+                          placeholder="Label"
+                          aria-label={`Link ${index + 1} label`}
+                          className={`${inputClasses} !w-[30%] shrink-0`}
+                        />
+                        <input
+                          type="text"
+                          value={row.url}
+                          onChange={(e) => {
+                            const next = [...linkRows];
+                            next[index] = { ...row, url: e.target.value };
+                            setLinkRows(next);
+                          }}
+                          placeholder="https://..."
+                          aria-label={`Link ${index + 1} URL`}
+                          className={`${inputClasses} flex-1`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setLinkRows(linkRows.filter((_, i) => i !== index))}
+                          className="text-ink-tertiary hover:text-ink-secondary transition-colors p-1 shrink-0"
+                          aria-label={`Remove link ${index + 1}`}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                        </button>
+                      </div>
                     ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
+                  </div>
 
-            <div>
-              <label
-                htmlFor="availabilityStatus"
-                className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
-              >
-                Availability
-              </label>
-              <select
-                id="availabilityStatus"
-                value={availabilityStatus}
-                onChange={(e) => setAvailabilityStatus(e.target.value)}
-                className={selectClasses}
-              >
-                {AVAILABILITY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setLinkRows([...linkRows, { label: '', url: '' }])}
+                    className="text-[13px] text-accent hover:text-accent-hover transition-colors"
+                  >
+                    Add link
+                  </button>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full bg-accent text-white rounded-lg px-6 py-3 font-medium text-[14px] hover:bg-accent-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saving...' : 'Save changes'}
-            </button>
-          </form>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full bg-accent text-white rounded-lg px-6 py-3 font-medium text-[14px] hover:bg-accent-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save changes'}
+                  </button>
+                </form>
+              )}
+
+              {activeSection === 'agent' && (
+                <div>
+                  <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-5">
+                    Agent
+                  </h2>
+                  <p className="text-[14px] text-ink-tertiary">Coming soon</p>
+                </div>
+              )}
+
+              {activeSection === 'preferences' && (
+                <div>
+                  <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-5">
+                    Preferences
+                  </h2>
+                  <p className="text-[14px] text-ink-tertiary">Coming soon</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

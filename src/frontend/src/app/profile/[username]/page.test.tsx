@@ -3,9 +3,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MockedProvider } from '@apollo/client/testing/react';
 import ProfilePage from './page';
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
+import { GET_BURN_SUMMARY } from '@/lib/graphql/queries/burn';
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ username: 'mayachen' }),
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+let mockAuthUser: { id: string; username: string; displayName: string; email: string; onboardingCompleted: boolean } | null = null;
+
+vi.mock('@/hooks/use-auth', () => ({
+  useAuth: () => ({
+    user: mockAuthUser,
+    accessToken: null,
+    isAuthenticated: !!mockAuthUser,
+    isLoading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+  }),
 }));
 
 // Mock canvas getContext for sparkline/heatmap components
@@ -36,6 +51,9 @@ beforeEach(() => {
     right: 200,
     bottom: 40,
   });
+
+  // Reset auth mock
+  mockAuthUser = null;
 });
 
 const mockBuilder = {
@@ -49,7 +67,7 @@ const mockBuilder = {
   availabilityStatus: 'OPEN_TO_TRIBE',
   builderScore: 72,
   bio: 'Building cool things.',
-  contactLinks: { twitter: '@maya_ships', website: 'https://mayachen.dev' },
+  contactLinks: { X: 'https://x.com/maya_ships', Portfolio: 'https://mayachen.dev' },
   githubUsername: 'mayachen',
   agentTools: ['Claude Code', 'Cursor'],
   agentWorkflowStyle: 'pair',  // backend sends lowercase enum values
@@ -109,10 +127,28 @@ const mockBuilder = {
   ],
 };
 
+const mockBurnSummary = {
+  daysActive: 120,
+  totalTokens: 850000,
+  activeWeeks: 38,
+  totalWeeks: 52,
+  weeklyStreak: 5,
+  dailyActivity: [
+    { date: '2025-06-01', tokens: 5000 },
+    { date: '2025-06-02', tokens: 12000 },
+    { date: '2025-06-03', tokens: 0 },
+    { date: '2025-06-04', tokens: 8000 },
+  ],
+};
+
 const mocks = [
   {
     request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
     result: { data: { user: mockBuilder } },
+  },
+  {
+    request: { query: GET_BURN_SUMMARY, variables: { userId: '1', weeks: 52 } },
+    result: { data: { burnSummary: mockBurnSummary } },
   },
 ];
 
@@ -154,7 +190,7 @@ describe('ProfilePage', () => {
       </MockedProvider>,
     );
     await screen.findByText('Maya Chen');
-    expect(screen.getByText('Building Activity')).toBeInTheDocument();
+    expect(screen.getByText('Building activity')).toBeInTheDocument();
   });
 
   it('renders proof of work section', async () => {
@@ -177,7 +213,7 @@ describe('ProfilePage', () => {
       </MockedProvider>,
     );
     await screen.findByText('Maya Chen');
-    expect(screen.getByText(/witnessed by/i)).toBeInTheDocument();
+    expect(screen.getByText(/collaborators/i)).toBeInTheDocument();
     expect(screen.getByText('James Okafor')).toBeInTheDocument();
   });
 
@@ -204,5 +240,68 @@ describe('ProfilePage', () => {
       </MockedProvider>,
     );
     expect(await screen.findByText('Builder not found')).toBeInTheDocument();
+  });
+
+  it('renders empty projects state with "Nothing shipped yet"', async () => {
+    const emptyProjectsBuilder = { ...mockBuilder, projects: [], tribes: [] };
+    const emptyMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: emptyProjectsBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={emptyMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    expect(await screen.findByText('Nothing shipped yet')).toBeInTheDocument();
+  });
+
+  it('shows self-view hint when viewing own empty profile', async () => {
+    mockAuthUser = {
+      id: '1',
+      username: 'mayachen',
+      displayName: 'Maya Chen',
+      email: 'maya@test.com',
+      onboardingCompleted: true,
+    };
+    const emptyProjectsBuilder = { ...mockBuilder, projects: [], tribes: [] };
+    const emptyMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: emptyProjectsBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={emptyMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    expect(await screen.findByText('Your proof of work will show up here')).toBeInTheDocument();
+  });
+
+  it('does not show self-view hint when viewing another profile', async () => {
+    mockAuthUser = {
+      id: '99',
+      username: 'otheruser',
+      displayName: 'Other User',
+      email: 'other@test.com',
+      onboardingCompleted: true,
+    };
+    const emptyProjectsBuilder = { ...mockBuilder, projects: [], tribes: [] };
+    const emptyMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: emptyProjectsBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={emptyMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Nothing shipped yet');
+    expect(screen.queryByText('Your proof of work will show up here')).not.toBeInTheDocument();
   });
 });
