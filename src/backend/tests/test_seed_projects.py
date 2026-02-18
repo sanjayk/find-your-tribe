@@ -313,9 +313,10 @@ async def test_seed_projects_collaborators():
             users_dict = await seed_users(session, skills_dict)
             project_lookup = await seed_projects(session, users_dict)
 
-            # Tribe Finder should have Priya as collaborator
+            # Tribe Finder should have Priya and James as collaborators
             tribe_finder_id = project_lookup["Tribe Finder"]
             priya_id = users_dict["priyasharma"]
+            james_id = users_dict["jamesokafor"]
 
             result = await session.execute(
                 select(project_collaborators).where(
@@ -323,8 +324,14 @@ async def test_seed_projects_collaborators():
                 )
             )
             collab_rows = result.fetchall()
-            assert len(collab_rows) == 1
-            assert collab_rows[0].user_id == priya_id
+            assert len(collab_rows) == 2
+            collab_user_ids = {row.user_id for row in collab_rows}
+            assert priya_id in collab_user_ids
+            assert james_id in collab_user_ids
+            # Verify roles
+            collab_by_user = {row.user_id: row for row in collab_rows}
+            assert collab_by_user[priya_id].role == "backend"
+            assert collab_by_user[james_id].role == "design"
 
             # Growth Analytics Dashboard should have Elena as collaborator
             dashboard_id = project_lookup["Growth Analytics Dashboard"]
@@ -338,6 +345,7 @@ async def test_seed_projects_collaborators():
             collab_rows = result.fetchall()
             assert len(collab_rows) == 1
             assert collab_rows[0].user_id == elena_id
+            assert collab_rows[0].role == "data visualization"
     finally:
         # Clean up
         async with engine.begin() as conn:

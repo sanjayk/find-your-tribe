@@ -52,7 +52,7 @@ const mockBuilder = {
   contactLinks: { twitter: '@maya_ships', website: 'https://mayachen.dev' },
   githubUsername: 'mayachen',
   agentTools: ['Claude Code', 'Cursor'],
-  agentWorkflowStyle: 'PAIR',
+  agentWorkflowStyle: 'pair',  // backend sends lowercase enum values
   humanAgentRatio: 0.45,
   createdAt: '2025-01-01T00:00:00Z',
   skills: [
@@ -74,8 +74,8 @@ const mockBuilder = {
       createdAt: '2025-06-01T00:00:00Z',
       updatedAt: '2025-12-01T00:00:00Z',
       collaborators: [
-        { user: { id: '1', username: 'mayachen', displayName: 'Maya Chen', avatarUrl: null }, role: 'creator', status: 'ACTIVE' },
-        { user: { id: '2', username: 'jamesokafor', displayName: 'James Okafor', avatarUrl: null }, role: 'design', status: 'ACTIVE' },
+        { user: { id: '1', username: 'mayachen', displayName: 'Maya Chen', avatarUrl: null, headline: 'Full-stack engineer building with AI', primaryRole: 'ENGINEER' }, role: 'creator', status: 'ACTIVE' },
+        { user: { id: '2', username: 'jamesokafor', displayName: 'James Okafor', avatarUrl: null, headline: 'Product Designer', primaryRole: 'DESIGNER' }, role: 'design', status: 'ACTIVE' },
       ],
     },
     {
@@ -154,7 +154,7 @@ describe('ProfilePage', () => {
       </MockedProvider>,
     );
     await screen.findByText('Maya Chen');
-    expect(screen.getByText('Build Activity')).toBeInTheDocument();
+    expect(screen.getByText('Building Activity')).toBeInTheDocument();
   });
 
   it('renders proof of work section', async () => {

@@ -45,7 +45,7 @@ describe('AgentPanel', () => {
   it('renders ratio label with human percentage', () => {
     render(<AgentPanel tools={mockTools} workflowStyle="Pair builder" humanRatio={30} />);
     const label = screen.getByTestId('ratio-label');
-    expect(label.textContent).toBe('30% human');
+    expect(label.textContent).toBe('30/70');
   });
 
   it('clamps humanRatio below 0 to 0', () => {
