@@ -51,7 +51,7 @@ describe('Nav', () => {
 
   it('renders logo text "find your tribe"', () => {
     render(<Nav />);
-    expect(screen.getByText('find your tribe')).toBeInTheDocument();
+    expect(screen.getByText('find your tribe.')).toBeInTheDocument();
   });
 
   describe('logged out', () => {

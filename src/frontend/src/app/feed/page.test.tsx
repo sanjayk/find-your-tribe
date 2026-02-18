@@ -19,7 +19,7 @@ const mockFeed = [
   },
   {
     id: 'e2',
-    eventType: 'TRIBE_FORMED',
+    eventType: 'TRIBE_CREATED',
     targetType: 'TRIBE',
     targetId: 't1',
     metadata: { name: 'Buildspace Alumni', actor_name: 'James Okafor' },

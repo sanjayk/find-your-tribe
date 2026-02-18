@@ -59,15 +59,14 @@ export default function Nav() {
   return (
     <>
       <nav
-        className={`sticky top-0 z-50 bg-surface-primary transition-shadow duration-200 ${
-          hasScrollShadow ? 'shadow-sm' : ''
-        }`}
+        className={`sticky top-0 z-50 bg-surface-primary transition-shadow duration-200 ${hasScrollShadow ? 'shadow-sm' : ''
+          }`}
       >
         <div className="max-w-[1120px] mx-auto px-5 md:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href={isAuthenticated ? '/feed' : '/'} className="font-serif text-xl tracking-tight text-ink">
-              find your tribe
+              find your tribe.
             </Link>
 
             {/* Desktop Navigation Links */}
@@ -166,7 +165,7 @@ export default function Nav() {
           <div className="flex flex-col h-full px-6 py-5">
             {/* Mobile Menu Header */}
             <div className="flex items-center justify-between mb-12">
-              <span className="font-serif text-xl text-ink">find your tribe</span>
+              <span className="font-serif text-xl text-ink">find your tribe.</span>
               <button
                 onClick={closeMobileMenu}
                 className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-secondary transition-colors"
@@ -184,7 +183,7 @@ export default function Nav() {
                   href={link.href}
                   onClick={closeMobileMenu}
                   data-testid="mobile-menu-link"
-                  className="font-serif text-4xl text-ink-tertiary hover:text-ink transition-colors py-2"
+                  className="font-serif text-3xl text-ink-tertiary hover:text-ink transition-colors py-2"
                 >
                   {link.label}
                 </Link>

@@ -123,6 +123,12 @@ class User(Base, ULIDMixin, TimestampMixin):
         default=dict,
         server_default="{}",
     )
+    preferences: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
 
     # Agent collaboration
     agent_tools: Mapped[list] = mapped_column(

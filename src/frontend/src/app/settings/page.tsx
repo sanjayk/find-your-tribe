@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -28,6 +28,12 @@ const AVAILABILITY_OPTIONS = [
 ] as const;
 
 const DEFAULT_LABELS = ['X', 'LinkedIn', 'Threads', 'GitHub', 'Linear'];
+
+const EDITORS = ['Cursor', 'VS Code', 'Windsurf', 'Zed', 'JetBrains', 'Neovim', 'Emacs', 'Terminal', 'Replit'];
+const AGENTS = ['Claude Code', 'Copilot', 'Cline', 'Aider', 'Codex', 'Devin', 'Junie', 'Jules', 'Amazon Q'];
+const MODELS = ['Claude Opus', 'Claude Sonnet', 'GPT-5', 'Gemini 3 Pro', 'DeepSeek', 'Llama 3', 'Mistral Large', 'Codestral'];
+
+const WORKFLOW_STYLES = ['Pair builder', 'Swarm delegation', 'AI review', 'Autonomous agents', 'Minimal AI'];
 
 type Section = 'profile' | 'links' | 'agent' | 'preferences';
 
@@ -65,6 +71,115 @@ function buildTimezoneGroups(): { region: string; zones: { value: string; label:
   }
 }
 
+function ChipSection({
+  label,
+  presets,
+  selected,
+  custom,
+  onToggle,
+  onAddCustom,
+  onRemoveCustom,
+}: {
+  label: string;
+  presets: string[];
+  selected: string[];
+  custom: string[];
+  onToggle: (val: string) => void;
+  onAddCustom: (val: string) => void;
+  onRemoveCustom: (val: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleAdd() {
+    const val = inputRef.current?.value.trim();
+    if (!val) return;
+    if (presets.includes(val) || custom.includes(val)) return;
+    onAddCustom(val);
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
+  return (
+    <div>
+      <span className="text-[13px] font-medium text-ink-secondary mb-2 block">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+        {presets.map((item) => {
+          const isSelected = selected.includes(item);
+          return (
+            <button
+              key={item}
+              type="button"
+              onClick={() => onToggle(item)}
+              className={`text-[13px] px-3 py-1.5 rounded-full transition-colors ${
+                isSelected
+                  ? 'bg-accent-subtle text-accent font-medium'
+                  : 'bg-surface-secondary text-ink-tertiary hover:text-ink-secondary'
+              }`}
+              aria-pressed={isSelected}
+            >
+              {item}
+            </button>
+          );
+        })}
+        {custom.map((item) => {
+          const isSelected = selected.includes(item);
+          return (
+            <span key={item} className="inline-flex items-center gap-0">
+              <button
+                type="button"
+                onClick={() => onToggle(item)}
+                className={`text-[13px] pl-3 pr-1 py-1.5 rounded-l-full transition-colors ${
+                  isSelected
+                    ? 'bg-accent-subtle text-accent font-medium'
+                    : 'bg-surface-secondary text-ink-tertiary hover:text-ink-secondary'
+                }`}
+                aria-pressed={isSelected}
+              >
+                {item}
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove ${item}`}
+                onClick={() => onRemoveCustom(item)}
+                className={`text-[13px] pl-0.5 pr-2 py-1.5 rounded-r-full transition-colors ${
+                  isSelected
+                    ? 'bg-accent-subtle text-accent hover:text-accent-hover'
+                    : 'bg-surface-secondary text-ink-tertiary hover:text-ink'
+                }`}
+              >
+                &times;
+              </button>
+            </span>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Add custom..."
+          aria-label={`Add custom ${label.toLowerCase()}`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+          className="bg-surface-primary rounded-lg px-3 py-1.5 text-[13px] text-ink placeholder:text-ink-tertiary outline-none transition-colors focus:ring-2 focus:ring-accent/30 w-full sm:w-[180px]"
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          className="text-[13px] text-accent hover:text-accent-hover transition-colors font-medium"
+        >
+          + Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
 
@@ -76,6 +191,22 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState('');
   const [linkRows, setLinkRows] = useState<{ label: string; url: string }[]>([]);
+  const [selectedEditors, setSelectedEditors] = useState<string[]>([]);
+  const [customEditors, setCustomEditors] = useState<string[]>([]);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  const [customAgents, setCustomAgents] = useState<string[]>([]);
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [customModels, setCustomModels] = useState<string[]>([]);
+  const [selectedWorkflows, setSelectedWorkflows] = useState<string[]>([]);
+  const [customWorkflows, setCustomWorkflows] = useState<string[]>([]);
+  const [setupNote, setSetupNote] = useState('');
+  const [humanAiRatio, setHumanAiRatio] = useState(50);
+  const [notifTribeInvites, setNotifTribeInvites] = useState(true);
+  const [notifProjectUpdates, setNotifProjectUpdates] = useState(true);
+  const [notifWeeklyDigest, setNotifWeeklyDigest] = useState(false);
+  const [profileVisibility, setProfileVisibility] = useState('public');
+  const [showTimezone, setShowTimezone] = useState(true);
+  const [showAgentSetup, setShowAgentSetup] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [populated, setPopulated] = useState(false);
@@ -107,6 +238,54 @@ export default function SettingsPage() {
         }
       }
       setLinkRows(rows);
+      const tools = builder.agentTools;
+      if (tools && typeof tools === 'object' && !Array.isArray(tools)) {
+        const eds = tools.editors || [];
+        setSelectedEditors(eds);
+        setCustomEditors(eds.filter((e: string) => !EDITORS.includes(e)));
+
+        const ags = tools.agents || [];
+        setSelectedAgents(ags);
+        setCustomAgents(ags.filter((a: string) => !AGENTS.includes(a)));
+
+        const mods = tools.models || [];
+        setSelectedModels(mods);
+        setCustomModels(mods.filter((m: string) => !MODELS.includes(m)));
+
+        const wfs = tools.workflowStyles || [];
+        setSelectedWorkflows(wfs);
+        setCustomWorkflows(wfs.filter((w: string) => !WORKFLOW_STYLES.includes(w)));
+
+        setSetupNote(tools.setupNote || '');
+      } else if (Array.isArray(tools)) {
+        setSelectedAgents(tools);
+      }
+      // Backward compat: migrate old agentWorkflowStyle
+      if (
+        !(tools && typeof tools === 'object' && !Array.isArray(tools) && (tools as Record<string, unknown>).workflowStyles && ((tools as Record<string, unknown>).workflowStyles as string[]).length > 0)
+        && builder.agentWorkflowStyle
+      ) {
+        const STYLE_MAP: Record<string, string> = {
+          PAIR: 'Pair builder', SWARM: 'Swarm delegation',
+          REVIEW: 'AI review', AUTONOMOUS: 'Autonomous agents', MINIMAL: 'Minimal AI',
+        };
+        const mapped = STYLE_MAP[builder.agentWorkflowStyle];
+        if (mapped) setSelectedWorkflows([mapped]);
+      }
+      if (builder.humanAgentRatio !== null && builder.humanAgentRatio !== undefined) {
+        setHumanAiRatio(Math.round(builder.humanAgentRatio * 100));
+      }
+      const prefs = builder.preferences || {};
+      if (prefs.notifications) {
+        if (prefs.notifications.tribeInvites !== undefined) setNotifTribeInvites(prefs.notifications.tribeInvites);
+        if (prefs.notifications.projectUpdates !== undefined) setNotifProjectUpdates(prefs.notifications.projectUpdates);
+        if (prefs.notifications.weeklyDigest !== undefined) setNotifWeeklyDigest(prefs.notifications.weeklyDigest);
+      }
+      if (prefs.privacy) {
+        if (prefs.privacy.profileVisibility) setProfileVisibility(prefs.privacy.profileVisibility);
+        if (prefs.privacy.showTimezone !== undefined) setShowTimezone(prefs.privacy.showTimezone);
+        if (prefs.privacy.showAgentSetup !== undefined) setShowAgentSetup(prefs.privacy.showAgentSetup);
+      }
       setPopulated(true);
     }
   }, [data, populated]);
@@ -131,15 +310,39 @@ export default function SettingsPage() {
       const url = row.url.trim();
       if (label && url) contactLinks[label] = url;
     }
+    const agentTools: Record<string, unknown> = {};
+    if (selectedEditors.length) agentTools.editors = selectedEditors;
+    if (selectedAgents.length) agentTools.agents = selectedAgents;
+    if (selectedModels.length) agentTools.models = selectedModels;
+    if (selectedWorkflows.length) agentTools.workflowStyles = selectedWorkflows;
+    if (setupNote.trim()) agentTools.setupNote = setupNote.trim();
+
+    const preferences = {
+      notifications: {
+        tribeInvites: notifTribeInvites,
+        projectUpdates: notifProjectUpdates,
+        weeklyDigest: notifWeeklyDigest,
+      },
+      privacy: {
+        profileVisibility,
+        showTimezone,
+        showAgentSetup,
+      },
+    };
+
     updateProfile({
       variables: {
         displayName: displayName || null,
-        headline: headline || null,
-        bio: bio || null,
+        headline: headline,
+        bio: bio,
         primaryRole: primaryRole || null,
         timezone: timezone || null,
         availabilityStatus: availabilityStatus || null,
         contactLinks,
+        agentTools: Object.keys(agentTools).length ? agentTools : {},
+        agentWorkflowStyle: null,
+        humanAgentRatio: humanAiRatio / 100,
+        preferences,
       },
     });
   }
@@ -156,8 +359,8 @@ export default function SettingsPage() {
           <div className="bg-surface-elevated rounded-2xl shadow-md p-8 animate-pulse" data-testid="settings-skeleton">
             <div className="h-8 w-48 bg-surface-secondary rounded mb-2" />
             <div className="h-4 w-64 bg-surface-secondary rounded mb-8" />
-            <div className="flex gap-8">
-              <div className="w-[160px] shrink-0 space-y-2">
+            <div className="flex flex-col sm:flex-row gap-8">
+              <div className="hidden sm:block sm:w-[160px] shrink-0 space-y-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="h-5 w-20 bg-surface-secondary rounded" />
                 ))}
@@ -273,8 +476,12 @@ export default function SettingsPage() {
                       value={headline}
                       onChange={(e) => setHeadline(e.target.value)}
                       placeholder="Full-stack engineer who ships fast"
+                      maxLength={60}
                       className={inputClasses}
                     />
+                    <p className="text-right text-[12px] text-ink-tertiary mt-1">
+                      {headline.length} / 60
+                    </p>
                   </div>
 
                   <div>
@@ -289,9 +496,13 @@ export default function SettingsPage() {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       placeholder="Tell people about yourself and what you're building"
+                      maxLength={160}
                       rows={3}
                       className={`${inputClasses} resize-none`}
                     />
+                    <p className="text-right text-[12px] text-ink-tertiary mt-1">
+                      {bio.length} / 160
+                    </p>
                   </div>
 
                   <div>
@@ -333,7 +544,7 @@ export default function SettingsPage() {
 
                   <div className="space-y-3">
                     {linkRows.map((row, index) => (
-                      <div key={index} className="flex items-center gap-2">
+                      <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <input
                           type="text"
                           value={row.label}
@@ -344,28 +555,30 @@ export default function SettingsPage() {
                           }}
                           placeholder="Label"
                           aria-label={`Link ${index + 1} label`}
-                          className={`${inputClasses} !w-[30%] shrink-0`}
+                          className={`${inputClasses} sm:!w-[30%] sm:shrink-0`}
                         />
-                        <input
-                          type="text"
-                          value={row.url}
-                          onChange={(e) => {
-                            const next = [...linkRows];
-                            next[index] = { ...row, url: e.target.value };
-                            setLinkRows(next);
-                          }}
-                          placeholder="https://..."
-                          aria-label={`Link ${index + 1} URL`}
-                          className={`${inputClasses} flex-1`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setLinkRows(linkRows.filter((_, i) => i !== index))}
-                          className="text-ink-tertiary hover:text-ink-secondary transition-colors p-1 shrink-0"
-                          aria-label={`Remove link ${index + 1}`}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={row.url}
+                            onChange={(e) => {
+                              const next = [...linkRows];
+                              next[index] = { ...row, url: e.target.value };
+                              setLinkRows(next);
+                            }}
+                            placeholder="https://..."
+                            aria-label={`Link ${index + 1} URL`}
+                            className={`${inputClasses} flex-1`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setLinkRows(linkRows.filter((_, i) => i !== index))}
+                            className="text-ink-tertiary hover:text-ink-secondary transition-colors p-2 shrink-0"
+                            aria-label={`Remove link ${index + 1}`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -389,21 +602,355 @@ export default function SettingsPage() {
               )}
 
               {activeSection === 'agent' && (
-                <div>
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-5">
-                    Agent
+                    My Setup
                   </h2>
-                  <p className="text-[14px] text-ink-tertiary">Coming soon</p>
-                </div>
+
+                  {/* Editors */}
+                  <ChipSection
+                    label="Editors"
+                    presets={EDITORS}
+                    selected={selectedEditors}
+                    custom={customEditors}
+                    onToggle={(val) =>
+                      setSelectedEditors(
+                        selectedEditors.includes(val)
+                          ? selectedEditors.filter((v) => v !== val)
+                          : [...selectedEditors, val],
+                      )
+                    }
+                    onAddCustom={(val) => {
+                      setCustomEditors([...customEditors, val]);
+                      setSelectedEditors([...selectedEditors, val]);
+                    }}
+                    onRemoveCustom={(val) => {
+                      setCustomEditors(customEditors.filter((v) => v !== val));
+                      setSelectedEditors(selectedEditors.filter((v) => v !== val));
+                    }}
+                  />
+
+                  {/* Agents */}
+                  <ChipSection
+                    label="Agents"
+                    presets={AGENTS}
+                    selected={selectedAgents}
+                    custom={customAgents}
+                    onToggle={(val) =>
+                      setSelectedAgents(
+                        selectedAgents.includes(val)
+                          ? selectedAgents.filter((v) => v !== val)
+                          : [...selectedAgents, val],
+                      )
+                    }
+                    onAddCustom={(val) => {
+                      setCustomAgents([...customAgents, val]);
+                      setSelectedAgents([...selectedAgents, val]);
+                    }}
+                    onRemoveCustom={(val) => {
+                      setCustomAgents(customAgents.filter((v) => v !== val));
+                      setSelectedAgents(selectedAgents.filter((v) => v !== val));
+                    }}
+                  />
+
+                  {/* Models */}
+                  <ChipSection
+                    label="Models"
+                    presets={MODELS}
+                    selected={selectedModels}
+                    custom={customModels}
+                    onToggle={(val) =>
+                      setSelectedModels(
+                        selectedModels.includes(val)
+                          ? selectedModels.filter((v) => v !== val)
+                          : [...selectedModels, val],
+                      )
+                    }
+                    onAddCustom={(val) => {
+                      setCustomModels([...customModels, val]);
+                      setSelectedModels([...selectedModels, val]);
+                    }}
+                    onRemoveCustom={(val) => {
+                      setCustomModels(customModels.filter((v) => v !== val));
+                      setSelectedModels(selectedModels.filter((v) => v !== val));
+                    }}
+                  />
+
+                  <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary !mt-8 mb-5">
+                    Workflow
+                  </h2>
+
+                  {/* Workflow styles */}
+                  <ChipSection
+                    label="Style"
+                    presets={WORKFLOW_STYLES}
+                    selected={selectedWorkflows}
+                    custom={customWorkflows}
+                    onToggle={(val) =>
+                      setSelectedWorkflows(
+                        selectedWorkflows.includes(val)
+                          ? selectedWorkflows.filter((v) => v !== val)
+                          : [...selectedWorkflows, val],
+                      )
+                    }
+                    onAddCustom={(val) => {
+                      setCustomWorkflows([...customWorkflows, val]);
+                      setSelectedWorkflows([...selectedWorkflows, val]);
+                    }}
+                    onRemoveCustom={(val) => {
+                      setCustomWorkflows(customWorkflows.filter((v) => v !== val));
+                      setSelectedWorkflows(selectedWorkflows.filter((v) => v !== val));
+                    }}
+                  />
+
+                  <div>
+                    <label
+                      htmlFor="humanAiRatio"
+                      className="text-[13px] font-medium text-ink-secondary mb-3 block"
+                    >
+                      Human / AI ratio
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px] text-ink-tertiary w-12 shrink-0">Human</span>
+                      <input
+                        id="humanAiRatio"
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={humanAiRatio}
+                        onChange={(e) => setHumanAiRatio(Number(e.target.value))}
+                        className="flex-1 accent-accent"
+                      />
+                      <span className="text-[12px] text-ink-tertiary w-6 shrink-0 text-right">AI</span>
+                    </div>
+                    <p className="text-center text-[13px] text-ink-secondary mt-1.5 font-mono">
+                      {humanAiRatio} / {100 - humanAiRatio}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="setupNote"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Setup note
+                    </label>
+                    <textarea
+                      id="setupNote"
+                      value={setupNote}
+                      onChange={(e) => setSetupNote(e.target.value)}
+                      placeholder="Describe how you work with AI..."
+                      maxLength={300}
+                      rows={3}
+                      className={`${inputClasses} resize-none`}
+                    />
+                    <p className="text-right text-[12px] text-ink-tertiary mt-1">
+                      {setupNote.length} / 300
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full bg-accent text-white rounded-lg px-6 py-3 font-medium text-[14px] hover:bg-accent-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save changes'}
+                  </button>
+                </form>
               )}
 
               {activeSection === 'preferences' && (
-                <div>
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-5">
-                    Preferences
+                    Location &amp; Availability
                   </h2>
-                  <p className="text-[14px] text-ink-tertiary">Coming soon</p>
-                </div>
+
+                  <div>
+                    <label
+                      htmlFor="prefTimezone"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Timezone
+                    </label>
+                    <select
+                      id="prefTimezone"
+                      value={timezone}
+                      onChange={(e) => setTimezone(e.target.value)}
+                      className={selectClasses}
+                    >
+                      <option value="">Select timezone</option>
+                      {timezoneGroups.map((group) => (
+                        <optgroup key={group.region} label={group.region}>
+                          {group.zones.map((tz) => (
+                            <option key={tz.value} value={tz.value}>
+                              {tz.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="prefAvailability"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Availability
+                    </label>
+                    <select
+                      id="prefAvailability"
+                      value={availabilityStatus}
+                      onChange={(e) => setAvailabilityStatus(e.target.value)}
+                      className={selectClasses}
+                    >
+                      {AVAILABILITY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary !mt-8 mb-5">
+                    Notifications
+                  </h2>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-ink">Tribe invites</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notifTribeInvites}
+                        aria-label="Tribe invites"
+                        onClick={() => setNotifTribeInvites(!notifTribeInvites)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
+                          notifTribeInvites ? 'bg-accent' : 'bg-surface-secondary'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                            notifTribeInvites ? 'translate-x-[22px]' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-ink">Project updates</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notifProjectUpdates}
+                        aria-label="Project updates"
+                        onClick={() => setNotifProjectUpdates(!notifProjectUpdates)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
+                          notifProjectUpdates ? 'bg-accent' : 'bg-surface-secondary'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                            notifProjectUpdates ? 'translate-x-[22px]' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-ink">Weekly digest</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notifWeeklyDigest}
+                        aria-label="Weekly digest"
+                        onClick={() => setNotifWeeklyDigest(!notifWeeklyDigest)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
+                          notifWeeklyDigest ? 'bg-accent' : 'bg-surface-secondary'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                            notifWeeklyDigest ? 'translate-x-[22px]' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary !mt-8 mb-5">
+                    Privacy
+                  </h2>
+
+                  <div>
+                    <label
+                      htmlFor="profileVisibility"
+                      className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
+                    >
+                      Profile visibility
+                    </label>
+                    <select
+                      id="profileVisibility"
+                      value={profileVisibility}
+                      onChange={(e) => setProfileVisibility(e.target.value)}
+                      className={selectClasses}
+                    >
+                      <option value="public">Public</option>
+                      <option value="tribe_only">Tribe only</option>
+                      <option value="hidden">Hidden</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-ink">Show timezone</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showTimezone}
+                        aria-label="Show timezone"
+                        onClick={() => setShowTimezone(!showTimezone)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
+                          showTimezone ? 'bg-accent' : 'bg-surface-secondary'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                            showTimezone ? 'translate-x-[22px]' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-ink">Show agent setup</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showAgentSetup}
+                        aria-label="Show agent setup"
+                        onClick={() => setShowAgentSetup(!showAgentSetup)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
+                          showAgentSetup ? 'bg-accent' : 'bg-surface-secondary'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                            showAgentSetup ? 'translate-x-[22px]' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full bg-accent text-white rounded-lg px-6 py-3 font-medium text-[14px] hover:bg-accent-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save changes'}
+                  </button>
+                </form>
               )}
             </div>
           </div>

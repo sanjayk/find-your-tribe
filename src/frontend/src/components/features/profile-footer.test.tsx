@@ -57,19 +57,19 @@ describe('ProfileFooter', () => {
     expect(screen.getByText('Website')).toBeInTheDocument();
   });
 
-  it('renders link values as anchor tags', () => {
+  it('renders link labels as anchor tags', () => {
     render(<ProfileFooter tribes={mockTribes} links={mockLinks} info={mockInfo} />);
     const linkValues = screen.getAllByTestId('link-value');
     expect(linkValues).toHaveLength(3);
 
-    expect(linkValues[0]).toHaveTextContent('@mayachen');
+    expect(linkValues[0]).toHaveTextContent('GitHub');
     expect(linkValues[0].tagName).toBe('A');
     expect(linkValues[0]).toHaveAttribute('href', 'https://github.com/mayachen');
 
-    expect(linkValues[1]).toHaveTextContent('@maya_ships');
+    expect(linkValues[1]).toHaveTextContent('Twitter');
     expect(linkValues[1]).toHaveAttribute('href', 'https://twitter.com/maya_ships');
 
-    expect(linkValues[2]).toHaveTextContent('mayachen.dev');
+    expect(linkValues[2]).toHaveTextContent('Website');
     expect(linkValues[2]).toHaveAttribute('href', 'https://mayachen.dev');
   });
 
@@ -109,9 +109,32 @@ describe('ProfileFooter', () => {
     expect(screen.queryByTestId('tribe-item')).not.toBeInTheDocument();
   });
 
+  it('shows "No tribe yet" when tribes array is empty', () => {
+    render(<ProfileFooter tribes={[]} links={mockLinks} info={mockInfo} />);
+    expect(screen.getByText('No tribe yet')).toBeInTheDocument();
+  });
+
   it('handles empty links array', () => {
     render(<ProfileFooter tribes={mockTribes} links={[]} info={mockInfo} />);
     expect(screen.queryByTestId('link-item')).not.toBeInTheDocument();
+  });
+
+  it('shows "None added" when links array is empty', () => {
+    render(<ProfileFooter tribes={mockTribes} links={[]} info={mockInfo} />);
+    expect(screen.getByText(/None added/)).toBeInTheDocument();
+  });
+
+  it('shows settings link for empty links when viewing own profile', () => {
+    render(<ProfileFooter tribes={mockTribes} links={[]} info={mockInfo} isOwnProfile />);
+    const settingsLink = screen.getByText('Edit in settings');
+    expect(settingsLink).toBeInTheDocument();
+    expect(settingsLink.tagName).toBe('A');
+    expect(settingsLink).toHaveAttribute('href', '/settings');
+  });
+
+  it('does not show settings link for empty links when viewing other profile', () => {
+    render(<ProfileFooter tribes={mockTribes} links={[]} info={mockInfo} isOwnProfile={false} />);
+    expect(screen.queryByText('Edit in settings')).not.toBeInTheDocument();
   });
 
   it('handles empty info array', () => {

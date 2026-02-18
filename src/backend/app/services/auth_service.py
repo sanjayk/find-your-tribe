@@ -11,12 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ulid import ULID
 
+from app.config import settings
 from app.graphql.helpers import AuthError
 from app.models.enums import AvailabilityStatus, UserRole
 from app.models.user import RefreshToken, User, user_skills
 
-SECRET_KEY = "dev-secret-key-change-in-production"  # TODO: load from settings
-ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
@@ -32,7 +31,7 @@ def _create_access_token(user_id: str) -> str:
         "iat": datetime.now(UTC),
         "jti": str(ULID()),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
 def _create_refresh_token_pair() -> tuple[str, str]:
@@ -181,11 +180,23 @@ async def complete_onboarding(
     if headline is not None:
         user.headline = headline
     if primary_role is not None:
-        user.primary_role = UserRole(primary_role)
+        try:
+            user.primary_role = UserRole(primary_role.lower())
+        except ValueError:
+            raise AuthError(
+                f"Invalid primary role: {primary_role}",
+                code="VALIDATION_ERROR",
+            ) from None
     if timezone_str is not None:
         user.timezone = timezone_str
     if availability_status is not None:
-        user.availability_status = AvailabilityStatus(availability_status)
+        try:
+            user.availability_status = AvailabilityStatus(availability_status.lower())
+        except ValueError:
+            raise AuthError(
+                f"Invalid availability status: {availability_status}",
+                code="VALIDATION_ERROR",
+            ) from None
 
     if skill_ids:
         await session.execute(user_skills.delete().where(user_skills.c.user_id == user_id))

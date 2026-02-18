@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncGenerator
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -15,6 +16,25 @@ from app.main import app
 from app.models.enums import AvailabilityStatus, SkillCategory, UserRole
 from app.models.skill import Skill
 from app.models.user import User, user_skills
+
+
+def _make_test_database_url(url: str) -> str:
+    """Derive a test database URL by appending '_test' to the database name.
+
+    Parses the given database URL and modifies the path component to add
+    a '_test' suffix to the database name, ensuring tests never touch the
+    development database.
+
+    Args:
+        url: The original database URL.
+
+    Returns:
+        A new URL string pointing to the test database.
+    """
+    parsed = urlparse(url)
+    # parsed.path is like "/tribe" — append "_test"
+    test_path = parsed.path + "_test"
+    return urlunparse(parsed._replace(path=test_path))
 
 
 @pytest.fixture(autouse=True)
@@ -49,13 +69,14 @@ def test_database_url() -> str:
     """
     Test database URL.
 
-    Uses the same database as development but tests should use transaction rollback.
-    In production testing, you may want to use a separate test database.
+    Derives a separate test database by appending '_test' to the dev database
+    name. For example, 'tribe' becomes 'tribe_test'. This ensures tests never
+    destroy development data.
 
     Returns:
-        Database URL string for testing.
+        Database URL string for testing (e.g. postgresql+asyncpg://tribe:tribe@localhost:5433/tribe_test).
     """
-    return settings.database_url
+    return _make_test_database_url(settings.database_url)
 
 
 @pytest.fixture
@@ -64,7 +85,8 @@ async def async_engine(test_database_url: str) -> AsyncGenerator[AsyncEngine, No
     Create async engine for testing.
 
     Uses NullPool to avoid connection pooling issues in tests.
-    Each test gets a fresh engine instance.
+    Each test gets a fresh engine instance. Tables are created idempotently
+    with checkfirst=True at startup; no teardown drop is performed.
 
     Args:
         test_database_url: Database URL from test_database_url fixture.
@@ -78,15 +100,11 @@ async def async_engine(test_database_url: str) -> AsyncGenerator[AsyncEngine, No
         echo=False,  # Don't log SQL in tests (can be enabled for debugging)
     )
 
-    # Create all tables before yielding
+    # Create all tables idempotently (skips tables that already exist)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
 
     yield engine
-
-    # Drop all tables after tests
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
     await engine.dispose()
 

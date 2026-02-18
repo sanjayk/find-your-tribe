@@ -19,6 +19,8 @@ The gap: there is no professional network where your identity is defined by what
 
 ### Vision
 
+The best companies of the next decade will be built by small teams wielding AI. Find Your Tribe is the network they start from -- co-builders, first users, first customers. The new way to build a company.
+
 Find Your Tribe is a proof-of-work social network for builders. Your profile is your portfolio. Your reputation is earned through shipped projects and verified collaborations, not self-reported endorsements. Discovery is skill-based and artifact-driven. Teams -- tribes -- form around complementary skills and shared building goals, not job titles and company names.
 
 The platform answers one question: **What have you actually built, and who did you build it with?**

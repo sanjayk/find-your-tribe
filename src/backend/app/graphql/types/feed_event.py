@@ -1,14 +1,12 @@
 """Strawberry GraphQL type for FeedEvent model."""
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 import strawberry
 
 from app.models.enums import EventType
-
-if TYPE_CHECKING:
-    from app.graphql.types.user import UserType
 
 
 @strawberry.type
@@ -23,18 +21,16 @@ class FeedEventType:
     created_at: datetime
 
     @strawberry.field
-    def actor(self) -> "UserType":
+    def actor(self) -> UserType | None:
         """
         Lazy resolver for event actor.
 
-        This field will be implemented later with proper data loading logic.
-        For now, it returns a placeholder as the implementation requires
-        database context and data loaders.
+        Returns None until proper dataloaders are implemented.
+        The frontend extracts actor info from event metadata instead.
         """
         # TODO: Implement proper actor loading from database using dataloaders
-        # Placeholder - will be replaced with actual dataloader
-        raise NotImplementedError("Actor loading not yet implemented")
+        return None
 
 
-# Import after class definitions to avoid circular import at module level
-from app.graphql.types.user import UserType  # noqa: E402, F811
+# Import after class definition to avoid circular import at module level
+from app.graphql.types.user import UserType  # noqa: E402

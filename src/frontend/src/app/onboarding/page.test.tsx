@@ -62,6 +62,24 @@ describe('OnboardingPage', () => {
     expect(screen.getByLabelText('Availability')).toBeInTheDocument();
   });
 
+  it('renders timezone as a select with grouped options', () => {
+    render(<OnboardingPage />);
+    const timezoneSelect = screen.getByLabelText('Timezone') as HTMLSelectElement;
+    expect(timezoneSelect.tagName).toBe('SELECT');
+    // Should have the placeholder option and optgroups with timezone options
+    expect(screen.getByText('Select a timezone')).toBeInTheDocument();
+    // At minimum, America and Europe groups should exist
+    const optgroups = timezoneSelect.querySelectorAll('optgroup');
+    expect(optgroups.length).toBeGreaterThan(0);
+  });
+
+  it('auto-detects and pre-selects user timezone', () => {
+    render(<OnboardingPage />);
+    const timezoneSelect = screen.getByLabelText('Timezone') as HTMLSelectElement;
+    // Should be pre-filled with detected timezone (not empty placeholder)
+    expect(timezoneSelect.value).not.toBe('');
+  });
+
   it('renders a submit button', () => {
     render(<OnboardingPage />);
     expect(

@@ -30,9 +30,10 @@ class UserType:
     builder_score: float
     bio: str | None
     contact_links: strawberry.scalars.JSON
+    preferences: strawberry.scalars.JSON
     github_username: str | None
     onboarding_completed: bool
-    agent_tools: list[str]
+    agent_tools: strawberry.scalars.JSON
     agent_workflow_style: AgentWorkflowStyle | None
     human_agent_ratio: float | None
     created_at: datetime
@@ -101,6 +102,7 @@ class UserType:
             builder_score=user.builder_score,
             bio=user.bio,
             contact_links=user.contact_links,
+            preferences=user.preferences,
             github_username=user.github_username,
             onboarding_completed=user.onboarding_completed,
             agent_tools=user.agent_tools,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import { COMPLETE_ONBOARDING } from '@/lib/graphql/mutations/auth';
@@ -32,6 +32,33 @@ function detectTimezone(): string {
   }
 }
 
+function buildTimezoneGroups(): { region: string; zones: { value: string; label: string }[] }[] {
+  try {
+    const allZones = Intl.supportedValuesOf('timeZone');
+    const regionMap = new Map<string, { value: string; label: string }[]>();
+
+    for (const tz of allZones) {
+      const slash = tz.indexOf('/');
+      if (slash === -1) continue;
+
+      const region = tz.slice(0, slash);
+      const city = tz.slice(slash + 1).replaceAll('_', ' ').replaceAll('/', ' / ');
+
+      if (!regionMap.has(region)) regionMap.set(region, []);
+      regionMap.get(region)!.push({ value: tz, label: city });
+    }
+
+    return Array.from(regionMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([region, zones]) => ({
+        region,
+        zones: zones.sort((a, b) => a.label.localeCompare(b.label)),
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -42,6 +69,8 @@ export default function OnboardingPage() {
   const [timezone, setTimezone] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const timezoneGroups = useMemo(() => buildTimezoneGroups(), []);
 
   // Pre-fill display name from auth state and detect timezone
   useEffect(() => {
@@ -162,14 +191,23 @@ export default function OnboardingPage() {
               >
                 Timezone
               </label>
-              <input
+              <select
                 id="timezone"
-                type="text"
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                placeholder="America/New_York"
-                className="w-full bg-surface-primary rounded-lg px-4 py-3 text-[14px] text-ink placeholder:text-ink-tertiary outline-none transition-colors focus:ring-2 focus:ring-accent/30"
-              />
+                className={selectClasses}
+              >
+                <option value="">Select a timezone</option>
+                {timezoneGroups.map((group) => (
+                  <optgroup key={group.region} label={group.region}>
+                    {group.zones.map((tz) => (
+                      <option key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
 
             <div>

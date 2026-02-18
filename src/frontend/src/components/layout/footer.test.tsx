@@ -9,7 +9,7 @@ describe('Footer', () => {
 
   it('renders logo text "find your tribe"', () => {
     render(<Footer />);
-    expect(screen.getByText('find your tribe')).toBeInTheDocument();
+    expect(screen.getByText('find your tribe.')).toBeInTheDocument();
   });
 
   it('renders tagline "Clout through building, not posting."', () => {
@@ -50,7 +50,7 @@ describe('Footer', () => {
 
   it('renders logo with serif font', () => {
     render(<Footer />);
-    const logo = screen.getByText('find your tribe');
+    const logo = screen.getByText('find your tribe.');
     expect(logo.className).toContain('font-serif');
   });
 

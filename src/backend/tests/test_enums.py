@@ -169,10 +169,12 @@ class TestEventType:
         assert EventType.TRIBE_CREATED == "tribe_created"
         assert EventType.MEMBER_JOINED_TRIBE == "member_joined_tribe"
         assert EventType.BUILDER_JOINED == "builder_joined"
+        assert EventType.PROJECT_UPDATE == "project_update"
+        assert EventType.TRIBE_ANNOUNCEMENT == "tribe_announcement"
 
     def test_value_count(self):
-        """EventType should have exactly 6 values."""
-        assert len(EventType) == 6
+        """EventType should have exactly 8 values."""
+        assert len(EventType) == 8
 
 
 class TestSkillCategory:

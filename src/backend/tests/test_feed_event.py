@@ -198,6 +198,8 @@ def test_event_type_enum_values():
         "TRIBE_CREATED",
         "MEMBER_JOINED_TRIBE",
         "BUILDER_JOINED",
+        "PROJECT_UPDATE",
+        "TRIBE_ANNOUNCEMENT",
     }
 
     actual_types = {member.name for member in EventType}

@@ -242,7 +242,7 @@ async def test_seed_users_skills_relationships():
             await session.refresh(maya, ["skills"])
             maya_skill_names = {skill.name for skill in maya.skills}
 
-            expected_maya_skills = {"React", "Python", "PostgreSQL", "FastAPI", "TypeScript", "GraphQL"}
+            expected_maya_skills = {"React", "Python", "PostgreSQL", "FastAPI", "System Design", "Machine Learning", "DevOps", "Product Strategy"}
             assert maya_skill_names == expected_maya_skills
 
             # James Okafor should have Figma, UI/UX, Prototyping

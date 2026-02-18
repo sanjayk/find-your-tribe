@@ -94,8 +94,8 @@ describe('GraphQL types', () => {
     });
 
     it('MemberStatus accepts valid values', () => {
-      const statuses: MemberStatus[] = ['ACTIVE', 'PENDING', 'REJECTED'];
-      expect(statuses).toHaveLength(3);
+      const statuses: MemberStatus[] = ['ACTIVE', 'PENDING', 'REJECTED', 'LEFT', 'REMOVED'];
+      expect(statuses).toHaveLength(5);
     });
 
     it('AgentWorkflowStyle accepts valid values', () => {
@@ -114,12 +114,13 @@ describe('GraphQL types', () => {
         'PROJECT_SHIPPED',
         'PROJECT_CREATED',
         'PROJECT_UPDATE',
-        'TRIBE_FORMED',
+        'TRIBE_CREATED',
         'TRIBE_ANNOUNCEMENT',
-        'COLLABORATOR_JOINED',
+        'COLLABORATION_CONFIRMED',
+        'MEMBER_JOINED_TRIBE',
         'BUILDER_JOINED',
       ];
-      expect(types).toHaveLength(7);
+      expect(types).toHaveLength(8);
     });
   });
 
@@ -268,6 +269,7 @@ describe('GraphQL types', () => {
         agentTools: ['Claude Code', 'Cursor'],
         agentWorkflowStyle: 'PAIR',
         humanAgentRatio: 40,
+        preferences: {},
         createdAt: '2024-01-01T00:00:00Z',
         skills: [],
         projects: [],
@@ -324,6 +326,7 @@ describe('GraphQL types', () => {
           agentTools: [],
           agentWorkflowStyle: null,
           humanAgentRatio: null,
+          preferences: {},
           createdAt: '',
           skills: [],
           projects: [],

@@ -16,13 +16,14 @@ import type {
   BurnDay as BurnDayType,
 } from '@/lib/graphql/types';
 import { BurnHeatmap, type BurnDay } from '@/components/features/burn-heatmap';
-import { AgentPanel, type AgentTool } from '@/components/features/agent-panel';
+import { AgentPanel } from '@/components/features/agent-panel';
 import { ProofCard } from '@/components/features/proof-card';
 import type { BurnReceiptProps } from '@/components/features/burn-receipt';
 import { WitnessCredits, type Witness } from '@/components/features/witness-credits';
 import { ProfileFooter, type TribeItem, type LinkItem, type InfoItem } from '@/components/features/profile-footer';
 import { DomainTags } from '@/components/features/domain-tags';
-import { Package } from 'lucide-react';
+import { Package, Pencil } from 'lucide-react';
+import Link from 'next/link';
 
 /* ─── Helpers ─── */
 
@@ -124,25 +125,6 @@ function deriveDomains(builder: Builder): string[] {
     .map((c) => CATEGORY_DOMAINS[c])
     .filter(Boolean)
     .slice(0, 4);
-}
-
-/* ─── Agent tools mapping ─── */
-
-const AGENT_TOOL_CAPABILITIES: Record<string, string> = {
-  'Claude Code': 'backend, testing',
-  'Claude': 'backend, testing',
-  'Cursor': 'frontend, full-stack',
-  'v0': 'UI prototyping',
-  'GitHub Copilot': 'autocomplete',
-  'Windsurf': 'full-stack',
-  'Devin': 'autonomous tasks',
-};
-
-function mapAgentTools(tools: string[]): AgentTool[] {
-  return tools.map((name) => ({
-    name,
-    capabilities: AGENT_TOOL_CAPABILITIES[name] || '',
-  }));
 }
 
 /* ─── Witness extraction ─── */
@@ -327,11 +309,28 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
     ? builder.projects.filter((p) => p.id !== heroProject.id).slice(0, 6)
     : [];
 
-  // Agent panel data
-  const agentTools = mapAgentTools(builder.agentTools || []);
-  const workflowStyle = builder.agentWorkflowStyle
-    ? WORKFLOW_LABELS[builder.agentWorkflowStyle]
-    : 'Pair builder';
+  // Agent panel data — handle both structured and legacy flat array
+  const rawTools = builder.agentTools;
+  let agentEditors: string[] = [];
+  let agentAgents: string[] = [];
+  let agentModels: string[] = [];
+  let agentWorkflowStyles: string[] = [];
+  let agentSetupNote: string | undefined;
+  if (rawTools && typeof rawTools === 'object' && !Array.isArray(rawTools)) {
+    agentEditors = rawTools.editors || [];
+    agentAgents = rawTools.agents || [];
+    agentModels = rawTools.models || [];
+    agentWorkflowStyles = rawTools.workflowStyles || [];
+    agentSetupNote = rawTools.setupNote;
+  } else if (Array.isArray(rawTools)) {
+    agentAgents = rawTools;
+  }
+  // Backward compat: migrate old agentWorkflowStyle
+  if (!agentWorkflowStyles.length && builder.agentWorkflowStyle) {
+    const mapped = WORKFLOW_LABELS[builder.agentWorkflowStyle];
+    if (mapped) agentWorkflowStyles = [mapped];
+  }
+  const hasAgentData = !!(agentEditors.length || agentAgents.length || agentModels.length);
   const humanRatio = builder.humanAgentRatio !== null && builder.humanAgentRatio !== undefined
     ? Math.round(builder.humanAgentRatio * 100)
     : 50;
@@ -348,7 +347,7 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
   return (
     <div className="mx-auto max-w-[1080px] px-5 md:px-6 pb-12 md:pb-16">
       {/* ─── HERO SECTION ─── */}
-      <section className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 lg:gap-12 items-start pt-10 lg:pt-14 pb-8 lg:pb-10">
+      <section className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 sm:gap-8 lg:gap-12 items-start pt-10 lg:pt-14 pb-8 lg:pb-10">
         {/* Left: Identity */}
         <div>
           {/* Avatar */}
@@ -359,7 +358,7 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
           </div>
 
           {/* Name */}
-          <h1 className="font-serif text-[40px] leading-[1.1] tracking-[-0.01em]">
+          <h1 className="font-serif text-[28px] sm:text-[40px] leading-[1.1] tracking-[-0.01em]">
             {builder.displayName}
           </h1>
 
@@ -368,11 +367,37 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
             @{builder.username}
           </p>
 
-          {/* Headline */}
+          {/* Headline + Bio */}
           {builder.headline && (
             <p className="text-[15px] text-ink-secondary leading-[1.6] mt-3">
               {builder.headline}
             </p>
+          )}
+          {builder.bio && (
+            <>
+              {builder.headline && <div className="w-6 h-px bg-ink-tertiary/30 mt-3 mb-2.5" />}
+              <p className={`text-[13px] text-ink-tertiary leading-relaxed ${!builder.headline ? 'mt-3' : ''}`}>
+                {builder.bio}
+              </p>
+            </>
+          )}
+          {!builder.headline && !builder.bio && (
+            <div className="mt-3">
+              <p className="text-[13px] text-ink-tertiary leading-relaxed">
+                {isOwnProfile
+                  ? 'Tell the community what you build and how you work.'
+                  : "This builder hasn\u2019t shared their story yet. Check back soon."}
+              </p>
+              {isOwnProfile && (
+                <Link
+                  href={`/settings`}
+                  className="inline-flex items-center gap-1.5 text-[13px] text-accent font-medium mt-2 hover:text-accent-hover transition-colors"
+                >
+                  <Pencil size={13} strokeWidth={2} />
+                  Complete profile
+                </Link>
+              )}
+            </div>
           )}
 
           {/* Availability badge */}
@@ -394,7 +419,7 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
         </div>
 
         {/* Right: Burn + Agent Panel */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 min-w-0">
           <BurnHeatmap
             dailyActivity={dailyActivity}
             stats={{
@@ -404,15 +429,22 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
               shipped: `${shippedCount} / ${totalProjects}`,
             }}
           />
-          {agentTools.length > 0 && (
-            <AgentPanel
-              tools={agentTools}
-              workflowStyle={workflowStyle}
-              humanRatio={humanRatio}
-            />
-          )}
         </div>
       </section>
+
+      {/* ─── HOW I BUILD (full-width strip) ─── */}
+      {hasAgentData && (
+        <section className="mt-2 mb-6">
+          <AgentPanel
+            editors={agentEditors}
+            agents={agentAgents}
+            models={agentModels}
+            workflowStyles={agentWorkflowStyles}
+            humanRatio={humanRatio}
+            setupNote={agentSetupNote}
+          />
+        </section>
+      )}
 
       {/* ─── PROOF OF WORK ─── */}
       {builder.projects.length > 0 && (
@@ -429,7 +461,7 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
                 title={heroProject.title}
                 description={heroProject.description || ''}
                 status={heroProject.status === 'SHIPPED' ? 'shipped' : 'in_progress'}
-                agentTools={builder.agentTools}
+                agentTools={agentAgents}
                 builders={(heroProject.collaborators || [])
                   .filter((c) => c.user.username !== builder.username)
                   .slice(0, 5)

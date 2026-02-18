@@ -101,14 +101,14 @@ describe('WitnessCredits', () => {
     expect(screen.queryByTestId('middot-separator')).not.toBeInTheDocument();
   });
 
-  it('renders the "WITNESSED BY" section label', () => {
+  it('renders the "COLLABORATORS" section label', () => {
     render(<WitnessCredits witnesses={mockWitnesses} />);
-    expect(screen.getByText(/witnessed by/i)).toBeInTheDocument();
+    expect(screen.getByText(/collaborators/i)).toBeInTheDocument();
   });
 
   it('applies accent-line class for the section label', () => {
     render(<WitnessCredits witnesses={mockWitnesses} />);
-    const label = screen.getByText(/witnessed by/i);
+    const label = screen.getByText(/collaborators/i);
     expect(label.className).toContain('accent-line');
   });
 

@@ -41,6 +41,7 @@ async def update_profile(
     agent_tools: list[str] | None = None,
     agent_workflow_style: str | None = None,
     human_agent_ratio: float | None = None,
+    preferences: dict | None = None,
 ) -> User:
     """Update profile fields. Only non-None values are applied."""
     user = await get_by_id(session, user_id)
@@ -50,23 +51,53 @@ async def update_profile(
     if display_name is not None:
         user.display_name = display_name
     if headline is not None:
-        user.headline = headline
+        if headline == '':
+            user.headline = None
+        else:
+            if len(headline) > 60:
+                raise ValueError("Headline must be 60 characters or fewer")
+            user.headline = headline
     if bio is not None:
-        user.bio = bio
+        if bio == '':
+            user.bio = None
+        else:
+            if len(bio) > 160:
+                raise ValueError("Bio must be 160 characters or fewer")
+            user.bio = bio
     if primary_role is not None:
-        user.primary_role = UserRole(primary_role)
+        try:
+            user.primary_role = UserRole(primary_role.lower())
+        except ValueError:
+            raise ValueError(
+                f"Invalid primary role: {primary_role}. "
+                f"Valid values: {', '.join(e.name for e in UserRole)}"
+            ) from None
     if timezone is not None:
         user.timezone = timezone
     if availability_status is not None:
-        user.availability_status = AvailabilityStatus(availability_status)
+        try:
+            user.availability_status = AvailabilityStatus(availability_status.lower())
+        except ValueError:
+            raise ValueError(
+                f"Invalid availability status: {availability_status}. "
+                f"Valid values: {', '.join(e.name for e in AvailabilityStatus)}"
+            ) from None
     if contact_links is not None:
         user.contact_links = contact_links
     if agent_tools is not None:
         user.agent_tools = agent_tools
     if agent_workflow_style is not None:
-        user.agent_workflow_style = AgentWorkflowStyle(agent_workflow_style)
+        try:
+            user.agent_workflow_style = AgentWorkflowStyle(agent_workflow_style.lower())
+        except ValueError:
+            raise ValueError(
+                f"Invalid agent workflow style: {agent_workflow_style}. "
+                f"Valid values: {', '.join(e.name for e in AgentWorkflowStyle)}"
+            ) from None
     if human_agent_ratio is not None:
         user.human_agent_ratio = human_agent_ratio
+    if preferences is not None:
+        user.preferences = preferences
 
     await session.commit()
     await session.refresh(user)

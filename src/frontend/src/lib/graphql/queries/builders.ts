@@ -18,6 +18,7 @@ export const GET_BUILDER = gql`
       agentTools
       agentWorkflowStyle
       humanAgentRatio
+      preferences
       createdAt
       skills {
         id

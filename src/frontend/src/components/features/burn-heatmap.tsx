@@ -125,12 +125,13 @@ export function BurnHeatmap({ dailyActivity, stats }: BurnHeatmapProps) {
       </div>
 
       {/* White card — contains grid, months, stats */}
-      <div className="bg-surface-elevated shadow-sm p-6 rounded-[16px]">
+      <div className="bg-surface-elevated shadow-sm p-6 rounded-[16px] overflow-hidden">
         {/* Heatmap grid */}
         <div className="overflow-x-auto">
-        <div className="flex gap-[3px]" data-testid="heatmap-grid">
+        <div className="min-w-[620px]">
+        <div className="grid grid-cols-[repeat(52,1fr)] gap-[2px]" data-testid="heatmap-grid">
           {columns.map((col, w) => (
-            <div key={w} className="flex flex-col gap-[3px]">
+            <div key={w} className="flex flex-col gap-[2px]">
               {col.map((cell) => (
                 <div
                   key={cell.date}
@@ -138,7 +139,7 @@ export function BurnHeatmap({ dailyActivity, stats }: BurnHeatmapProps) {
                   data-level={cell.level}
                   data-testid="heatmap-cell"
                   title={cell.date}
-                  className={`w-[11px] h-[11px] rounded-full transition-transform duration-100 cursor-pointer hover:scale-[1.4] ${getCellClass(cell.level)}`}
+                  className={`aspect-square rounded-full transition-transform duration-100 cursor-pointer hover:scale-[1.4] ${getCellClass(cell.level)}`}
                   style={getCellStyle(cell.level)}
                 />
               ))}
@@ -147,7 +148,7 @@ export function BurnHeatmap({ dailyActivity, stats }: BurnHeatmapProps) {
         </div>
 
         {/* Month labels */}
-        <div className="relative mt-2" style={{ height: '14px', minWidth: 'fit-content' }} aria-label="month labels">
+        <div className="relative mt-2" style={{ height: '14px' }} aria-label="month labels">
           {monthLabels.map(({ label, colIndex }) => (
             <span
               key={`${label}-${colIndex}`}
@@ -160,6 +161,7 @@ export function BurnHeatmap({ dailyActivity, stats }: BurnHeatmapProps) {
               {label}
             </span>
           ))}
+        </div>
         </div>
         </div>
 

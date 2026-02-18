@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime
 
-import pytest
 import strawberry
 
 from app.graphql.types.feed_event import FeedEventType
@@ -109,8 +108,8 @@ def test_feed_event_type_with_empty_metadata():
     assert feed_event.created_at == now
 
 
-def test_feed_event_type_actor_raises_not_implemented():
-    """Test that actor field raises NotImplementedError (placeholder)."""
+def test_feed_event_type_actor_returns_none():
+    """Test that actor field returns None (placeholder until dataloaders)."""
     now = datetime.now(UTC)
 
     feed_event = FeedEventType(
@@ -122,9 +121,8 @@ def test_feed_event_type_actor_raises_not_implemented():
         created_at=now,
     )
 
-    # The actor field should raise NotImplementedError as it's a placeholder
-    with pytest.raises(NotImplementedError, match="Actor loading not yet implemented"):
-        feed_event.actor()
+    # The actor field returns None until proper dataloaders are implemented
+    assert feed_event.actor() is None
 
 
 def test_all_event_type_values():

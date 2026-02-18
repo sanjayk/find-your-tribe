@@ -13,9 +13,10 @@ const EVENT_LABELS: Record<EventType, string> = {
   PROJECT_SHIPPED: 'Shipped',
   PROJECT_CREATED: 'Started Building',
   PROJECT_UPDATE: 'Project Update',
-  TRIBE_FORMED: 'Tribe Formed',
+  TRIBE_CREATED: 'Tribe Formed',
   TRIBE_ANNOUNCEMENT: 'Tribe Announcement',
-  COLLABORATOR_JOINED: 'Collaborator Joined',
+  COLLABORATION_CONFIRMED: 'Collaborator Joined',
+  MEMBER_JOINED_TRIBE: 'Member Joined',
   BUILDER_JOINED: 'Builder Joined',
 };
 
@@ -50,7 +51,7 @@ function eventLabelColor(eventType: EventType): string {
     case 'PROJECT_SHIPPED':
       return 'text-shipped';
     case 'PROJECT_CREATED':
-    case 'COLLABORATOR_JOINED':
+    case 'COLLABORATION_CONFIRMED':
       return 'text-in-progress';
     case 'PROJECT_UPDATE':
     case 'TRIBE_ANNOUNCEMENT':
@@ -84,7 +85,7 @@ function eventDescription(event: FeedEvent): string {
       const project = (meta.project_title as string) || '';
       return project ? `Update on ${project}` : 'Project update';
     }
-    case 'TRIBE_FORMED': {
+    case 'TRIBE_CREATED': {
       const actor = (meta.actor_name as string) || '';
       const tribe = (meta.tribe_name as string) || '';
       if (actor && tribe) return `${actor} formed ${tribe}`;
@@ -97,12 +98,19 @@ function eventDescription(event: FeedEvent): string {
       const tribe = (meta.tribe_name as string) || '';
       return tribe ? `Announcement from ${tribe}` : 'Tribe announcement';
     }
-    case 'COLLABORATOR_JOINED': {
+    case 'COLLABORATION_CONFIRMED': {
       const actor = (meta.actor_name as string) || '';
       const project = (meta.project_title as string) || '';
       if (actor && project) return `${actor} joined ${project} as collaborator`;
       if (actor) return `${actor} joined a project`;
       return 'A collaborator joined a project';
+    }
+    case 'MEMBER_JOINED_TRIBE': {
+      const member = (meta.member_name as string) || '';
+      const tribe = (meta.tribe_name as string) || '';
+      if (member && tribe) return `${member} joined ${tribe}`;
+      if (tribe) return `New member joined ${tribe}`;
+      return 'A member joined a tribe';
     }
     case 'BUILDER_JOINED': {
       const actor = (meta.actor_name as string) || '';
@@ -140,7 +148,7 @@ function FeedSkeleton() {
 
 function FeedEmpty() {
   return (
-    <div className="rounded-xl bg-surface-secondary p-16 text-center" data-testid="feed-empty">
+    <div className="rounded-xl bg-surface-secondary p-8 sm:p-16 text-center" data-testid="feed-empty">
       <p className="font-serif text-xl text-ink mb-2">Nothing here yet</p>
       <p className="text-[14px] text-ink-tertiary leading-relaxed max-w-sm mx-auto">
         When builders ship projects, form tribes, and share updates, it all shows up here.
@@ -153,7 +161,7 @@ function FeedEmpty() {
 
 function FeedError() {
   return (
-    <div className="rounded-xl bg-surface-secondary p-16 text-center" data-testid="feed-error">
+    <div className="rounded-xl bg-surface-secondary p-8 sm:p-16 text-center" data-testid="feed-error">
       <p className="font-serif text-xl text-ink mb-2">Couldn&apos;t load the feed</p>
       <p className="text-[14px] text-ink-tertiary leading-relaxed max-w-sm mx-auto">
         Something went wrong fetching recent activity. Try refreshing the page.
@@ -221,7 +229,7 @@ export default function FeedPage() {
     <div className="mx-auto max-w-[720px] px-5 md:px-6 py-12 md:py-16">
       {/* ─── Page Header ─── */}
       <header className="mb-10">
-        <h1 className="font-serif text-[40px] leading-[1.1] tracking-[-0.01em] text-ink">
+        <h1 className="font-serif text-[28px] sm:text-[40px] leading-[1.1] tracking-[-0.01em] text-ink">
           The Feed
         </h1>
         <p className="text-[15px] text-ink-tertiary mt-2 leading-relaxed">

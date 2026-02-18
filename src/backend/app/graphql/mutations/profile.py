@@ -24,9 +24,10 @@ class ProfileMutations:
         timezone: str | None = None,
         availability_status: str | None = None,
         contact_links: strawberry.scalars.JSON | None = None,
-        agent_tools: list[str] | None = None,
+        agent_tools: strawberry.scalars.JSON | None = None,
         agent_workflow_style: str | None = None,
         human_agent_ratio: float | None = None,
+        preferences: strawberry.scalars.JSON | None = None,
     ) -> UserType:
         """Update the authenticated user's profile fields."""
         user_id = require_auth(info)
@@ -44,6 +45,7 @@ class ProfileMutations:
             agent_tools=agent_tools,
             agent_workflow_style=agent_workflow_style,
             human_agent_ratio=human_agent_ratio,
+            preferences=preferences,
         )
         return UserType.from_model(user)
 

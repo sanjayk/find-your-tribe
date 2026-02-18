@@ -37,6 +37,14 @@ export type AgentWorkflowStyle =
   | 'AUTONOMOUS'
   | 'MINIMAL';
 
+export interface AgentSetup {
+  editors?: string[];
+  agents?: string[];
+  models?: string[];
+  workflowStyles?: string[];
+  setupNote?: string;
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -117,6 +125,23 @@ export interface Tribe {
   openRoles: OpenRole[];
 }
 
+export interface NotificationPrefs {
+  tribeInvites?: boolean;
+  projectUpdates?: boolean;
+  weeklyDigest?: boolean;
+}
+
+export interface PrivacyPrefs {
+  profileVisibility?: 'public' | 'tribe_only' | 'hidden';
+  showTimezone?: boolean;
+  showAgentSetup?: boolean;
+}
+
+export interface Preferences {
+  notifications?: NotificationPrefs;
+  privacy?: PrivacyPrefs;
+}
+
 export interface Builder {
   id: string;
   username: string;
@@ -130,9 +155,10 @@ export interface Builder {
   bio: string | null;
   contactLinks: Record<string, string>;
   githubUsername: string | null;
-  agentTools: string[];
+  agentTools: AgentSetup | string[];
   agentWorkflowStyle: AgentWorkflowStyle | null;
   humanAgentRatio: number | null;
+  preferences: Preferences;
   createdAt: string;
   skills: Skill[];
   projects: Project[];
@@ -260,9 +286,10 @@ export interface UpdateProfileData {
       timezone: string | null;
       availabilityStatus: AvailabilityStatus;
       contactLinks: Record<string, string>;
-      agentTools: string[];
+      agentTools: AgentSetup | string[];
       agentWorkflowStyle: AgentWorkflowStyle | null;
       humanAgentRatio: number | null;
+      preferences: Preferences;
     };
   };
 }

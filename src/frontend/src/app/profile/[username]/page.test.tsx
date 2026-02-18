@@ -69,9 +69,10 @@ const mockBuilder = {
   bio: 'Building cool things.',
   contactLinks: { X: 'https://x.com/maya_ships', Portfolio: 'https://mayachen.dev' },
   githubUsername: 'mayachen',
-  agentTools: ['Claude Code', 'Cursor'],
-  agentWorkflowStyle: 'pair',  // backend sends lowercase enum values
+  agentTools: { editors: ['Cursor'], agents: ['Claude Code'], models: ['Claude Sonnet'], workflowStyles: ['Pair builder'], setupNote: 'I pair with Claude all day' },
+  agentWorkflowStyle: null,
   humanAgentRatio: 0.45,
+  preferences: {},
   createdAt: '2025-01-01T00:00:00Z',
   skills: [
     { id: '1', name: 'React', slug: 'react', category: 'ENGINEERING' },
@@ -181,6 +182,77 @@ describe('ProfilePage', () => {
       </MockedProvider>,
     );
     expect(await screen.findByText('Full-stack engineer building with AI')).toBeInTheDocument();
+  });
+
+  it('renders bio below headline', async () => {
+    render(
+      <MockedProvider mocks={mocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    expect(await screen.findByText('Building cool things.')).toBeInTheDocument();
+  });
+
+  it('hides bio when not provided', async () => {
+    const noBioBuilder = { ...mockBuilder, bio: null };
+    const noBioMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: noBioBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={noBioMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Maya Chen');
+    expect(screen.queryByText('Building cool things.')).not.toBeInTheDocument();
+  });
+
+  it('shows own-profile nudge when headline and bio are both empty', async () => {
+    mockAuthUser = {
+      id: '1',
+      username: 'mayachen',
+      displayName: 'Maya Chen',
+      email: 'maya@test.com',
+      onboardingCompleted: true,
+    };
+    const emptyBuilder = { ...mockBuilder, headline: null, bio: null };
+    const emptyMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: emptyBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={emptyMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Maya Chen');
+    expect(screen.getByText('Tell the community what you build and how you work.')).toBeInTheDocument();
+    expect(screen.getByText('Complete profile')).toBeInTheDocument();
+    expect(screen.getByText('Complete profile').closest('a')).toHaveAttribute('href', '/settings');
+  });
+
+  it('shows visitor placeholder when headline and bio are empty on another profile', async () => {
+    mockAuthUser = null;
+    const emptyBuilder = { ...mockBuilder, headline: null, bio: null };
+    const emptyMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: emptyBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={emptyMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Maya Chen');
+    expect(screen.getByText(/hasn\u2019t shared their story yet/)).toBeInTheDocument();
+    expect(screen.queryByText('Complete profile')).not.toBeInTheDocument();
   });
 
   it('renders the burn heatmap', async () => {

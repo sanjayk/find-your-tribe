@@ -9,9 +9,10 @@ export const UPDATE_PROFILE = gql`
     $timezone: String
     $availabilityStatus: String
     $contactLinks: JSON
-    $agentTools: [String!]
+    $agentTools: JSON
     $agentWorkflowStyle: String
     $humanAgentRatio: Float
+    $preferences: JSON
   ) {
     profile {
       updateProfile(
@@ -25,6 +26,7 @@ export const UPDATE_PROFILE = gql`
         agentTools: $agentTools
         agentWorkflowStyle: $agentWorkflowStyle
         humanAgentRatio: $humanAgentRatio
+        preferences: $preferences
       ) {
         id
         username
@@ -39,6 +41,7 @@ export const UPDATE_PROFILE = gql`
         agentTools
         agentWorkflowStyle
         humanAgentRatio
+        preferences
       }
     }
   }
