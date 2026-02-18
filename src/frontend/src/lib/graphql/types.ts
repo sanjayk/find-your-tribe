@@ -28,7 +28,7 @@ export type TribeStatus = 'OPEN' | 'ACTIVE' | 'ALUMNI';
 
 export type MemberRole = 'OWNER' | 'MEMBER';
 
-export type MemberStatus = 'ACTIVE' | 'PENDING' | 'REJECTED';
+export type MemberStatus = 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | 'REMOVED';
 
 export type AgentWorkflowStyle =
   | 'PAIR'
@@ -151,9 +151,10 @@ export type EventType =
   | 'PROJECT_SHIPPED'
   | 'PROJECT_CREATED'
   | 'PROJECT_UPDATE'
-  | 'TRIBE_FORMED'
+  | 'TRIBE_CREATED'
   | 'TRIBE_ANNOUNCEMENT'
-  | 'COLLABORATOR_JOINED'
+  | 'COLLABORATION_CONFIRMED'
+  | 'MEMBER_JOINED_TRIBE'
   | 'BUILDER_JOINED';
 
 export interface FeedEvent {
@@ -175,6 +176,37 @@ export interface AuthPayload {
     email: string;
     onboardingCompleted: boolean;
   };
+}
+
+// Burn activity types
+export interface BurnDay {
+  date: string;
+  tokens: number;
+}
+
+export interface BurnSummary {
+  daysActive: number;
+  totalTokens: number;
+  activeWeeks: number;
+  totalWeeks: number;
+  weeklyStreak: number;
+  dailyActivity: BurnDay[];
+}
+
+export interface BurnReceipt {
+  projectId: string;
+  totalTokens: number;
+  durationWeeks: number;
+  peakWeekTokens: number;
+  dailyActivity: BurnDay[];
+}
+
+export interface GetBurnSummaryData {
+  burnSummary: BurnSummary | null;
+}
+
+export interface GetBurnReceiptData {
+  burnReceipt: BurnReceipt | null;
 }
 
 // Query response types
@@ -213,4 +245,24 @@ export interface RefreshTokenData {
 
 export interface LogoutData {
   auth: { logout: boolean };
+}
+
+export interface UpdateProfileData {
+  profile: {
+    updateProfile: {
+      id: string;
+      username: string;
+      displayName: string;
+      avatarUrl: string | null;
+      headline: string | null;
+      bio: string | null;
+      primaryRole: UserRole | null;
+      timezone: string | null;
+      availabilityStatus: AvailabilityStatus;
+      contactLinks: Record<string, string>;
+      agentTools: string[];
+      agentWorkflowStyle: AgentWorkflowStyle | null;
+      humanAgentRatio: number | null;
+    };
+  };
 }
