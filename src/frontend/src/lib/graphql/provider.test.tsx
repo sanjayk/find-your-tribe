@@ -1,21 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
-// Use vi.hoisted so the mock client is created before the hoisted vi.mock runs
-const { mockClient } = vi.hoisted(() => {
-  const { ApolloClient, InMemoryCache, HttpLink } = require('@apollo/client');
+// Mock the client module with an async factory that creates a real ApolloClient
+vi.mock('./client', async () => {
+  const { ApolloClient, InMemoryCache, HttpLink } = await import('@apollo/client');
   return {
-    mockClient: new ApolloClient({
+    apolloClient: new ApolloClient({
       link: new HttpLink({ uri: 'http://localhost:0/graphql' }),
       cache: new InMemoryCache(),
     }),
   };
 });
-
-// Mock the client module to return our test client
-vi.mock('./client', () => ({
-  apolloClient: mockClient,
-}));
 
 import { GraphQLProvider } from './provider';
 import { useApolloClient } from '@apollo/client/react';

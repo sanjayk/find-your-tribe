@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import { COMPLETE_ONBOARDING } from '@/lib/graphql/mutations/auth';
@@ -63,22 +63,14 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState(() => user?.displayName || '');
   const [headline, setHeadline] = useState('');
   const [primaryRole, setPrimaryRole] = useState('');
-  const [timezone, setTimezone] = useState('');
+  const [timezone, setTimezone] = useState(detectTimezone);
   const [availabilityStatus, setAvailabilityStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const timezoneGroups = useMemo(() => buildTimezoneGroups(), []);
-
-  // Pre-fill display name from auth state and detect timezone
-  useEffect(() => {
-    if (user?.displayName) {
-      setDisplayName(user.displayName);
-    }
-    setTimezone(detectTimezone());
-  }, [user]);
 
   const [completeOnboarding, { loading }] = useMutation(COMPLETE_ONBOARDING, {
     onCompleted: () => {

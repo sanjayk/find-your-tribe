@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface AuthUser {
@@ -20,35 +20,25 @@ interface AuthState {
 
 const STORAGE_KEY = 'tribe_auth';
 
+function loadStoredAuth(): AuthState {
+  if (typeof window === 'undefined') {
+    return { user: null, accessToken: null, isAuthenticated: false, isLoading: true };
+  }
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      return { user: parsed.user, accessToken: parsed.accessToken, isAuthenticated: true, isLoading: false };
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }
+  return { user: null, accessToken: null, isAuthenticated: false, isLoading: false };
+}
+
 export function useAuth() {
   const router = useRouter();
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    accessToken: null,
-    isAuthenticated: false,
-    isLoading: true,
-  });
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setState({
-          user: parsed.user,
-          accessToken: parsed.accessToken,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-        setState((prev) => ({ ...prev, isLoading: false }));
-      }
-    } else {
-      setState((prev) => ({ ...prev, isLoading: false }));
-    }
-  }, []);
+  const [state, setState] = useState<AuthState>(loadStoredAuth);
 
   const login = useCallback(
     (data: { accessToken: string; refreshToken: string; user: AuthUser }) => {

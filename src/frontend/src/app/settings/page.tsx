@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react';
+import { useState, useMemo, useRef, type FormEvent } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -209,18 +209,17 @@ export default function SettingsPage() {
   const [showAgentSetup, setShowAgentSetup] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [populated, setPopulated] = useState(false);
+  const populatedRef = useRef(false);
 
   const timezoneGroups = useMemo(() => buildTimezoneGroups(), []);
 
-  const { data, loading: queryLoading } = useQuery<GetBuilderData>(GET_BUILDER, {
+  const { loading: queryLoading } = useQuery<GetBuilderData>(GET_BUILDER, {
     variables: { username: user?.username },
     skip: !user?.username,
-  });
-
-  useEffect(() => {
-    if (data?.user && !populated) {
-      const builder = data.user;
+    onCompleted: (result) => {
+      if (!result?.user || populatedRef.current) return;
+      populatedRef.current = true;
+      const builder = result.user;
       setDisplayName(builder.displayName || '');
       setHeadline(builder.headline || '');
       setBio(builder.bio || '');
@@ -286,9 +285,8 @@ export default function SettingsPage() {
         if (prefs.privacy.showTimezone !== undefined) setShowTimezone(prefs.privacy.showTimezone);
         if (prefs.privacy.showAgentSetup !== undefined) setShowAgentSetup(prefs.privacy.showAgentSetup);
       }
-      setPopulated(true);
-    }
-  }, [data, populated]);
+    },
+  });
 
   const [updateProfile, { loading: saving }] = useMutation<UpdateProfileData>(UPDATE_PROFILE, {
     onCompleted: () => {
