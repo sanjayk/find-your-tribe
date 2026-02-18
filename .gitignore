@@ -39,9 +39,7 @@ node_modules/
 CLAUDE.md
 
 # Tribe runtime state
-.tribe/logs/
-.tribe/state.json
-.tribe/budget.json
+.tribe/
 
 # Local-only directories
 playground/
