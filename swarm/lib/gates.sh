@@ -23,6 +23,21 @@ gates_run() {
         return 0
     fi
 
+    # Checkout the task branch so gates run against the correct code
+    # (parallel agents share a single working tree — without this,
+    #  gates may check whichever branch another agent last checked out)
+    local _gate_branch=""
+    if [[ -n "$task_id" ]]; then
+        local _task_file="${TASKS_DIR}/${task_id}.json"
+        if [[ -f "$_task_file" ]]; then
+            _gate_branch=$(jq -r '.branch // empty' "$_task_file" 2>/dev/null)
+            if [[ -n "$_gate_branch" ]] && git_branch_exists "$_gate_branch" 2>/dev/null; then
+                log_step "Checking out ${_gate_branch} for quality gates"
+                _git checkout "$_gate_branch" 2>/dev/null || true
+            fi
+        fi
+    fi
+
     # ── Grounding gates first (non-LLM) ──────────────────────────
     if ! grounding_run "$task_id"; then
         grounding_passed=false
@@ -86,6 +101,11 @@ gates_run() {
         echo -e "    $r"
     done
     echo ""
+
+    # Return to main branch after running gates
+    if [[ -n "${_gate_branch:-}" ]]; then
+        _git checkout main 2>/dev/null || true
+    fi
 
     if $quality_passed; then
         return 0
