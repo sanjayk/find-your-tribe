@@ -209,84 +209,85 @@ export default function SettingsPage() {
   const [showAgentSetup, setShowAgentSetup] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const populatedRef = useRef(false);
+  const [populated, setPopulated] = useState(false);
 
   const timezoneGroups = useMemo(() => buildTimezoneGroups(), []);
 
-  const { loading: queryLoading } = useQuery<GetBuilderData>(GET_BUILDER, {
+  const { data, loading: queryLoading } = useQuery<GetBuilderData>(GET_BUILDER, {
     variables: { username: user?.username },
     skip: !user?.username,
-    onCompleted: (result) => {
-      if (!result?.user || populatedRef.current) return;
-      populatedRef.current = true;
-      const builder = result.user;
-      setDisplayName(builder.displayName || '');
-      setHeadline(builder.headline || '');
-      setBio(builder.bio || '');
-      setPrimaryRole(builder.primaryRole || '');
-      setTimezone(builder.timezone || '');
-      setAvailabilityStatus(builder.availabilityStatus || '');
-      const links = builder.contactLinks || {};
-      const rows: { label: string; url: string }[] = [];
-      for (const label of DEFAULT_LABELS) {
-        rows.push({ label, url: links[label] || '' });
-      }
-      for (const [key, value] of Object.entries(links)) {
-        if (!DEFAULT_LABELS.includes(key)) {
-          rows.push({ label: key, url: value as string });
-        }
-      }
-      setLinkRows(rows);
-      const tools = builder.agentTools;
-      if (tools && typeof tools === 'object' && !Array.isArray(tools)) {
-        const eds = tools.editors || [];
-        setSelectedEditors(eds);
-        setCustomEditors(eds.filter((e: string) => !EDITORS.includes(e)));
-
-        const ags = tools.agents || [];
-        setSelectedAgents(ags);
-        setCustomAgents(ags.filter((a: string) => !AGENTS.includes(a)));
-
-        const mods = tools.models || [];
-        setSelectedModels(mods);
-        setCustomModels(mods.filter((m: string) => !MODELS.includes(m)));
-
-        const wfs = tools.workflowStyles || [];
-        setSelectedWorkflows(wfs);
-        setCustomWorkflows(wfs.filter((w: string) => !WORKFLOW_STYLES.includes(w)));
-
-        setSetupNote(tools.setupNote || '');
-      } else if (Array.isArray(tools)) {
-        setSelectedAgents(tools);
-      }
-      // Backward compat: migrate old agentWorkflowStyle
-      if (
-        !(tools && typeof tools === 'object' && !Array.isArray(tools) && (tools as Record<string, unknown>).workflowStyles && ((tools as Record<string, unknown>).workflowStyles as string[]).length > 0)
-        && builder.agentWorkflowStyle
-      ) {
-        const STYLE_MAP: Record<string, string> = {
-          PAIR: 'Pair builder', SWARM: 'Swarm delegation',
-          REVIEW: 'AI review', AUTONOMOUS: 'Autonomous agents', MINIMAL: 'Minimal AI',
-        };
-        const mapped = STYLE_MAP[builder.agentWorkflowStyle];
-        if (mapped) setSelectedWorkflows([mapped]);
-      }
-      if (builder.humanAgentRatio !== null && builder.humanAgentRatio !== undefined) {
-        setHumanAiRatio(Math.round(builder.humanAgentRatio * 100));
-      }
-      const prefs = builder.preferences || {};
-      if (prefs.notifications) {
-        if (prefs.notifications.tribeInvites !== undefined) setNotifTribeInvites(prefs.notifications.tribeInvites);
-        if (prefs.notifications.projectUpdates !== undefined) setNotifProjectUpdates(prefs.notifications.projectUpdates);
-        if (prefs.notifications.weeklyDigest !== undefined) setNotifWeeklyDigest(prefs.notifications.weeklyDigest);
-      }
-      if (prefs.privacy) {
-        if (prefs.privacy.profileVisibility) setProfileVisibility(prefs.privacy.profileVisibility);
-        if (prefs.privacy.showTimezone !== undefined) setShowTimezone(prefs.privacy.showTimezone);
-        if (prefs.privacy.showAgentSetup !== undefined) setShowAgentSetup(prefs.privacy.showAgentSetup);
-      }
-    },
   });
+
+  // Populate form fields when query data arrives (render-time state sync)
+  if (data?.user && !populated) {
+    setPopulated(true);
+    const builder = data.user;
+    setDisplayName(builder.displayName || '');
+    setHeadline(builder.headline || '');
+    setBio(builder.bio || '');
+    setPrimaryRole(builder.primaryRole || '');
+    setTimezone(builder.timezone || '');
+    setAvailabilityStatus(builder.availabilityStatus || '');
+    const links = builder.contactLinks || {};
+    const rows: { label: string; url: string }[] = [];
+    for (const label of DEFAULT_LABELS) {
+      rows.push({ label, url: links[label] || '' });
+    }
+    for (const [key, value] of Object.entries(links)) {
+      if (!DEFAULT_LABELS.includes(key)) {
+        rows.push({ label: key, url: value as string });
+      }
+    }
+    setLinkRows(rows);
+    const tools = builder.agentTools;
+    if (tools && typeof tools === 'object' && !Array.isArray(tools)) {
+      const eds = tools.editors || [];
+      setSelectedEditors(eds);
+      setCustomEditors(eds.filter((e: string) => !EDITORS.includes(e)));
+
+      const ags = tools.agents || [];
+      setSelectedAgents(ags);
+      setCustomAgents(ags.filter((a: string) => !AGENTS.includes(a)));
+
+      const mods = tools.models || [];
+      setSelectedModels(mods);
+      setCustomModels(mods.filter((m: string) => !MODELS.includes(m)));
+
+      const wfs = tools.workflowStyles || [];
+      setSelectedWorkflows(wfs);
+      setCustomWorkflows(wfs.filter((w: string) => !WORKFLOW_STYLES.includes(w)));
+
+      setSetupNote(tools.setupNote || '');
+    } else if (Array.isArray(tools)) {
+      setSelectedAgents(tools);
+    }
+    // Backward compat: migrate old agentWorkflowStyle
+    if (
+      !(tools && typeof tools === 'object' && !Array.isArray(tools) && (tools as Record<string, unknown>).workflowStyles && ((tools as Record<string, unknown>).workflowStyles as string[]).length > 0)
+      && builder.agentWorkflowStyle
+    ) {
+      const STYLE_MAP: Record<string, string> = {
+        PAIR: 'Pair builder', SWARM: 'Swarm delegation',
+        REVIEW: 'AI review', AUTONOMOUS: 'Autonomous agents', MINIMAL: 'Minimal AI',
+      };
+      const mapped = STYLE_MAP[builder.agentWorkflowStyle];
+      if (mapped) setSelectedWorkflows([mapped]);
+    }
+    if (builder.humanAgentRatio !== null && builder.humanAgentRatio !== undefined) {
+      setHumanAiRatio(Math.round(builder.humanAgentRatio * 100));
+    }
+    const prefs = builder.preferences || {};
+    if (prefs.notifications) {
+      if (prefs.notifications.tribeInvites !== undefined) setNotifTribeInvites(prefs.notifications.tribeInvites);
+      if (prefs.notifications.projectUpdates !== undefined) setNotifProjectUpdates(prefs.notifications.projectUpdates);
+      if (prefs.notifications.weeklyDigest !== undefined) setNotifWeeklyDigest(prefs.notifications.weeklyDigest);
+    }
+    if (prefs.privacy) {
+      if (prefs.privacy.profileVisibility) setProfileVisibility(prefs.privacy.profileVisibility);
+      if (prefs.privacy.showTimezone !== undefined) setShowTimezone(prefs.privacy.showTimezone);
+      if (prefs.privacy.showAgentSetup !== undefined) setShowAgentSetup(prefs.privacy.showAgentSetup);
+    }
+  }
 
   const [updateProfile, { loading: saving }] = useMutation<UpdateProfileData>(UPDATE_PROFILE, {
     onCompleted: () => {
