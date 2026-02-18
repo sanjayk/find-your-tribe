@@ -1,11 +1,31 @@
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+dist/
+build/
 
-# Tribe runtime state
-.tribe/logs/
-.tribe/state.json
-.tribe/budget.json
+# Node
+node_modules/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.turbo/
+.next/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
 
 # OS
 .DS_Store
@@ -14,3 +34,15 @@ __pycache__/
 *.swp
 *.swo
 *~
+
+# AI tooling
+CLAUDE.md
+
+# Tribe runtime state
+.tribe/logs/
+.tribe/state.json
+.tribe/budget.json
+
+# Local-only directories
+playground/
+src/prototype/
