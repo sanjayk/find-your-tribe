@@ -21,7 +21,7 @@ mutation UpdateProfile(
   $timezone: String,
   $availabilityStatus: String,
   $contactLinks: JSON,
-  $agentTools: [String!],
+  $agentTools: JSON,
   $agentWorkflowStyle: String,
   $humanAgentRatio: Float,
 ) {
