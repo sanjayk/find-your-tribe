@@ -39,6 +39,7 @@ class TestAuthPayload:
             builder_score=0.0,
             bio=None,
             contact_links={},
+            preferences={},
             github_username=None,
             onboarding_completed=False,
             agent_tools=[],
