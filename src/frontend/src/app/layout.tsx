@@ -26,8 +26,29 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Find Your Tribe",
-  description: "A social network where clout comes from shipping. Connect your GitHub, form a tribe, and let your work speak.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+  title: {
+    default: 'Find Your Tribe',
+    template: '%s | Find Your Tribe',
+  },
+  description:
+    'A proof-of-work social network for builders. Your reputation is earned through shipped projects and verified collaborations.',
+  openGraph: {
+    type: 'website',
+    siteName: 'Find Your Tribe',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  manifest: '/manifest.webmanifest',
+  other: {
+    'theme-color': '#f9f8f6',
+  },
 };
 
 export default function RootLayout({
@@ -45,6 +66,19 @@ export default function RootLayout({
       } as React.CSSProperties}
     >
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebApplication',
+              name: 'Find Your Tribe',
+              url: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
+              description:
+                'A proof-of-work social network for builders.',
+            }),
+          }}
+        />
         <GraphQLProvider>
           <Nav />
           <AuthGuard>{children}</AuthGuard>

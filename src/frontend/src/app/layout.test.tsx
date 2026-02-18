@@ -134,11 +134,14 @@ describe('RootLayout', () => {
 
 describe('metadata', () => {
   it('has a title', () => {
-    expect(metadata.title).toBe('Find Your Tribe');
+    expect(metadata.title).toEqual({
+      default: 'Find Your Tribe',
+      template: '%s | Find Your Tribe',
+    });
   });
 
   it('has a description', () => {
     expect(metadata.description).toContain('social network');
-    expect(metadata.description).toContain('shipping');
+    expect(metadata.description).toContain('shipped');
   });
 });

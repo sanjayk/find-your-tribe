@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MockedProvider } from '@apollo/client/testing/react';
-import TribePage from './page';
+import TribePage from './tribe-content';
 import { GET_TRIBE } from '@/lib/graphql/queries/tribes';
 
 vi.mock('next/navigation', () => ({

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import {
   ArrowDown,
   ArrowRight,
@@ -7,6 +8,12 @@ import {
   Terminal,
   Twitter,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: 'Find Your Tribe — Build Your Reputation',
+  description:
+    'A proof-of-work social network where your reputation is earned through shipped projects, not posts. Connect your GitHub, form a tribe, and let your work speak.',
+};
 
 // ─── Mock Data ───
 

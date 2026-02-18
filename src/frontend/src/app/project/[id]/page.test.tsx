@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MockedProvider } from '@apollo/client/testing/react';
-import ProjectPage from './page';
+import ProjectPage from './project-content';
 import { GET_PROJECT } from '@/lib/graphql/queries/projects';
 
 vi.mock('next/navigation', () => ({

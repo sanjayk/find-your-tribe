@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MockedProvider } from '@apollo/client/testing/react';
-import ProfilePage from './page';
+import ProfilePage from './profile-content';
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
 import { GET_BURN_SUMMARY } from '@/lib/graphql/queries/burn';
 
