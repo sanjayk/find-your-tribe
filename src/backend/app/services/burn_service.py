@@ -188,3 +188,67 @@ async def get_receipt(
         "peak_week_tokens": peak_week_tokens,
         "daily_activity": daily_activity,
     }
+
+
+_UNSET = object()
+
+
+async def update_burn(
+    session: AsyncSession,
+    burn_id: str,
+    user_id: str,
+    tokens_burned: int | None = None,
+    source: str | None = None,
+    project_id: object = _UNSET,
+) -> dict | None:
+    """Update a specific BuildActivity record. Returns updated dict or None if not found.
+
+    Only the owning user can update their own burn records.
+    Uses a sentinel for project_id so None explicitly clears the field.
+    """
+    stmt = select(BuildActivity).where(
+        BuildActivity.id == burn_id,
+        BuildActivity.user_id == user_id,
+    )
+    result = await session.execute(stmt)
+    record = result.scalar_one_or_none()
+    if record is None:
+        return None
+
+    if tokens_burned is not None:
+        record.tokens_burned = tokens_burned
+    if source is not None:
+        record.source = source
+    if project_id is not _UNSET:
+        record.project_id = project_id
+
+    await session.commit()
+    await session.refresh(record)
+    return {
+        "id": record.id,
+        "user_id": record.user_id,
+        "project_id": record.project_id,
+        "activity_date": record.activity_date,
+        "tokens_burned": record.tokens_burned,
+        "source": record.source,
+    }
+
+
+async def delete_burn(
+    session: AsyncSession,
+    burn_id: str,
+    user_id: str,
+) -> bool:
+    """Delete a specific BuildActivity record. Returns True if deleted, False if not found."""
+    stmt = select(BuildActivity).where(
+        BuildActivity.id == burn_id,
+        BuildActivity.user_id == user_id,
+    )
+    result = await session.execute(stmt)
+    record = result.scalar_one_or_none()
+    if record is None:
+        return False
+
+    await session.delete(record)
+    await session.commit()
+    return True

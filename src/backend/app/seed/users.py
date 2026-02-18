@@ -35,7 +35,7 @@ async def seed_users(session: AsyncSession, skills_dict: dict[str, str]) -> dict
                 "website": "https://mayachen.dev",
                 "linkedin": "mayachen",
             },
-            "skills": ["React", "Python", "PostgreSQL", "FastAPI", "TypeScript", "GraphQL"],
+            "skills": ["React", "Python", "PostgreSQL", "FastAPI", "System Design", "Machine Learning", "DevOps", "Product Strategy"],
             "agent_tools": ["Claude", "Cursor", "GitHub Copilot"],
             "agent_workflow_style": AgentWorkflowStyle.PAIR,
             "human_agent_ratio": 0.45,

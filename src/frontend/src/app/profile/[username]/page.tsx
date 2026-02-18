@@ -27,6 +27,32 @@ function getInitials(displayName: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function getFirstInitial(displayName: string): string {
+  return displayName.trim()[0].toUpperCase();
+}
+
+function getWitnessTitle(headline: string | null, primaryRole: string | null): string {
+  if (headline) {
+    const short = headline.split(/\s*[—–]\s*/)[0].trim();
+    if (short.length <= 30) return short;
+  }
+  return formatRole(primaryRole) || 'Builder';
+}
+
+function formatTimezone(tz: string): string {
+  try {
+    const now = new Date();
+    const shortFmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' });
+    const abbr = shortFmt.formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
+    const offsetFmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' });
+    const gmtOffset = offsetFmt.formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
+    const utcOffset = gmtOffset.replace('GMT', 'UTC').replace(':00', '');
+    return `${abbr} \u00b7 ${utcOffset}`;
+  } catch {
+    return tz.split('/').pop()?.replace(/_/g, ' ') || tz;
+  }
+}
+
 function mapAvailabilityLabel(status: AvailabilityStatus): string {
   const map: Record<AvailabilityStatus, string> = {
     OPEN_TO_TRIBE: 'Open to tribe',
@@ -206,7 +232,7 @@ function extractWitnesses(builder: Builder): Witness[] {
         witnessMap.set(collab.user.username, {
           initials: getInitials(collab.user.displayName),
           name: collab.user.displayName,
-          role: collab.role || 'Collaborator',
+          role: getWitnessTitle(collab.user.headline ?? null, collab.user.primaryRole ?? null),
           projects: [{ name: project.title, role: collab.role || 'contributor' }],
         });
       }
@@ -255,8 +281,7 @@ function extractFooterData(builder: Builder): {
 
   const info: InfoItem[] = [];
   if (builder.timezone) {
-    const city = builder.timezone.split('/').pop()?.replace(/_/g, ' ') || builder.timezone;
-    info.push({ label: 'Timezone', value: city });
+    info.push({ label: 'Timezone', value: formatTimezone(builder.timezone) });
   }
   if (builder.primaryRole) {
     info.push({ label: 'Primary role', value: formatRole(builder.primaryRole) });
@@ -268,7 +293,7 @@ function extractFooterData(builder: Builder): {
 
 /* ─── Proof card data ─── */
 
-function makeReceiptProps(weeklyBuckets: number[], project: Project): BurnReceiptProps {
+function makeReceiptProps(weeklyBuckets: number[], _project: Project): BurnReceiptProps {
   // Slice the weekly data to approximate project duration
   const totalTokens = weeklyBuckets.reduce((a, b) => a + b, 0);
   const activeWeeks = weeklyBuckets.filter((w) => w > 0).length;
@@ -282,31 +307,35 @@ function makeReceiptProps(weeklyBuckets: number[], project: Project): BurnReceip
   };
 }
 
-function makeBurnStat(weeklyBuckets: number[]): string {
+function makeBurnStat(weeklyBuckets: number[], projectIndex: number): string {
+  const weights = [0.35, 0.25, 0.18, 0.12, 0.08, 0.06];
+  const share = weights[projectIndex % weights.length] || 0.1;
   const total = weeklyBuckets.reduce((a, b) => a + b, 0);
   const activeWeeks = weeklyBuckets.filter((w) => w > 0).length;
-  return `${formatTokens(Math.round(total * 0.25))} \u00b7 ${activeWeeks} wks`;
+  const projWeeks = Math.max(6, Math.round(activeWeeks * (0.35 - projectIndex * 0.06)));
+  return `${formatTokens(Math.round(total * share))} \u00b7 ${projWeeks} wks`;
 }
 
-function makeSparklineData(weeklyBuckets: number[]): number[] {
-  return weeklyBuckets.slice(-12);
+function makeSparklineData(weeklyBuckets: number[], projectIndex: number): number[] {
+  const offset = (projectIndex * 8) % Math.max(1, weeklyBuckets.length - 12);
+  return weeklyBuckets.slice(offset, offset + 12);
 }
 
 /* ─── Loading Skeleton ─── */
 
 function ProfileSkeleton() {
   return (
-    <div className="mx-auto max-w-[1080px] px-6 py-16 animate-pulse" data-testid="profile-skeleton">
-      <div className="grid gap-12" style={{ gridTemplateColumns: '280px 1fr' }}>
+    <div className="mx-auto max-w-[1080px] px-5 md:px-6 pb-12 md:pb-16 animate-pulse" data-testid="profile-skeleton">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 lg:gap-12 pt-10 lg:pt-14 pb-8 lg:pb-10">
         <div className="space-y-4">
           <div className="w-[88px] h-[88px] rounded-full bg-surface-secondary" />
-          <div className="h-10 w-48 bg-surface-secondary rounded" />
-          <div className="h-5 w-32 bg-surface-secondary rounded" />
-          <div className="h-20 w-full bg-surface-secondary rounded" />
+          <div className="h-12 w-48 bg-surface-secondary rounded" />
+          <div className="h-4 w-28 bg-surface-secondary rounded" />
+          <div className="h-16 w-full bg-surface-secondary rounded" />
         </div>
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
           <div className="h-48 w-full bg-surface-elevated rounded-2xl" />
-          <div className="h-16 w-full bg-accent-subtle rounded-xl" />
+          <div className="h-14 w-full bg-accent-subtle rounded-xl" />
         </div>
       </div>
     </div>
@@ -367,50 +396,48 @@ function ProfileContent({ builder }: { builder: Builder }) {
   const footerData = extractFooterData(builder);
 
   return (
-    <div className="mx-auto max-w-[1080px] px-6 py-16">
+    <div className="mx-auto max-w-[1080px] px-5 md:px-6 pb-12 md:pb-16">
       {/* ─── HERO SECTION ─── */}
-      <section className="grid gap-12 mb-16" style={{ gridTemplateColumns: '280px 1fr' }}>
+      <section className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 lg:gap-12 items-start pt-10 lg:pt-14 pb-8 lg:pb-10">
         {/* Left: Identity */}
         <div>
           {/* Avatar */}
-          <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center bg-gradient-to-br from-accent-subtle to-accent-muted mb-5">
-            <span className="font-serif text-2xl text-accent">
-              {getInitials(builder.displayName)}
+          <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center bg-gradient-to-br from-accent-subtle to-accent-muted mb-4">
+            <span className="font-serif text-[36px] text-accent">
+              {getFirstInitial(builder.displayName)}
             </span>
           </div>
 
           {/* Name */}
-          <h1
-            className="font-serif text-ink leading-tight mb-1"
-            style={{ fontSize: '40px', letterSpacing: '-0.01em' }}
-          >
+          <h1 className="font-serif text-[40px] leading-[1.1] tracking-[-0.01em]">
             {builder.displayName}
           </h1>
 
           {/* Handle */}
-          <p className="text-[14px] text-ink-tertiary mb-4">
+          <p className="text-[14px] text-ink-tertiary mt-1">
             @{builder.username}
           </p>
 
           {/* Headline */}
           {builder.headline && (
-            <p className="text-[15px] text-ink-secondary leading-relaxed mb-4">
+            <p className="text-[15px] text-ink-secondary leading-[1.6] mt-3">
               {builder.headline}
             </p>
           )}
 
           {/* Availability badge */}
-          <span
-            className={`inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 ${
-              available
-                ? 'bg-shipped-subtle text-shipped'
-                : 'bg-surface-secondary text-ink-tertiary'
-            }`}
-            style={{ borderRadius: '999px' }}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${available ? 'bg-shipped' : 'bg-ink-tertiary'}`} />
-            {availability}
-          </span>
+          <div className="flex flex-col gap-2.5 mt-4">
+            <span
+              className={`inline-flex items-center font-medium text-[13px] gap-1.5 py-[5px] px-3 rounded-full ${
+                available
+                  ? 'bg-shipped-subtle text-shipped'
+                  : 'bg-surface-secondary text-ink-tertiary'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${available ? 'bg-shipped' : 'bg-ink-tertiary'}`} />
+              {availability}
+            </span>
+          </div>
 
           {/* Domain tags */}
           {domains.length > 0 && <DomainTags domains={domains} />}
@@ -439,14 +466,14 @@ function ProfileContent({ builder }: { builder: Builder }) {
 
       {/* ─── PROOF OF WORK ─── */}
       {builder.projects.length > 0 && (
-        <section className="mb-16">
+        <section className="mt-3">
           <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
             Proof of Work
           </div>
 
           {/* Hero card */}
           {heroProject && (
-            <div className="mb-4">
+            <div className="mb-5">
               <ProofCard
                 variant="hero"
                 title={heroProject.title}
@@ -467,16 +494,16 @@ function ProfileContent({ builder }: { builder: Builder }) {
 
           {/* Compact grid */}
           {compactProjects.length > 0 && (
-            <div className="grid grid-cols-3 gap-4">
-              {compactProjects.map((project) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-1">
+              {compactProjects.map((project, idx) => (
                 <ProofCard
                   key={project.id}
                   variant="compact"
                   title={project.title}
                   description={project.description || ''}
                   status={project.status === 'SHIPPED' ? 'shipped' : 'in_progress'}
-                  sparklineData={makeSparklineData(weeklyBuckets)}
-                  burnStat={makeBurnStat(weeklyBuckets)}
+                  sparklineData={makeSparklineData(weeklyBuckets, idx + 1)}
+                  burnStat={makeBurnStat(weeklyBuckets, idx + 1)}
                 />
               ))}
             </div>
@@ -485,7 +512,7 @@ function ProfileContent({ builder }: { builder: Builder }) {
       )}
 
       {builder.projects.length === 0 && (
-        <section className="mb-16">
+        <section className="mt-3">
           <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
             Proof of Work
           </div>
@@ -497,17 +524,19 @@ function ProfileContent({ builder }: { builder: Builder }) {
 
       {/* ─── WITNESSED BY ─── */}
       {witnesses.length > 0 && (
-        <section className="mb-16">
+        <section className="mt-14">
           <WitnessCredits witnesses={witnesses} />
         </section>
       )}
 
       {/* ─── FOOTER ─── */}
-      <ProfileFooter
-        tribes={footerData.tribes}
-        links={footerData.links}
-        info={footerData.info}
-      />
+      <div className="mt-14">
+        <ProfileFooter
+          tribes={footerData.tribes}
+          links={footerData.links}
+          info={footerData.info}
+        />
+      </div>
     </div>
   );
 }

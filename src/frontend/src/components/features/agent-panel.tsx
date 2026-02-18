@@ -15,7 +15,7 @@ export function AgentPanel({ tools, workflowStyle, humanRatio }: AgentPanelProps
 
   return (
     <div
-      className="rounded-xl px-6 py-5 flex items-baseline gap-8 flex-wrap bg-accent-subtle"
+      className="px-6 py-5 bg-accent-subtle rounded-[12px] flex flex-col gap-3 md:grid md:grid-cols-[auto_1fr_auto] md:gap-x-6 md:gap-y-2 md:items-baseline"
       style={{
         backgroundImage: 'radial-gradient(circle, rgba(99, 102, 241, 0.07) 1px, transparent 1px)',
         backgroundSize: '14px 14px',
@@ -23,32 +23,29 @@ export function AgentPanel({ tools, workflowStyle, humanRatio }: AgentPanelProps
     >
       {/* Label */}
       <span className="text-[10px] font-medium uppercase tracking-[0.05em] text-accent min-w-[70px]">
-        How I Build
+        How I build
       </span>
 
-      {/* Tool list */}
-      {tools.length > 0 && (
-        <div className="flex gap-5 flex-wrap" data-testid="agent-tools">
-          {tools.map((tool) => (
-            <div key={tool.name} className="flex items-baseline gap-1.5">
-              <span className="text-[13px] font-medium text-ink">
-                {tool.name}
-              </span>
-              <span className="text-[11px] text-ink-tertiary">
-                {tool.capabilities}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Tool list — wraps within its column */}
+      <div className="flex gap-5 flex-wrap" data-testid="agent-tools">
+        {tools.map((tool) => (
+          <div key={tool.name} className="flex items-baseline gap-1.5">
+            <span className="text-[13px] font-medium text-ink">
+              {tool.name}
+            </span>
+            <span className="text-[11px] text-ink-tertiary">
+              {tool.capabilities}
+            </span>
+          </div>
+        ))}
+      </div>
 
-      {/* Workflow + ratio pushed right */}
-      <div className="ml-auto flex items-center gap-3 text-[12px] text-ink-secondary">
+      {/* Workflow + ratio pinned right */}
+      <div className="flex items-center gap-3 text-[12px] text-ink-secondary">
         <span data-testid="workflow-style">{workflowStyle}</span>
         <div className="flex items-center gap-1.5" data-testid="ratio-bar-container">
           <div
-            className="flex overflow-hidden rounded-sm"
-            style={{ width: '60px', height: '3px', background: 'var(--color-surface-secondary)' }}
+            className="flex overflow-hidden rounded-sm w-[60px] h-[3px] bg-surface-secondary"
             data-testid="ratio-bar"
           >
             <div
@@ -61,11 +58,10 @@ export function AgentPanel({ tools, workflowStyle, humanRatio }: AgentPanelProps
             />
           </div>
           <span
-            className="font-mono text-ink-tertiary"
-            style={{ fontSize: '10px' }}
+            className="font-mono text-ink-tertiary text-[10px]"
             data-testid="ratio-label"
           >
-            {clampedHuman}% human
+            {clampedHuman}/{aiRatio}
           </span>
         </div>
       </div>

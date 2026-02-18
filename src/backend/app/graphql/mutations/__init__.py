@@ -1,63 +1,42 @@
-"""GraphQL mutations module."""
-
-import datetime
+"""GraphQL mutations module — composed from all domain mutation classes."""
 
 import strawberry
-from strawberry.types import Info
 
-from app.graphql.context import Context
-from app.graphql.types.burn import BurnDayType as _BurnDayType
-from app.graphql.types.burn import BurnSummaryType
-from app.services import burn_service
-
-
-def _dict_to_burn_summary(data: dict) -> BurnSummaryType:
-    """Convert a burn_service dict to BurnSummaryType."""
-    return BurnSummaryType(
-        days_active=data["days_active"],
-        total_tokens=data["total_tokens"],
-        active_weeks=data["active_weeks"],
-        total_weeks=data["total_weeks"],
-        weekly_streak=data["weekly_streak"],
-        daily_activity=[
-            _BurnDayType(date=d["date"], tokens=d["tokens"])
-            for d in data["daily_activity"]
-        ],
-    )
+from app.graphql.mutations.auth import AuthMutations
+from app.graphql.mutations.burn import BurnMutations
+from app.graphql.mutations.feed import FeedMutations
+from app.graphql.mutations.profile import ProfileMutations
+from app.graphql.mutations.projects import ProjectMutations
+from app.graphql.mutations.tribes import TribeMutations
 
 
 @strawberry.type
 class Mutation:
-    """GraphQL Mutation type."""
+    """GraphQL Mutation type — namespaced by domain."""
 
     @strawberry.field
-    def _placeholder(self) -> str:
-        """Placeholder field to satisfy Strawberry schema validation."""
-        return "placeholder"
+    def auth(self) -> AuthMutations:
+        return AuthMutations()
 
-    @strawberry.mutation
-    async def log_build_session(
-        self,
-        info: Info[Context, None],
-        tokens_burned: int,
-        source: str,
-        project_id: strawberry.ID | None = None,
-        activity_date: datetime.date | None = None,
-    ) -> BurnSummaryType:
-        """Log a build session's token burn and return updated burn summary."""
-        session = info.context.session
-        # TODO: replace "placeholder" with real user ID from auth context
-        await burn_service.log_session(
-            session,
-            user_id="placeholder",
-            tokens_burned=tokens_burned,
-            source=source,
-            project_id=str(project_id) if project_id else None,
-            activity_date=activity_date,
-        )
-        await session.commit()
-        data = await burn_service.get_summary(session, "placeholder")
-        return _dict_to_burn_summary(data)
+    @strawberry.field
+    def profile(self) -> ProfileMutations:
+        return ProfileMutations()
+
+    @strawberry.field
+    def projects(self) -> ProjectMutations:
+        return ProjectMutations()
+
+    @strawberry.field
+    def burn(self) -> BurnMutations:
+        return BurnMutations()
+
+    @strawberry.field
+    def tribes(self) -> TribeMutations:
+        return TribeMutations()
+
+    @strawberry.field
+    def feed(self) -> FeedMutations:
+        return FeedMutations()
 
 
 __all__ = ["Mutation"]

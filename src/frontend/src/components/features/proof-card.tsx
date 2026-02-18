@@ -94,7 +94,7 @@ function CompactSparkline({ data }: { data: number[] }) {
   }, [data]);
 
   return (
-    <div className="flex-1" style={{ height: '16px' }} data-testid="compact-sparkline">
+    <div className="flex-1 h-4" data-testid="compact-sparkline">
       <canvas
         ref={canvasRef}
         data-testid="compact-sparkline-canvas"
@@ -121,26 +121,23 @@ export function ProofCard({
   if (variant === 'hero') {
     return (
       <div
-        className="bg-surface-elevated rounded-2xl shadow-sm overflow-hidden cursor-pointer card-lift"
+        className="bg-surface-elevated shadow-sm overflow-hidden cursor-pointer card-lift rounded-[16px]"
         data-testid="proof-card-hero"
       >
         <div
-          className="grid"
-          style={{ gridTemplateColumns: '1fr 240px' }}
+          className="grid grid-cols-1 md:grid-cols-[1fr_240px]"
         >
           {/* Content area */}
           <div
-            className="flex flex-col"
+            className="flex flex-col py-7 px-8"
             style={{
-              padding: '28px 32px',
               backgroundImage: 'radial-gradient(circle, rgba(28, 25, 23, 0.05) 1.2px, transparent 1.2px)',
               backgroundSize: '14px 14px',
             }}
           >
             {/* Status badge */}
             <div
-              className={`inline-flex items-center gap-[5px] text-[11px] font-medium uppercase w-fit mb-2 ${statusInfo.textClass}`}
-              style={{ letterSpacing: '0.04em' }}
+              className={`inline-flex items-center gap-[5px] text-[11px] font-medium uppercase tracking-[0.04em] w-fit mb-2 ${statusInfo.textClass}`}
               data-testid="proof-status"
             >
               <span className={`w-[5px] h-[5px] rounded-full ${statusInfo.dotClass}`} />
@@ -149,7 +146,7 @@ export function ProofCard({
 
             {/* Title */}
             <h3
-              className="font-serif text-[24px] leading-[1.2] text-ink mb-2"
+              className="font-serif text-[24px] leading-[1.2] mb-2"
               data-testid="proof-title"
             >
               {title}
@@ -169,8 +166,7 @@ export function ProofCard({
                 {agentTools.map((tool) => (
                   <span
                     key={tool}
-                    className="font-mono text-[11px] text-ink-tertiary bg-surface-secondary rounded-[4px]"
-                    style={{ padding: '3px 8px' }}
+                    className="font-mono text-[11px] text-ink-tertiary bg-surface-secondary rounded-[4px] py-[3px] px-2"
                   >
                     {tool}
                   </span>
@@ -200,8 +196,7 @@ export function ProofCard({
                     ))}
                   </div>
                   <span
-                    className="text-[11px] text-ink-tertiary"
-                    style={{ marginLeft: '18px' }}
+                    className="text-[11px] text-ink-tertiary ml-3"
                     data-testid="proof-builder-count"
                   >
                     {builders.length} {builders.length === 1 ? 'builder' : 'builders'}
@@ -231,14 +226,12 @@ export function ProofCard({
   // Compact variant
   return (
     <div
-      className="bg-surface-elevated rounded-xl shadow-sm cursor-pointer card-lift flex flex-col"
-      style={{ padding: '20px 24px' }}
+      className="bg-surface-elevated shadow-sm cursor-pointer card-lift flex flex-col py-5 px-6 rounded-[12px]"
       data-testid="proof-card-compact"
     >
       {/* Status badge */}
       <div
-        className={`inline-flex items-center gap-1 text-[10px] font-medium uppercase w-fit mb-1.5 ${statusInfo.textClass}`}
-        style={{ letterSpacing: '0.04em' }}
+        className={`inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.04em] w-fit mb-1.5 ${statusInfo.textClass}`}
         data-testid="proof-status"
       >
         <span className={`w-1 h-1 rounded-full ${statusInfo.dotClass}`} />
@@ -247,7 +240,7 @@ export function ProofCard({
 
       {/* Title */}
       <h4
-        className="font-serif text-[18px] leading-[1.2] text-ink mb-1.5"
+        className="font-serif text-[18px] mb-1.5"
         data-testid="proof-title"
       >
         {title}

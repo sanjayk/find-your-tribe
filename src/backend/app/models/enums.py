@@ -73,6 +73,8 @@ class EventType(StrEnum):
     TRIBE_CREATED = "tribe_created"
     MEMBER_JOINED_TRIBE = "member_joined_tribe"
     BUILDER_JOINED = "builder_joined"
+    PROJECT_UPDATE = "project_update"
+    TRIBE_ANNOUNCEMENT = "tribe_announcement"
 
 
 class AgentWorkflowStyle(StrEnum):

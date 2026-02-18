@@ -34,3 +34,7 @@ class FeedEventType:
         # TODO: Implement proper actor loading from database using dataloaders
         # Placeholder - will be replaced with actual dataloader
         raise NotImplementedError("Actor loading not yet implemented")
+
+
+# Import after class definitions to avoid circular import at module level
+from app.graphql.types.user import UserType  # noqa: E402, F811

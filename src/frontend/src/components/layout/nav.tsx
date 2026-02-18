@@ -95,7 +95,7 @@ export default function Nav() {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-surface-elevated">
+        <div className="fixed inset-0 z-[60] bg-surface-elevated">
           <div className="flex flex-col h-full px-6 py-5">
             {/* Mobile Menu Header */}
             <div className="flex items-center justify-between mb-12">

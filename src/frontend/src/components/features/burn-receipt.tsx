@@ -86,21 +86,19 @@ export function BurnReceipt({ weeklyData, duration, tokens, peakWeek }: BurnRece
 
   return (
     <div
-      className="bg-accent-subtle flex flex-col gap-4 justify-center"
-      style={{ padding: '24px' }}
+      className="bg-accent-subtle flex flex-col gap-4 justify-center p-6"
       data-testid="burn-receipt"
     >
       {/* Label */}
       <span
-        className="text-[10px] font-medium uppercase text-accent"
-        style={{ letterSpacing: '0.05em' }}
+        className="text-[10px] font-medium uppercase text-accent tracking-[0.05em]"
         data-testid="burn-receipt-label"
       >
         Burn Receipt
       </span>
 
       {/* Sparkline */}
-      <div className="w-full" style={{ height: '40px' }} data-testid="burn-receipt-sparkline">
+      <div className="w-full h-10" data-testid="burn-receipt-sparkline">
         <canvas
           ref={canvasRef}
           data-testid="burn-receipt-canvas"

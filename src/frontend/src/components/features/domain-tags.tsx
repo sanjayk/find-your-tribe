@@ -10,8 +10,7 @@ export function DomainTags({ domains }: DomainTagsProps) {
       {domains.map((domain) => (
         <span
           key={domain}
-          className="text-ink-secondary bg-surface-secondary rounded-[6px]"
-          style={{ fontSize: '12px', padding: '5px 12px' }}
+          className="text-[12px] text-ink-secondary bg-surface-secondary rounded-[6px] py-[5px] px-3"
           data-testid="domain-tag"
         >
           {domain}

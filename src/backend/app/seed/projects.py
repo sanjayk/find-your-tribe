@@ -23,6 +23,10 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "AI Resume Builder",
             "owner": "mayachen",
+            "collaborators": [
+                {"username": "jamesokafor", "role": "design"},
+                {"username": "sarahkim", "role": "ML engineering"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "An AI-powered resume builder that helps job seekers create ATS-friendly resumes with real-time feedback and optimization suggestions. Used by 1,200+ job seekers.",
             "tech_stack": ["React", "Python", "OpenAI", "PostgreSQL"],
@@ -34,7 +38,10 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "Tribe Finder",
             "owner": "mayachen",
-            "collaborators": ["priyasharma"],
+            "collaborators": [
+                {"username": "priyasharma", "role": "backend"},
+                {"username": "jamesokafor", "role": "design"},
+            ],
             "status": ProjectStatus.IN_PROGRESS,
             "description": "A social network where clout comes from shipping. Connect your GitHub, form a tribe, and let your work speak.",
             "tech_stack": ["Next.js", "FastAPI", "PostgreSQL", "GraphQL"],
@@ -45,6 +52,9 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "GraphQL Playground Pro",
             "owner": "mayachen",
+            "collaborators": [
+                {"username": "tomnakamura", "role": "engineering"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "A better GraphQL explorer with schema diffing, saved queries, and team collaboration. Born out of frustration with existing tools.",
             "tech_stack": ["TypeScript", "React", "GraphQL", "Electron"],
@@ -57,6 +67,9 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "ML Pipeline Framework",
             "owner": "sarahkim",
+            "collaborators": [
+                {"username": "priyasharma", "role": "infrastructure"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "Production-ready ML pipeline framework for data scientists. Handles training, deployment, and monitoring with a single config file. Used by 45 companies including 3 Fortune 500.",
             "tech_stack": ["Python", "TensorFlow", "Docker", "Kubernetes"],
@@ -68,7 +81,9 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "DataLens",
             "owner": "sarahkim",
-            "collaborators": ["elenavolkov"],
+            "collaborators": [
+                {"username": "elenavolkov", "role": "product"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "Visual data exploration tool that makes EDA delightful. Drag-and-drop interface generates publication-ready charts and statistical summaries.",
             "tech_stack": ["Python", "React", "D3.js", "FastAPI"],
@@ -89,6 +104,10 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "DevSync",
             "owner": "tomnakamura",
+            "collaborators": [
+                {"username": "mayachen", "role": "frontend"},
+                {"username": "priyasharma", "role": "backend"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "Real-time code collaboration tool for remote teams. Think Google Docs for your IDE. Acquired by Atlassian in 2024.",
             "tech_stack": ["TypeScript", "Go", "WebSocket", "PostgreSQL"],
@@ -99,7 +118,9 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "ShipLog",
             "owner": "tomnakamura",
-            "collaborators": ["marcusjohnson"],
+            "collaborators": [
+                {"username": "marcusjohnson", "role": "DevOps"},
+            ],
             "status": ProjectStatus.IN_PROGRESS,
             "description": "Changelog-as-a-service for developer tools. Auto-generates beautiful release notes from your Git history and PRs.",
             "tech_stack": ["Next.js", "Python", "PostgreSQL", "GitHub API"],
@@ -111,6 +132,9 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "go-queue",
             "owner": "priyasharma",
+            "collaborators": [
+                {"username": "tomnakamura", "role": "code review"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "High-performance distributed task queue for Go. Redis-backed with at-least-once delivery, rate limiting, and dead letter queues. Battle-tested at scale.",
             "tech_stack": ["Go", "Redis", "gRPC", "Docker"],
@@ -133,6 +157,9 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "InfraBlocks",
             "owner": "marcusjohnson",
+            "collaborators": [
+                {"username": "priyasharma", "role": "infrastructure"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "Opinionated Terraform modules for startup infrastructure. One command to set up a production-ready AWS environment with CI/CD, monitoring, and security best practices.",
             "tech_stack": ["Terraform", "AWS", "Docker", "GitHub Actions"],
@@ -145,6 +172,10 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "Design System Kit",
             "owner": "jamesokafor",
+            "collaborators": [
+                {"username": "mayachen", "role": "React engineering"},
+                {"username": "elenavolkov", "role": "product"},
+            ],
             "status": ProjectStatus.SHIPPED,
             "description": "A comprehensive design system with Figma components and React implementation. Battle-tested in production across 4 products.",
             "tech_stack": ["Figma", "React", "Storybook", "TypeScript"],
@@ -167,7 +198,9 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
         {
             "title": "Growth Analytics Dashboard",
             "owner": "davidmorales",
-            "collaborators": ["elenavolkov"],
+            "collaborators": [
+                {"username": "elenavolkov", "role": "data visualization"},
+            ],
             "status": ProjectStatus.IN_PROGRESS,
             "description": "Real-time analytics dashboard for tracking product growth metrics. Beautiful visualizations and actionable insights without the enterprise price tag.",
             "tech_stack": ["Next.js", "Python", "Grafana", "PostgreSQL"],
@@ -206,10 +239,11 @@ async def seed_projects(session: AsyncSession, users_dict: dict[str, str]) -> di
     for project_data in projects_data:
         if "collaborators" in project_data:
             project_id = project_lookup[project_data["title"]]
-            for collaborator_username in project_data["collaborators"]:
+            for collab in project_data["collaborators"]:
                 collaborator_relationships.append({
                     "project_id": project_id,
-                    "user_id": users_dict[collaborator_username],
+                    "user_id": users_dict[collab["username"]],
+                    "role": collab.get("role"),
                     "status": CollaboratorStatus.CONFIRMED,
                     "invited_at": current_time,
                     "confirmed_at": current_time,

@@ -104,11 +104,11 @@ export function BurnHeatmap({ dailyActivity, stats }: BurnHeatmapProps) {
   const legendLevels: Array<0 | 1 | 2 | 3 | 4> = [0, 1, 2, 3, 4];
 
   return (
-    <div className="bg-surface-elevated rounded-2xl shadow-sm p-6">
-      {/* Header: label + legend */}
+    <div>
+      {/* Header: label + legend — OUTSIDE the white card */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-ink-tertiary">
-          Build Activity
+          Building activity
         </span>
         <div className="flex items-center gap-1 text-[10px] text-ink-tertiary">
           <span>Less</span>
@@ -124,75 +124,79 @@ export function BurnHeatmap({ dailyActivity, stats }: BurnHeatmapProps) {
         </div>
       </div>
 
-      {/* Heatmap grid */}
-      <div className="flex gap-[3px]" data-testid="heatmap-grid">
-        {columns.map((col, w) => (
-          <div key={w} className="flex flex-col gap-[3px]">
-            {col.map((cell) => (
-              <div
-                key={cell.date}
-                data-date={cell.date}
-                data-level={cell.level}
-                data-testid="heatmap-cell"
-                title={cell.date}
-                className={`w-[11px] h-[11px] rounded-full transition-transform duration-100 cursor-pointer hover:scale-[1.4] ${getCellClass(cell.level)}`}
-                style={getCellStyle(cell.level)}
-              />
-            ))}
+      {/* White card — contains grid, months, stats */}
+      <div className="bg-surface-elevated shadow-sm p-6 rounded-[16px]">
+        {/* Heatmap grid */}
+        <div className="overflow-x-auto">
+        <div className="flex gap-[3px]" data-testid="heatmap-grid">
+          {columns.map((col, w) => (
+            <div key={w} className="flex flex-col gap-[3px]">
+              {col.map((cell) => (
+                <div
+                  key={cell.date}
+                  data-date={cell.date}
+                  data-level={cell.level}
+                  data-testid="heatmap-cell"
+                  title={cell.date}
+                  className={`w-[11px] h-[11px] rounded-full transition-transform duration-100 cursor-pointer hover:scale-[1.4] ${getCellClass(cell.level)}`}
+                  style={getCellStyle(cell.level)}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Month labels */}
+        <div className="relative mt-2" style={{ height: '14px', minWidth: 'fit-content' }} aria-label="month labels">
+          {monthLabels.map(({ label, colIndex }) => (
+            <span
+              key={`${label}-${colIndex}`}
+              data-testid="month-label"
+              className="absolute font-mono text-ink-tertiary uppercase tracking-[0.03em] text-[10px]"
+              style={{
+                left: `${(colIndex / TOTAL_WEEKS) * 100}%`,
+              }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+        </div>
+
+        {/* Summary stats */}
+        <div className="flex flex-wrap gap-x-7 gap-y-3 mt-4 pt-4 border-t border-surface-secondary">
+          <div className="flex flex-col">
+            <span className="font-mono font-medium text-[18px] leading-none">
+              {stats.daysActive}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-0.5">
+              Days active
+            </span>
           </div>
-        ))}
-      </div>
-
-      {/* Month labels */}
-      <div className="relative mt-2" style={{ height: '14px' }} aria-label="month labels">
-        {monthLabels.map(({ label, colIndex }) => (
-          <span
-            key={`${label}-${colIndex}`}
-            data-testid="month-label"
-            className="absolute font-mono text-ink-tertiary uppercase tracking-[0.03em]"
-            style={{
-              fontSize: '10px',
-              left: `${(colIndex / TOTAL_WEEKS) * 100}%`,
-            }}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {/* Summary stats */}
-      <div className="flex gap-7 mt-4 pt-4 border-t border-surface-secondary">
-        <div className="flex flex-col">
-          <span className="font-mono font-medium text-[18px] leading-none">
-            {stats.daysActive}
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-1">
-            Days active
-          </span>
-        </div>
-        <div className="flex flex-col">
-          <span className="font-mono font-medium text-[18px] leading-none">
-            {stats.totalTokens}
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-1">
-            Tokens burned
-          </span>
-        </div>
-        <div className="flex flex-col">
-          <span className="font-mono font-medium text-[18px] leading-none">
-            {stats.activeWeeks}
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-1">
-            Active weeks
-          </span>
-        </div>
-        <div className="flex flex-col">
-          <span className="font-mono font-medium text-[18px] leading-none">
-            {stats.shipped}
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-1">
-            Shipped
-          </span>
+          <div className="flex flex-col">
+            <span className="font-mono font-medium text-[18px] leading-none">
+              {stats.totalTokens}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-0.5">
+              Tokens burned
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-mono font-medium text-[18px] leading-none">
+              {stats.activeWeeks}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-0.5">
+              Active weeks
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-mono font-medium text-[18px] leading-none">
+              {stats.shipped}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.04em] text-ink-tertiary mt-0.5">
+              Shipped
+            </span>
+          </div>
         </div>
       </div>
     </div>

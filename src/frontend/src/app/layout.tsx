@@ -43,7 +43,7 @@ export default function RootLayout({
         "--font-mono": ibmPlexMono.style.fontFamily,
       } as React.CSSProperties}
     >
-      <body className="font-sans">
+      <body>
         <GraphQLProvider>
           <Nav />
           {children}

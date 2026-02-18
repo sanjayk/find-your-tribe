@@ -44,6 +44,8 @@ export const GET_BUILDER = gql`
             username
             displayName
             avatarUrl
+            headline
+            primaryRole
           }
           role
           status

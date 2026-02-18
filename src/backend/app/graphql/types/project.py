@@ -47,6 +47,7 @@ class ProjectType:
         project: "Project",
         owner: "User | None" = None,
         collaborators: "list[User] | None" = None,
+        collab_details: "dict | None" = None,
     ) -> "ProjectType":
         owner_type = None
         if owner is not None:
@@ -74,8 +75,10 @@ class ProjectType:
                 _tribes=[],
             )
 
+        _details = collab_details or {}
         collaborator_types = []
         for collab in (collaborators or []):
+            info = _details.get(collab.id, {})
             collab_user = UserType(
                 id=collab.id,
                 email=collab.email,
@@ -102,8 +105,8 @@ class ProjectType:
             collaborator_types.append(
                 CollaboratorType(
                     user=collab_user,
-                    role=None,
-                    status=CollaboratorStatus.CONFIRMED,
+                    role=info.get("role"),
+                    status=CollaboratorStatus(info["status"]) if "status" in info else CollaboratorStatus.CONFIRMED,
                     invited_at=project.created_at,
                     confirmed_at=project.created_at,
                 )

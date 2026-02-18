@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import strawberry
 
-from app.models.enums import AvailabilityStatus, UserRole
+from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
 
 if TYPE_CHECKING:
     from app.graphql.types.project import ProjectType
@@ -33,7 +33,7 @@ class UserType:
     github_username: str | None
     onboarding_completed: bool
     agent_tools: list[str]
-    agent_workflow_style: str | None
+    agent_workflow_style: AgentWorkflowStyle | None
     human_agent_ratio: float | None
     created_at: datetime
 
@@ -47,8 +47,13 @@ class UserType:
         return self._skills  # type: ignore[return-value]
 
     @strawberry.field
+    def projects(self) -> list["ProjectType"]:
+        """Lazy resolver for user projects."""
+        return self._owned_projects  # type: ignore[return-value]
+
+    @strawberry.field
     def owned_projects(self) -> list["ProjectType"]:
-        """Lazy resolver for owned projects."""
+        """Lazy resolver for owned projects (alias for projects)."""
         return self._owned_projects  # type: ignore[return-value]
 
     @strawberry.field
@@ -63,14 +68,24 @@ class UserType:
         skills: "list | None" = None,
         projects: "list | None" = None,
         tribes: "list | None" = None,
+        collab_info: "dict | None" = None,
     ) -> "UserType":
         """Create UserType from User model with optional relationships."""
         from app.graphql.types.project import ProjectType
         from app.graphql.types.skill import SkillType
         from app.graphql.types.tribe import TribeType
 
+        _collab_info = collab_info or {}
         skills_types = [SkillType.from_model(s) for s in (skills or [])]
-        projects_types = [ProjectType.from_model(p, owner=user) for p in (projects or [])]
+        projects_types = [
+            ProjectType.from_model(
+                p,
+                owner=user,
+                collaborators=p.collaborators if hasattr(p, "collaborators") else None,
+                collab_details=_collab_info.get(p.id, {}),
+            )
+            for p in (projects or [])
+        ]
         tribes_types = [TribeType.from_model(t) for t in (tribes or [])]
 
         return cls(
@@ -89,7 +104,7 @@ class UserType:
             github_username=user.github_username,
             onboarding_completed=user.onboarding_completed,
             agent_tools=user.agent_tools,
-            agent_workflow_style=user.agent_workflow_style.value if user.agent_workflow_style else None,
+            agent_workflow_style=user.agent_workflow_style,
             human_agent_ratio=user.human_agent_ratio,
             created_at=user.created_at,
             _skills=skills_types,
