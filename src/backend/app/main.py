@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from strawberry.fastapi import GraphQLRouter
 
+from app.api.burn_ingest import router as burn_router
 from app.db.engine import engine
 from app.graphql.context import context_getter
 from app.graphql.schema import schema
@@ -59,3 +60,6 @@ graphql_router = GraphQLRouter(
 
 # Mount GraphQL router
 app.include_router(graphql_router, prefix="/graphql")
+
+# Mount burn ingest router
+app.include_router(burn_router, prefix="/api/burn")
