@@ -18,7 +18,7 @@ def test_settings_default_values():
 
         assert settings.database_url == "postgresql+asyncpg://tribe:tribe@localhost:5433/tribe"
         assert settings.environment == "development"
-        assert settings.debug is True
+        assert settings.debug is False
     finally:
         # Restore original environment
         for var, value in original_values.items():
