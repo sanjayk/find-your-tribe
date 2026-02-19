@@ -863,7 +863,7 @@ export default function SettingsPage() {
                                     <button
                                       type="button"
                                       onClick={() => handleRevokeConfirm(token.id)}
-                                      className="text-[13px] text-red-600 hover:text-red-700 font-medium transition-colors"
+                                      className="text-[13px] text-error hover:text-error font-medium transition-colors"
                                     >
                                       Yes, revoke
                                     </button>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -30,6 +30,7 @@ vi.mock('@/hooks/use-auth', () => ({
 const mockUpdateProfile = vi.fn();
 const mockCreateApiToken = vi.fn();
 const mockRevokeApiToken = vi.fn();
+let createTokenOnCompleted: ((data: Record<string, unknown>) => void) | null = null;
 let mockQueryData: Record<string, unknown> | null = {
   user: {
     id: '1',
@@ -67,9 +68,12 @@ vi.mock('@apollo/client/react', () => ({
     }
     return { data: mockQueryData, loading: mockQueryLoading, error: null };
   },
-  useMutation: (doc: { definitions: Array<{ name?: { value: string } }> }) => {
+  useMutation: (doc: { definitions: Array<{ name?: { value: string } }> }, options?: { onCompleted?: (data: Record<string, unknown>) => void }) => {
     const opName = doc?.definitions?.[0]?.name?.value;
-    if (opName === 'CreateApiToken') return [mockCreateApiToken, { loading: false, data: null }];
+    if (opName === 'CreateApiToken') {
+      if (options?.onCompleted) createTokenOnCompleted = options.onCompleted;
+      return [mockCreateApiToken, { loading: false, data: null }];
+    }
     if (opName === 'RevokeApiToken') return [mockRevokeApiToken, { loading: false }];
     return [mockUpdateProfile, { loading: false }];
   },
@@ -754,6 +758,22 @@ describe('SettingsPage', () => {
   });
 
   describe('Integrations section', () => {
+    const mockWriteText = vi.fn().mockResolvedValue(undefined);
+
+    beforeEach(() => {
+      mockWriteText.mockClear();
+      // jsdom doesn't provide navigator.clipboard — define it once per test
+      if (!navigator.clipboard) {
+        Object.defineProperty(navigator, 'clipboard', {
+          value: { writeText: mockWriteText },
+          writable: true,
+          configurable: true,
+        });
+      } else {
+        (navigator.clipboard as unknown as Record<string, unknown>).writeText = mockWriteText;
+      }
+    });
+
     it('renders Integrations tab in navigation', () => {
       render(<SettingsPage />);
       expect(screen.getByRole('button', { name: 'Integrations' })).toBeInTheDocument();
@@ -883,6 +903,57 @@ describe('SettingsPage', () => {
       await user.click(screen.getByRole('button', { name: 'Integrations' }));
       await user.click(screen.getByRole('button', { name: 'Create token' }));
       expect(mockCreateApiToken).not.toHaveBeenCalled();
+    });
+
+    it('shows one-time token banner after successful creation', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.type(screen.getByLabelText('Token name'), 'CI pipeline');
+      await user.click(screen.getByRole('button', { name: 'Create token' }));
+
+      // Simulate onCompleted callback from Apollo
+      createTokenOnCompleted!({
+        apiTokens: { createApiToken: { id: 'tok-new', name: 'CI pipeline', token: 'fyt_abc123def456' } },
+      });
+
+      expect(await screen.findByText(/copy it now/i)).toBeInTheDocument();
+      expect(screen.getByText('fyt_abc123def456')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+    });
+
+    it('clears token name input after successful creation', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.type(screen.getByLabelText('Token name'), 'CI pipeline');
+      await user.click(screen.getByRole('button', { name: 'Create token' }));
+
+      createTokenOnCompleted!({
+        apiTokens: { createApiToken: { id: 'tok-new', name: 'CI pipeline', token: 'fyt_abc123' } },
+      });
+
+      expect((await screen.findByLabelText('Token name') as HTMLInputElement).value).toBe('');
+    });
+
+    it('copy button calls clipboard.writeText and shows "Copied!" feedback', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.type(screen.getByLabelText('Token name'), 'Test');
+      await user.click(screen.getByRole('button', { name: 'Create token' }));
+
+      await act(async () => {
+        createTokenOnCompleted!({
+          apiTokens: { createApiToken: { id: 'tok-new', name: 'Test', token: 'fyt_copytest' } },
+        });
+      });
+
+      expect(screen.getByText('fyt_copytest')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Copy' }));
+
+      expect(mockWriteText).toHaveBeenCalledWith('fyt_copytest');
+      expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument();
     });
 
     it('renders Quick Start section with fyt-burn instructions', async () => {
