@@ -513,3 +513,4 @@ AI Search & Matching (Could)
 | [f5-discovery-search.md](./f5-discovery-search.md) | F5: Discovery & Search |
 | [f6-build-feed.md](./f6-build-feed.md) | F6: Build Feed |
 | [f7-builder-score.md](./f7-builder-score.md) | F7: Builder Score Algorithm |
+| [f8-burn-plugins.md](./f8-burn-plugins.md) | F8: Burn Plugins (Token Burn Collection) |

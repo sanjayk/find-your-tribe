@@ -163,3 +163,4 @@ Each feature has its own detailed spec:
 - [F5: Discovery & Search](./f5-discovery-search.md)
 - [F6: Build Feed](./f6-build-feed.md)
 - [F7: Builder Score](./f7-builder-score.md)
+- [F8: Burn Plugins](./f8-burn-plugins.md)
