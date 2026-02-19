@@ -1,0 +1,13 @@
+{"type":"system","content":"Session started","timestamp":"2024-01-15T09:59:55.000Z","version":"2.1.0"}
+{"type":"human","message":{"content":"Help me write a function to parse JSON"},"timestamp":"2024-01-15T09:59:58.000Z","version":"2.1.0"}
+{"type":"assistant","message":{"content":"Sure, I can help with that...","usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":200,"cache_read_input_tokens":0},"model":"claude-opus-4-6"},"timestamp":"2024-01-15T10:00:00.000Z","version":"2.1.0"}
+{"type":"human","message":{"content":"Can you add error handling?"},"timestamp":"2024-01-15T10:00:05.000Z","version":"2.1.0"}
+{"type":"assistant","message":{"content":"I'll add proper error handling...","usage":{"input_tokens":150,"output_tokens":80,"cache_creation_input_tokens":0,"cache_read_input_tokens":400},"model":"claude-opus-4-6"},"timestamp":"2024-01-15T10:00:10.000Z","version":"2.1.0"}
+this is not valid json {{{ malformed line should be skipped
+{"type":"assistant","isSidechain":true,"message":{"content":"internal chain-of-thought reasoning...","usage":{"input_tokens":90,"output_tokens":40,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"model":"claude-opus-4-6"},"timestamp":"2024-01-15T10:00:12.000Z","version":"2.1.0"}
+{"type":"human","message":{"content":"Now add tests for this function"},"timestamp":"2024-01-15T10:00:15.000Z","version":"2.1.0"}
+{"type":"assistant","message":{"content":"Here are comprehensive tests...","usage":{"input_tokens":200,"output_tokens":100,"cache_creation_input_tokens":0,"cache_read_input_tokens":600},"model":"claude-opus-4-6"},"timestamp":"2024-01-15T10:00:20.000Z","version":"2.1.0"}
+{"type":"human","message":{"content":"Make all the tests pass"},"timestamp":"2024-01-15T10:00:25.000Z","version":"2.1.0"}
+{"type":"assistant","message":{"content":"Fixed the implementation to pass all tests...","usage":{"input_tokens":250,"output_tokens":120,"cache_creation_input_tokens":0,"cache_read_input_tokens":800},"model":"claude-opus-4-6"},"timestamp":"2024-01-15T10:00:30.000Z","version":"2.1.0"}
+{"type":"human","message":{"content":"Great, can you refactor for clarity?"},"timestamp":"2024-01-15T10:00:55.000Z","version":"2.1.0"}
+{"type":"assistant","message":{"content":"Here is the refactored version...","usage":{"input_tokens":300,"output_tokens":150,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000},"model":"claude-opus-4-6"},"timestamp":"2024-01-15T10:01:00.000Z","version":"2.1.0"}
