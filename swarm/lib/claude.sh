@@ -71,36 +71,17 @@ claude_run_json() {
     local schema
     schema="$(cat "$json_schema_file")"
 
-    # Workaround: --output-format json causes CLI to never close stdout
-    # (github.com/anthropics/claude-code/issues/25629).
-    # Use file redirection instead of $() capture, then kill the hung process.
-    local tmpfile
-    tmpfile=$(mktemp)
-    local agent_timeout="${DEFAULT_AGENT_TIMEOUT:-600}"
-
-    "$CLAUDE_BIN" -p \
+    # Use --max-turns 3: the JSON-producing agent has full context in the
+    # prompt and should respond in 1 turn. Higher values cause the model to
+    # spend turns on tool calls (reading/editing files) which can hang
+    # indefinitely in a backgrounded process.
+    local raw_output
+    raw_output=$("$CLAUDE_BIN" -p \
         --model "$model" \
         --output-format json \
-        --max-turns 30 \
+        --max-turns 3 \
         "${context}${system_prompt}"$'\n\n---\n\nIMPORTANT: You MUST respond with valid JSON matching this schema:\n```json\n'"${schema}"$'\n```\n\n---\n\n'"${user_message}" \
-        > "$tmpfile" 2>/dev/null < /dev/null &
-    local cli_pid=$!
-
-    # Poll until valid JSON appears or timeout
-    local elapsed=0
-    while kill -0 "$cli_pid" 2>/dev/null && [[ $elapsed -lt $agent_timeout ]]; do
-        sleep 2
-        elapsed=$((elapsed + 2))
-        if [[ -s "$tmpfile" ]] && jq -e '.' "$tmpfile" &>/dev/null; then
-            break
-        fi
-    done
-    kill "$cli_pid" 2>/dev/null
-    wait "$cli_pid" 2>/dev/null
-
-    local raw_output
-    raw_output=$(cat "$tmpfile")
-    rm -f "$tmpfile"
+        2>/dev/null)
 
     # Claude CLI --output-format json wraps output in an envelope: {"result": "...", ...}
     # Extract the actual result text, then return it
