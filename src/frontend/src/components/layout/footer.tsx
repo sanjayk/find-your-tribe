@@ -9,17 +9,9 @@ export default function Footer() {
               Clout through building, not posting.
             </p>
           </div>
-          <div className="flex items-center gap-6 text-[13px] text-ink-tertiary">
-            <a href="#" className="hover:text-ink transition-colors">
-              About
-            </a>
-            <a href="#" className="hover:text-ink transition-colors">
-              GitHub
-            </a>
-            <a href="#" className="hover:text-ink transition-colors">
-              Twitter
-            </a>
-          </div>
+          <p className="text-[12px] text-ink-tertiary">
+            &copy; {new Date().getFullYear()} Find Your Tribe
+          </p>
         </div>
       </div>
     </footer>
