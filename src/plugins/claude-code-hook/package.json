@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "start": "node --experimental-strip-types src/cli.ts"
   },
   "devDependencies": {
     "typescript": "^5.7",
