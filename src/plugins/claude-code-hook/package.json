@@ -1,0 +1,22 @@
+{
+  "name": "fyt-burn",
+  "version": "0.1.0",
+  "description": "Report Claude Code token usage to Find Your Tribe",
+  "type": "module",
+  "bin": {
+    "fyt-burn": "./bin/fyt-burn.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7",
+    "vitest": "^4.0",
+    "@types/node": "^22"
+  }
+}
