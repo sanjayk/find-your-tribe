@@ -153,10 +153,11 @@ gate_syntax_check() {
         fi
     done
 
-    # Check JavaScript/TypeScript syntax (basic)
-    # Note: node --check only works on plain .js/.ts files, NOT .jsx/.tsx (JSX is not valid JS)
-    # TSX/JSX syntax is validated by the typecheck gate (tsc --noEmit) instead
-    for f in $(eval "$diff_cmd" 2>/dev/null | grep -E '\.(js|ts)$' | grep -v -E '\.(jsx|tsx)$' || true); do
+    # Check JavaScript syntax (basic)
+    # Note: node --check only works on plain .js files.
+    # TypeScript (.ts/.tsx) syntax is validated by the typecheck gate (tsc --noEmit) instead.
+    # JSX (.jsx/.tsx) is also excluded because JSX is not valid plain JavaScript.
+    for f in $(eval "$diff_cmd" 2>/dev/null | grep -E '\.js$' || true); do
         local full_path="${TRIBE_ROOT}/${f}"
         [[ -f "$full_path" ]] || continue
         if command -v node &>/dev/null; then
@@ -223,6 +224,7 @@ _detect_subsystem() {
 
     local has_frontend=false
     local has_backend=false
+    local has_plugin=false
 
     while IFS= read -r f; do
         [[ -z "$f" ]] && continue
@@ -230,15 +232,24 @@ _detect_subsystem() {
             has_frontend=true
         elif [[ "$f" == src/backend/* ]]; then
             has_backend=true
+        elif [[ "$f" == src/plugins/* ]]; then
+            has_plugin=true
         fi
     done <<< "$files_touched"
 
-    if $has_frontend && $has_backend; then
+    local subsystem_count=0
+    $has_frontend && ((subsystem_count++)) || true
+    $has_backend  && ((subsystem_count++)) || true
+    $has_plugin   && ((subsystem_count++)) || true
+
+    if (( subsystem_count > 1 )); then
         echo "both"
     elif $has_frontend; then
         echo "frontend"
     elif $has_backend; then
         echo "backend"
+    elif $has_plugin; then
+        echo "plugin"
     else
         echo "both"
     fi
