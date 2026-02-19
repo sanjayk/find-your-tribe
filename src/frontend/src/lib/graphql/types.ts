@@ -256,6 +256,37 @@ export interface GetFeedData {
   feed: FeedEvent[];
 }
 
+// API token types
+export interface ApiTokenInfo {
+  id: string;
+  name: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface CreateApiTokenResult {
+  id: string;
+  name: string;
+  token: string;
+}
+
+export interface GetMyApiTokensData {
+  myApiTokens: ApiTokenInfo[];
+}
+
+export interface CreateApiTokenData {
+  apiTokens: {
+    createApiToken: CreateApiTokenResult;
+  };
+}
+
+export interface RevokeApiTokenData {
+  apiTokens: {
+    revokeApiToken: boolean;
+  };
+}
+
 // Mutation response types (namespaced)
 export interface SignupData {
   auth: { signup: AuthPayload };

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -28,6 +28,8 @@ vi.mock('@/hooks/use-auth', () => ({
 
 // Mock Apollo hooks
 const mockUpdateProfile = vi.fn();
+const mockCreateApiToken = vi.fn();
+const mockRevokeApiToken = vi.fn();
 let mockQueryData: Record<string, unknown> | null = {
   user: {
     id: '1',
@@ -53,14 +55,24 @@ let mockQueryData: Record<string, unknown> | null = {
   },
 };
 let mockQueryLoading = false;
+let mockTokensData: { myApiTokens: { id: string; name: string; lastUsedAt: string | null; createdAt: string; expiresAt: string | null }[] } = {
+  myApiTokens: [],
+};
 
 vi.mock('@apollo/client/react', () => ({
-  useQuery: () => ({
-    data: mockQueryData,
-    loading: mockQueryLoading,
-    error: null,
-  }),
-  useMutation: () => [mockUpdateProfile, { loading: false }],
+  useQuery: (doc: { definitions: Array<{ name?: { value: string } }> }) => {
+    const opName = doc?.definitions?.[0]?.name?.value;
+    if (opName === 'MyApiTokens') {
+      return { data: mockTokensData, loading: false, error: null };
+    }
+    return { data: mockQueryData, loading: mockQueryLoading, error: null };
+  },
+  useMutation: (doc: { definitions: Array<{ name?: { value: string } }> }) => {
+    const opName = doc?.definitions?.[0]?.name?.value;
+    if (opName === 'CreateApiToken') return [mockCreateApiToken, { loading: false, data: null }];
+    if (opName === 'RevokeApiToken') return [mockRevokeApiToken, { loading: false }];
+    return [mockUpdateProfile, { loading: false }];
+  },
 }));
 
 import SettingsPage from './page';
@@ -69,6 +81,7 @@ describe('SettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockQueryLoading = false;
+    mockTokensData = { myApiTokens: [] };
     mockQueryData = {
       user: {
         id: '1',
@@ -113,6 +126,7 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: 'Links' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Agent' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Preferences' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Integrations' })).toBeInTheDocument();
   });
 
   it('defaults to Profile section active', () => {
@@ -736,6 +750,150 @@ describe('SettingsPage', () => {
       await user.click(screen.getByRole('button', { name: 'Agent' }));
 
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
+    });
+  });
+
+  describe('Integrations section', () => {
+    it('renders Integrations tab in navigation', () => {
+      render(<SettingsPage />);
+      expect(screen.getByRole('button', { name: 'Integrations' })).toBeInTheDocument();
+    });
+
+    it('renders Integrations section content when tab clicked', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      expect(screen.getByText('API Tokens')).toBeInTheDocument();
+    });
+
+    it('renders empty state when no tokens', async () => {
+      mockTokensData = { myApiTokens: [] };
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      expect(screen.getByText(/no api tokens yet/i)).toBeInTheDocument();
+    });
+
+    it('renders token list with name, dates, and revoke button', async () => {
+      mockTokensData = {
+        myApiTokens: [
+          { id: 'tok1', name: 'CI pipeline', lastUsedAt: null, createdAt: '2025-01-15T00:00:00Z', expiresAt: null },
+        ],
+      };
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      expect(screen.getByText('CI pipeline')).toBeInTheDocument();
+      expect(screen.getByText(/never/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Revoke CI pipeline' })).toBeInTheDocument();
+    });
+
+    it('renders multiple tokens', async () => {
+      mockTokensData = {
+        myApiTokens: [
+          { id: 'tok1', name: 'CI pipeline', lastUsedAt: null, createdAt: '2025-01-15T00:00:00Z', expiresAt: null },
+          { id: 'tok2', name: 'Work laptop', lastUsedAt: '2025-02-01T00:00:00Z', createdAt: '2025-01-20T00:00:00Z', expiresAt: null },
+        ],
+      };
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      expect(screen.getByText('CI pipeline')).toBeInTheDocument();
+      expect(screen.getByText('Work laptop')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /revoke/i })).toHaveLength(2);
+    });
+
+    it('shows inline confirmation on first revoke click', async () => {
+      mockTokensData = {
+        myApiTokens: [
+          { id: 'tok1', name: 'CI pipeline', lastUsedAt: null, createdAt: '2025-01-15T00:00:00Z', expiresAt: null },
+        ],
+      };
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.click(screen.getByRole('button', { name: 'Revoke CI pipeline' }));
+      expect(screen.getByRole('button', { name: 'Yes, revoke' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    });
+
+    it('hides initial revoke button while inline confirmation is visible', async () => {
+      mockTokensData = {
+        myApiTokens: [
+          { id: 'tok1', name: 'CI pipeline', lastUsedAt: null, createdAt: '2025-01-15T00:00:00Z', expiresAt: null },
+        ],
+      };
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.click(screen.getByRole('button', { name: 'Revoke CI pipeline' }));
+      expect(screen.queryByRole('button', { name: 'Revoke CI pipeline' })).not.toBeInTheDocument();
+    });
+
+    it('cancels revoke and restores revoke button', async () => {
+      mockTokensData = {
+        myApiTokens: [
+          { id: 'tok1', name: 'CI pipeline', lastUsedAt: null, createdAt: '2025-01-15T00:00:00Z', expiresAt: null },
+        ],
+      };
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.click(screen.getByRole('button', { name: 'Revoke CI pipeline' }));
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(screen.queryByRole('button', { name: 'Yes, revoke' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Revoke CI pipeline' })).toBeInTheDocument();
+      expect(mockRevokeApiToken).not.toHaveBeenCalled();
+    });
+
+    it('calls revokeApiToken with token id after confirmation', async () => {
+      mockTokensData = {
+        myApiTokens: [
+          { id: 'tok1', name: 'CI pipeline', lastUsedAt: null, createdAt: '2025-01-15T00:00:00Z', expiresAt: null },
+        ],
+      };
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.click(screen.getByRole('button', { name: 'Revoke CI pipeline' }));
+      await user.click(screen.getByRole('button', { name: 'Yes, revoke' }));
+      expect(mockRevokeApiToken).toHaveBeenCalledWith({ variables: { tokenId: 'tok1' } });
+    });
+
+    it('renders create token form with name input and button', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      expect(screen.getByLabelText('Token name')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Create token' })).toBeInTheDocument();
+    });
+
+    it('calls createApiToken with trimmed token name on submit', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.type(screen.getByLabelText('Token name'), 'CI pipeline');
+      await user.click(screen.getByRole('button', { name: 'Create token' }));
+      expect(mockCreateApiToken).toHaveBeenCalledWith({ variables: { name: 'CI pipeline' } });
+    });
+
+    it('does not submit when token name is empty', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      await user.click(screen.getByRole('button', { name: 'Create token' }));
+      expect(mockCreateApiToken).not.toHaveBeenCalled();
+    });
+
+    it('renders Quick Start section with fyt-burn instructions', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Integrations' }));
+      expect(screen.getByText('Quick Start')).toBeInTheDocument();
+      expect(screen.getByText(/npm install -g fyt-burn/)).toBeInTheDocument();
+      expect(screen.getByText(/fyt-burn login/)).toBeInTheDocument();
+      expect(screen.getByText(/fyt-burn install/)).toBeInTheDocument();
+      expect(screen.getByText(/sessions auto-report/)).toBeInTheDocument();
     });
   });
 
