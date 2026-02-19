@@ -11,7 +11,8 @@ const PAGE_SIZE = 12;
 /* ─── Helpers ─── */
 
 function mapStatus(status: ProjectStatus): 'shipped' | 'in-progress' {
-  return status === 'SHIPPED' ? 'shipped' : 'in-progress';
+  if (status === 'IN_PROGRESS') return 'in-progress';
+  return 'shipped';
 }
 
 /* ─── Loading Skeleton ─── */
