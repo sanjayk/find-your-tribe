@@ -1,8 +1,8 @@
-"""add_burn_plugin_fields
+"""add_burn_plugin_schema
 
-Revision ID: f1a2b3c4d5e6
+Revision ID: a0b1c2d3e4f5
 Revises: e9f0a1b2c3d7
-Create Date: 2026-02-19 12:00:00.000000
+Create Date: 2026-02-19 14:00:00.000000
 
 """
 from collections.abc import Sequence
@@ -11,19 +11,18 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "f1a2b3c4d5e6"
+revision: str = "a0b1c2d3e4f5"
 down_revision: str | None = "e9f0a1b2c3d7"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# Enum type names used by PostgreSQL
 BURN_VERIFICATION_TYPE = "burnverification"
 TOKEN_PRECISION_TYPE = "tokenprecision"
 
 
 def upgrade() -> None:
-    """Add burn plugin columns and indexes to build_activities."""
-    # Create enum types
+    """Apply F8 burn plugin schema: columns on build_activities and api_tokens table."""
+    # --- Enum types ---
     burn_verification = sa.Enum(
         "provider_verified",
         "extension_tracked",
@@ -41,7 +40,7 @@ def upgrade() -> None:
     )
     token_precision.create(op.get_bind(), checkfirst=True)
 
-    # Add columns
+    # --- build_activities: 4 new columns ---
     op.add_column(
         "build_activities",
         sa.Column(
@@ -82,12 +81,56 @@ def upgrade() -> None:
         ),
     )
 
-    # Add indexes
+    # --- api_tokens table ---
+    op.create_table(
+        "api_tokens",
+        sa.Column("id", sa.String(26), nullable=False),
+        sa.Column("user_id", sa.String(26), nullable=False),
+        sa.Column("token_hash", sa.String(64), nullable=False),
+        sa.Column("name", sa.String(100), nullable=False),
+        sa.Column(
+            "last_used_at", sa.DateTime(timezone=True), nullable=True
+        ),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("token_hash"),
+    )
+
+    # --- Indexes ---
+    # api_tokens: partial index on token_hash for active (non-revoked) tokens
+    op.execute(
+        "CREATE INDEX ix_api_tokens_hash "
+        "ON api_tokens (token_hash) "
+        "WHERE revoked_at IS NULL"
+    )
+    # api_tokens: index on user_id for lookups by user
+    op.create_index("ix_api_tokens_user", "api_tokens", ["user_id"])
+
+    # build_activities: partial index on session_id for non-null sessions
     op.execute(
         "CREATE INDEX ix_build_activities_session "
         "ON build_activities (session_id) "
         "WHERE session_id IS NOT NULL"
     )
+    # build_activities: composite index for verification queries per user
     op.create_index(
         "ix_build_activities_verification",
         "build_activities",
@@ -96,10 +139,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Remove burn plugin columns and indexes from build_activities."""
+    """Reverse F8 burn plugin schema changes."""
+    # Drop build_activities indexes
     op.drop_index("ix_build_activities_verification", table_name="build_activities")
     op.drop_index("ix_build_activities_session", table_name="build_activities")
 
+    # Drop build_activities columns
     op.drop_column("build_activities", "token_precision")
     op.drop_column("build_activities", "session_id")
     op.drop_column("build_activities", "tool")
@@ -108,3 +153,6 @@ def downgrade() -> None:
     # Drop enum types
     sa.Enum(name=TOKEN_PRECISION_TYPE).drop(op.get_bind(), checkfirst=True)
     sa.Enum(name=BURN_VERIFICATION_TYPE).drop(op.get_bind(), checkfirst=True)
+
+    # Drop api_tokens table (indexes are dropped automatically with the table)
+    op.drop_table("api_tokens")
