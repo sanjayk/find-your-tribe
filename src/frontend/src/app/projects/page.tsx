@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useQuery } from '@apollo/client/react';
 
 import { GET_PROJECTS } from '@/lib/graphql/queries/projects';
@@ -40,14 +42,15 @@ function ProjectGrid({ projects }: { projects: Project[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {projects.map((project) => (
-        <ProjectCard
-          key={project.id}
-          title={project.title}
-          description={project.description ?? ''}
-          status={mapStatus(project.status)}
-          role={project.role ?? undefined}
-          techStack={project.techStack}
-        />
+        <Link key={project.id} href={`/project/${project.id}`}>
+          <ProjectCard
+            title={project.title}
+            description={project.description ?? ''}
+            status={mapStatus(project.status)}
+            role={project.role ?? undefined}
+            techStack={project.techStack}
+          />
+        </Link>
       ))}
     </div>
   );

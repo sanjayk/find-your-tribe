@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -5,6 +6,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+}));
+
+// Mock next/link to render a plain <a> so jsdom can query href
+vi.mock('next/link', () => ({
+  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
 // Control loading / data / error state across tests
@@ -116,5 +124,16 @@ describe('ProjectsPage', () => {
     mockQueryData = { projects: [] };
     render(<ProjectsPage />);
     expect(await screen.findByText(/no projects/i)).toBeInTheDocument();
+  });
+
+  it('wraps each ProjectCard in a Link with the correct /project/:id href', async () => {
+    mockQueryLoading = false;
+    mockQueryData = { projects: PARTIAL_PAGE };
+    render(<ProjectsPage />);
+    await screen.findByText('Project 1');
+    PARTIAL_PAGE.forEach((project) => {
+      const link = document.querySelector(`a[href="/project/${project.id}"]`);
+      expect(link).toBeInTheDocument();
+    });
   });
 });
