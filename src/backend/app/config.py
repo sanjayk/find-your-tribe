@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://tribe:tribe@localhost:5433/tribe"
     environment: str = "development"
     debug: bool = False
-    secret_key: str
+    secret_key: str = "dev-insecure-key-change-in-production"
     jwt_algorithm: str = "HS256"
 
     model_config = SettingsConfigDict(
