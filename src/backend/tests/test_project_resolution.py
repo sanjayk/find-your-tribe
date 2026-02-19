@@ -237,3 +237,9 @@ def test_invalidate_only_affects_target_user():
 
     assert ("user-a", "hint1") not in _resolution_cache
     assert ("user-b", "hint2") in _resolution_cache
+
+
+def test_invalidate_no_error_on_empty_cache():
+    """invalidate_project_cache does not raise when cache is empty."""
+    _resolution_cache.clear()
+    invalidate_project_cache("nonexistent-user")  # should not raise

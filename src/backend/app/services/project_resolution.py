@@ -1,4 +1,4 @@
-"""Project resolution service — maps git remote URLs to FYT project IDs."""
+"""Project resolution service — maps git remote URL hints to FYT project IDs."""
 
 import re
 import time
@@ -47,10 +47,11 @@ async def resolve_project(
     """Map a git remote URL hint to a FYT project ID.
 
     Algorithm:
-      1. Parse hint to normalized 'owner/repo' form.
-      2. Exact match on github_repo_full_name for this user.
-      3. Partial match on repo-name portion via ILIKE.
-      4. Return project.id as str, or None if no match.
+      1. Check in-memory cache (600s TTL).
+      2. Parse hint to normalized 'owner/repo' form.
+      3. Exact match on github_repo_full_name for this user.
+      4. Partial match on repo-name portion via ILIKE.
+      5. Return project.id as str, or None if no match.
 
     Never raises on no-match.
     """
@@ -60,6 +61,7 @@ async def resolve_project(
         value, ts = cached
         if time.monotonic() - ts < _CACHE_TTL_SECONDS:
             return value
+        del _resolution_cache[cache_key]
 
     normalized = _normalize_hint(project_hint)
 
@@ -75,7 +77,7 @@ async def resolve_project(
 
     # Partial match on repo name
     if project_id is None:
-        repo_name = normalized.rsplit("/", 1)[-1]
+        repo_name = normalized.rsplit("/", 1)[-1] if "/" in normalized else normalized
         stmt = (
             select(Project.id)
             .where(Project.owner_id == user_id)
@@ -95,6 +97,6 @@ def invalidate_project_cache(user_id: str) -> None:
 
     Call when projects are created or updated.
     """
-    keys_to_remove = [k for k in _resolution_cache if k[0] == user_id]
-    for k in keys_to_remove:
-        del _resolution_cache[k]
+    keys_to_remove = [key for key in _resolution_cache if key[0] == user_id]
+    for key in keys_to_remove:
+        del _resolution_cache[key]
