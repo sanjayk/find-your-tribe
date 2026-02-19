@@ -6,8 +6,17 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
+import { MY_API_TOKENS } from '@/lib/graphql/queries/tokens';
 import { UPDATE_PROFILE } from '@/lib/graphql/mutations/profile';
-import type { GetBuilderData, UpdateProfileData } from '@/lib/graphql/types';
+import { CREATE_API_TOKEN, REVOKE_API_TOKEN } from '@/lib/graphql/mutations/tokens';
+import type {
+  GetBuilderData,
+  UpdateProfileData,
+  GetMyApiTokensData,
+  CreateApiTokenData,
+  RevokeApiTokenData,
+  ApiTokenInfo,
+} from '@/lib/graphql/types';
 
 const PRIMARY_ROLES = [
   { value: '', label: 'Select a role' },
@@ -35,14 +44,23 @@ const MODELS = ['Claude Opus', 'Claude Sonnet', 'GPT-5', 'Gemini 3 Pro', 'DeepSe
 
 const WORKFLOW_STYLES = ['Pair builder', 'Swarm delegation', 'AI review', 'Autonomous agents', 'Minimal AI'];
 
-type Section = 'profile' | 'links' | 'agent' | 'preferences';
+type Section = 'profile' | 'links' | 'agent' | 'preferences' | 'integrations';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'profile', label: 'Profile' },
   { id: 'links', label: 'Links' },
   { id: 'agent', label: 'Agent' },
   { id: 'preferences', label: 'Preferences' },
+  { id: 'integrations', label: 'Integrations' },
 ];
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
 function buildTimezoneGroups(): { region: string; zones: { value: string; label: string }[] }[] {
   try {
@@ -210,12 +228,20 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [populated, setPopulated] = useState(false);
+  const [newTokenName, setNewTokenName] = useState('');
+  const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const timezoneGroups = useMemo(() => buildTimezoneGroups(), []);
 
   const { data, loading: queryLoading } = useQuery<GetBuilderData>(GET_BUILDER, {
     variables: { username: user?.username },
     skip: !user?.username,
+  });
+
+  const { data: tokensData } = useQuery<GetMyApiTokensData>(MY_API_TOKENS, {
+    skip: !user,
   });
 
   // Populate form fields when query data arrives (render-time state sync)
@@ -299,6 +325,19 @@ export default function SettingsPage() {
     },
   });
 
+  const [createApiToken, { loading: creatingToken }] = useMutation<CreateApiTokenData>(CREATE_API_TOKEN, {
+    onCompleted: (result) => {
+      setCreatedToken(result.apiTokens.createApiToken.token);
+      setNewTokenName('');
+      setCopied(false);
+    },
+    refetchQueries: [{ query: MY_API_TOKENS }],
+  });
+
+  const [revokeApiToken] = useMutation<RevokeApiTokenData>(REVOKE_API_TOKEN, {
+    refetchQueries: [{ query: MY_API_TOKENS }],
+  });
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -346,6 +385,32 @@ export default function SettingsPage() {
     });
   }
 
+  function handleCreateToken(e: FormEvent) {
+    e.preventDefault();
+    if (!newTokenName.trim()) return;
+    setCreatedToken(null);
+    setCopied(false);
+    createApiToken({ variables: { name: newTokenName.trim() } });
+  }
+
+  function handleRevokeConfirm(tokenId: string) {
+    revokeApiToken({ variables: { tokenId } });
+    setRevokingId(null);
+  }
+
+  async function handleCopy() {
+    if (!createdToken) return;
+    try {
+      await navigator.clipboard.writeText(createdToken);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
+    }
+  }
+
+  const apiTokens: ApiTokenInfo[] = tokensData?.myApiTokens ?? [];
+
   const selectClasses =
     'w-full bg-surface-primary rounded-lg px-4 py-3 text-[14px] text-ink appearance-none outline-none transition-colors focus:ring-2 focus:ring-accent/30';
   const inputClasses =
@@ -360,7 +425,7 @@ export default function SettingsPage() {
             <div className="h-4 w-64 bg-surface-secondary rounded mb-8" />
             <div className="flex flex-col sm:flex-row gap-8">
               <div className="hidden sm:block sm:w-[160px] shrink-0 space-y-2">
-                {[1, 2, 3, 4].map((i) => (
+                {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="h-5 w-20 bg-surface-secondary rounded" />
                 ))}
               </div>
@@ -756,6 +821,144 @@ export default function SettingsPage() {
                     {saving ? 'Saving...' : 'Save changes'}
                   </button>
                 </form>
+              )}
+
+              {activeSection === 'integrations' && (
+                <div className="space-y-8">
+                  {/* API Tokens */}
+                  <div>
+                    <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-5">
+                      API Tokens
+                    </h2>
+
+                    {/* Token list */}
+                    {apiTokens.length === 0 ? (
+                      <p className="text-[13px] text-ink-tertiary">
+                        No API tokens yet. Create one below to start using the CLI.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {apiTokens.map((token) => (
+                          <div key={token.id} className="bg-surface-primary rounded-xl p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[14px] font-medium text-ink truncate">{token.name}</p>
+                                <p className="text-[12px] text-ink-tertiary mt-0.5">
+                                  Created {formatDate(token.createdAt)}
+                                  {' · '}
+                                  Last used:{' '}
+                                  {token.lastUsedAt ? formatDate(token.lastUsedAt) : 'Never'}
+                                </p>
+                              </div>
+                              <div className="shrink-0">
+                                {revokingId === token.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setRevokingId(null)}
+                                      className="text-[13px] text-ink-tertiary hover:text-ink-secondary transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRevokeConfirm(token.id)}
+                                      className="text-[13px] text-red-600 hover:text-red-700 font-medium transition-colors"
+                                    >
+                                      Yes, revoke
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    aria-label={`Revoke ${token.name}`}
+                                    onClick={() => setRevokingId(token.id)}
+                                    className="text-[13px] text-ink-tertiary hover:text-ink-secondary transition-colors"
+                                  >
+                                    Revoke
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Create new token */}
+                  <div>
+                    <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-4">
+                      Create a new token
+                    </h2>
+                    <form onSubmit={handleCreateToken} className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label htmlFor="tokenName" className="sr-only">
+                          Token name
+                        </label>
+                        <input
+                          id="tokenName"
+                          type="text"
+                          value={newTokenName}
+                          onChange={(e) => setNewTokenName(e.target.value)}
+                          placeholder="e.g. CI pipeline, Work laptop"
+                          aria-label="Token name"
+                          className={inputClasses}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={creatingToken || !newTokenName.trim()}
+                        className="shrink-0 bg-accent text-white rounded-lg px-4 py-3 font-medium text-[14px] hover:bg-accent-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {creatingToken ? 'Creating...' : 'Create token'}
+                      </button>
+                    </form>
+
+                    {/* One-time token display */}
+                    {createdToken && (
+                      <div className="mt-4 bg-shipped-subtle rounded-xl p-4">
+                        <p className="text-[12px] font-medium text-shipped mb-3">
+                          Token created &mdash; copy it now. It won&apos;t be shown again.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <code className="flex-1 font-mono text-[13px] text-ink bg-surface-elevated rounded-lg px-3 py-2 truncate select-all">
+                            {createdToken}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={handleCopy}
+                            className="shrink-0 text-[13px] font-medium text-accent hover:text-accent-hover transition-colors"
+                          >
+                            {copied ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Start */}
+                  <div>
+                    <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-4">
+                      Quick Start
+                    </h2>
+                    <p className="text-[13px] text-ink-secondary mb-3">
+                      Track your Claude Code usage from the terminal with the{' '}
+                      <code className="font-mono text-[12px] bg-surface-secondary px-1.5 py-0.5 rounded">
+                        fyt-burn
+                      </code>{' '}
+                      CLI.
+                    </p>
+                    <pre className="font-mono text-[12px] bg-surface-secondary text-ink-secondary rounded-xl p-4 overflow-x-auto leading-relaxed">
+                      <span className="text-ink-tertiary"># Install the CLI{'\n'}</span>
+                      {'npm install -g fyt-burn\n\n'}
+                      <span className="text-ink-tertiary"># Connect your API token{'\n'}</span>
+                      {'fyt-burn connect --token <your-token>\n\n'}
+                      <span className="text-ink-tertiary"># Start tracking{'\n'}</span>
+                      {'fyt-burn start'}
+                    </pre>
+                  </div>
+                </div>
               )}
 
               {activeSection === 'preferences' && (
