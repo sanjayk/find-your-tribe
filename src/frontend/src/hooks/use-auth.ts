@@ -27,22 +27,27 @@ const SERVER_SAFE_STATE: AuthState = {
   isLoading: true,
 };
 
+function readStoredAuth(stored: string | null): AuthState {
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      return { user: parsed.user, accessToken: parsed.accessToken, isAuthenticated: true, isLoading: false };
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }
+  return { user: null, accessToken: null, isAuthenticated: false, isLoading: false };
+}
+
 export function useAuth() {
   const router = useRouter();
   const [state, setState] = useState<AuthState>(SERVER_SAFE_STATE);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setState({ user: parsed.user, accessToken: parsed.accessToken, isAuthenticated: true, isLoading: false });
-        return;
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-    setState({ user: null, accessToken: null, isAuthenticated: false, isLoading: false });
+    const nextState = readStoredAuth(stored);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Must read localStorage after mount to avoid SSR hydration mismatch
+    setState(nextState);
   }, []);
 
   const login = useCallback(
