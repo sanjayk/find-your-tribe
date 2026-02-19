@@ -1,6 +1,7 @@
 """Data models for the Find Your Tribe application."""
 
 from app.db.base import Base
+from app.models.api_token import ApiToken
 from app.models.build_activity import BuildActivity
 from app.models.enums import (
     AgentWorkflowStyle,
@@ -23,6 +24,7 @@ from app.models.user import RefreshToken, User, user_skills
 
 __all__ = [
     "AgentWorkflowStyle",
+    "ApiToken",
     "AvailabilityStatus",
     "Base",
     "BuildActivity",

@@ -26,6 +26,7 @@ from app.db.base import Base, TimestampMixin, ULIDMixin
 from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
 
 if TYPE_CHECKING:
+    from app.models.api_token import ApiToken
     from app.models.build_activity import BuildActivity
     from app.models.project import Project
     from app.models.skill import Skill
@@ -205,6 +206,11 @@ class User(Base, ULIDMixin, TimestampMixin):
     )
     build_activities: Mapped[list["BuildActivity"]] = relationship(
         "BuildActivity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    api_tokens: Mapped[list["ApiToken"]] = relationship(
+        "ApiToken",
         back_populates="user",
         cascade="all, delete-orphan",
     )
