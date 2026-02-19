@@ -23,7 +23,7 @@ export default function LoginPage() {
       if (!payload.user.onboardingCompleted) {
         router.push('/onboarding');
       } else {
-        router.push('/');
+        router.push('/feed');
       }
     },
     onError: (err) => {
