@@ -12,8 +12,8 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://tribe:tribe@localhost:5433/tribe"
     environment: str = "development"
-    debug: bool = True
-    secret_key: str = "dev-secret-key-change-in-production"
+    debug: bool = False
+    secret_key: str
     jwt_algorithm: str = "HS256"
 
     model_config = SettingsConfigDict(
