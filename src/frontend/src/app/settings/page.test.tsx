@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -891,8 +891,9 @@ describe('SettingsPage', () => {
       await user.click(screen.getByRole('button', { name: 'Integrations' }));
       expect(screen.getByText('Quick Start')).toBeInTheDocument();
       expect(screen.getByText(/npm install -g fyt-burn/)).toBeInTheDocument();
-      expect(screen.getByText(/fyt-burn connect/)).toBeInTheDocument();
-      expect(screen.getByText(/fyt-burn start/)).toBeInTheDocument();
+      expect(screen.getByText(/fyt-burn login/)).toBeInTheDocument();
+      expect(screen.getByText(/fyt-burn install/)).toBeInTheDocument();
+      expect(screen.getByText(/sessions auto-report/)).toBeInTheDocument();
     });
   });
 

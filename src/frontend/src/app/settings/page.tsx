@@ -943,20 +943,18 @@ export default function SettingsPage() {
                       Quick Start
                     </h2>
                     <p className="text-[13px] text-ink-secondary mb-3">
-                      Track your Claude Code usage from the terminal with the{' '}
+                      Connect your Claude Code sessions with the{' '}
                       <code className="font-mono text-[12px] bg-surface-secondary px-1.5 py-0.5 rounded">
                         fyt-burn
                       </code>{' '}
                       CLI.
                     </p>
-                    <pre className="font-mono text-[12px] bg-surface-secondary text-ink-secondary rounded-xl p-4 overflow-x-auto leading-relaxed">
-                      <span className="text-ink-tertiary"># Install the CLI{'\n'}</span>
-                      {'npm install -g fyt-burn\n\n'}
-                      <span className="text-ink-tertiary"># Connect your API token{'\n'}</span>
-                      {'fyt-burn connect --token <your-token>\n\n'}
-                      <span className="text-ink-tertiary"># Start tracking{'\n'}</span>
-                      {'fyt-burn start'}
-                    </pre>
+                    <ol className="font-mono text-[13px] text-ink-secondary space-y-1.5 list-decimal list-inside">
+                      <li>npm install -g fyt-burn</li>
+                      <li>fyt-burn login</li>
+                      <li>fyt-burn install</li>
+                      <li className="text-ink-tertiary">Done — sessions auto-report</li>
+                    </ol>
                   </div>
                 </div>
               )}

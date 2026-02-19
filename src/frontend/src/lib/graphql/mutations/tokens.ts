@@ -13,7 +13,7 @@ export const CREATE_API_TOKEN = gql`
 `;
 
 export const REVOKE_API_TOKEN = gql`
-  mutation RevokeApiToken($tokenId: String!) {
+  mutation RevokeApiToken($tokenId: ID!) {
     apiTokens {
       revokeApiToken(tokenId: $tokenId)
     }
