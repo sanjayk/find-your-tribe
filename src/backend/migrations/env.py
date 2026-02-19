@@ -14,6 +14,7 @@ from app.db.engine import engine as app_engine
 # These imports are necessary for Alembic autogenerate to detect models
 from app.models import (  # noqa: F401
     Base,
+    BuildActivity,
     FeedEvent,
     Project,
     RefreshToken,

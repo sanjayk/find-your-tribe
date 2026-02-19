@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, ULIDMixin
-from app.models.enums import BuildActivitySource
+from app.models.enums import BuildActivitySource, BurnVerification, TokenPrecision
 
 if TYPE_CHECKING:
     from app.models.project import Project
@@ -33,6 +33,18 @@ class BuildActivity(Base, ULIDMixin, TimestampMixin):
         SQLEnum(BuildActivitySource, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
+    verification: Mapped[str] = mapped_column(
+        SQLEnum(BurnVerification, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        server_default="self_reported",
+    )
+    tool: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    session_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    token_precision: Mapped[str] = mapped_column(
+        SQLEnum(TokenPrecision, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        server_default="approximate",
+    )
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, default=dict)
 
     user: Mapped["User"] = relationship(back_populates="build_activities")
@@ -51,5 +63,15 @@ class BuildActivity(Base, ULIDMixin, TimestampMixin):
             "ix_build_activities_project",
             "project_id",
             postgresql_where=text("project_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_build_activities_session",
+            "session_id",
+            postgresql_where=text("session_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_build_activities_verification",
+            "user_id",
+            "verification",
         ),
     )

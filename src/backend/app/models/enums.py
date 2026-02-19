@@ -108,3 +108,20 @@ class BuildActivitySource(StrEnum):
     GOOGLE = "google"
     MANUAL = "manual"
     OTHER = "other"
+
+
+class BurnVerification(StrEnum):
+    """How a burn record was verified."""
+
+    PROVIDER_VERIFIED = "provider_verified"
+    EXTENSION_TRACKED = "extension_tracked"
+    EXPORT_UPLOADED = "export_uploaded"
+    SELF_REPORTED = "self_reported"
+
+
+class TokenPrecision(StrEnum):
+    """Precision level of a token count."""
+
+    EXACT = "exact"
+    ESTIMATED = "estimated"
+    APPROXIMATE = "approximate"
