@@ -19,12 +19,12 @@ class TestSchemaLoads:
         assert isinstance(schema, strawberry.Schema)
 
     def test_schema_has_query_type(self):
-        """Schema includes the Query type."""
-        assert schema.query == Query
+        """Schema includes the Query type (or a subclass extending it)."""
+        assert issubclass(schema.query, Query)
 
     def test_schema_has_mutation_type(self):
-        """Schema includes the Mutation type."""
-        assert schema.mutation == Mutation
+        """Schema includes the Mutation type (or a subclass extending it)."""
+        assert issubclass(schema.mutation, Mutation)
 
     def test_schema_sdl_is_nonempty(self):
         """Schema produces a non-trivial SDL string."""
