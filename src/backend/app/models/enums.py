@@ -125,3 +125,12 @@ class TokenPrecision(StrEnum):
     EXACT = "exact"
     ESTIMATED = "estimated"
     APPROXIMATE = "approximate"
+
+
+class MilestoneType(StrEnum):
+    """Type of project milestone."""
+
+    START = "start"
+    MILESTONE = "milestone"
+    DEPLOY = "deploy"
+    LAUNCH = "launch"

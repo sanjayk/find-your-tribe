@@ -24,6 +24,7 @@ from app.db.base import Base, TimestampMixin, ULIDMixin
 from app.models.enums import CollaboratorStatus, ProjectStatus
 
 if TYPE_CHECKING:
+    from app.models.project_milestone import ProjectMilestone
     from app.models.tribe import Tribe
     from app.models.user import User
 
@@ -126,6 +127,30 @@ class Project(Base, ULIDMixin, TimestampMixin):
         default=dict,
         server_default="{}",
     )
+    domains: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
+    ai_tools: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
+    build_style: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
+    services: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
 
     # GitHub integration
     github_repo_full_name: Mapped[str | None] = mapped_column(
@@ -170,6 +195,12 @@ class Project(Base, ULIDMixin, TimestampMixin):
     tribe: Mapped["Tribe | None"] = relationship(
         "Tribe",
         back_populates="projects",
+    )
+    milestones: Mapped[list["ProjectMilestone"]] = relationship(
+        "ProjectMilestone",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="ProjectMilestone.date",
     )
 
     __table_args__ = (
