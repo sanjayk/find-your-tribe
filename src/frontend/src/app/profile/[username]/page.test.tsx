@@ -1,9 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MockedProvider } from '@apollo/client/testing/react';
+import type { MockedResponse } from '@apollo/client/testing';
 import ProfilePage from './profile-content';
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
 import { GET_BURN_SUMMARY } from '@/lib/graphql/queries/burn';
+import { MY_PENDING_INVITATIONS } from '@/lib/graphql/queries/invitations';
+import { CONFIRM_COLLABORATION, DECLINE_COLLABORATION } from '@/lib/graphql/mutations/projects';
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ username: 'mayachen' }),
@@ -142,6 +145,11 @@ const mockBurnSummary = {
   ],
 };
 
+const emptyInvitationsMock = {
+  request: { query: MY_PENDING_INVITATIONS },
+  result: { data: { myPendingInvitations: [] } },
+};
+
 const mocks = [
   {
     request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
@@ -224,6 +232,7 @@ describe('ProfilePage', () => {
         request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
         result: { data: { user: emptyBuilder } },
       },
+      emptyInvitationsMock,
     ];
     render(
       <MockedProvider mocks={emptyMocks}>
@@ -344,6 +353,7 @@ describe('ProfilePage', () => {
         request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
         result: { data: { user: emptyProjectsBuilder } },
       },
+      emptyInvitationsMock,
     ];
     render(
       <MockedProvider mocks={emptyMocks}>
@@ -375,5 +385,280 @@ describe('ProfilePage', () => {
     );
     await screen.findByText('Nothing shipped yet');
     expect(screen.queryByText('Your proof of work will show up here')).not.toBeInTheDocument();
+  });
+});
+
+interface MockedInvitation {
+  projectId: string;
+  projectTitle: string;
+  role: string | null;
+  inviter: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl: null;
+    headline: string;
+    primaryRole: string;
+  };
+  invitedAt: string;
+}
+
+describe('ProfilePage — Pending Invitations', () => {
+  const mockInvitation: MockedInvitation = {
+    projectId: 'proj-99',
+    projectTitle: 'Open Source Dashboard',
+    role: 'engineer',
+    inviter: {
+      id: 'user-2',
+      username: 'alexsmith',
+      displayName: 'Alex Smith',
+      avatarUrl: null,
+      headline: 'Backend engineer',
+      primaryRole: 'ENGINEER',
+    },
+    invitedAt: '2026-01-15T10:00:00Z',
+  };
+
+  const makeOwnProfileMocks = (
+    invitations: MockedInvitation[],
+    extraMocks: MockedResponse[] = [],
+  ): MockedResponse[] => [
+    {
+      request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+      result: { data: { user: mockBuilder } },
+    },
+    {
+      request: { query: MY_PENDING_INVITATIONS },
+      result: { data: { myPendingInvitations: invitations } },
+    },
+    ...extraMocks,
+  ];
+
+  beforeEach(() => {
+    mockAuthUser = {
+      id: '1',
+      username: 'mayachen',
+      displayName: 'Maya Chen',
+      email: 'maya@test.com',
+      onboardingCompleted: true,
+    };
+  });
+
+  it('renders pending invitations section on own profile when invitations exist', async () => {
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([mockInvitation])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    expect(await screen.findByText('Pending Invitations')).toBeInTheDocument();
+    expect(screen.getByTestId('invitation-card')).toBeInTheDocument();
+  });
+
+  it('shows inviter name in the invitation card', async () => {
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([mockInvitation])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Pending Invitations');
+    expect(screen.getByText('Alex Smith')).toBeInTheDocument();
+  });
+
+  it('shows project title as a link in the invitation card', async () => {
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([mockInvitation])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Pending Invitations');
+    const link = screen.getByRole('link', { name: 'Open Source Dashboard' });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/project/proj-99');
+  });
+
+  it('shows role label when role is provided', async () => {
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([mockInvitation])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Pending Invitations');
+    expect(screen.getByText(/Role: engineer/)).toBeInTheDocument();
+  });
+
+  it('hides role label when role is null', async () => {
+    const noRoleInvitation = { ...mockInvitation, role: null };
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([noRoleInvitation])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Pending Invitations');
+    expect(screen.queryByText(/Role:/)).not.toBeInTheDocument();
+  });
+
+  it('renders Accept and Decline buttons for each invitation', async () => {
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([mockInvitation])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Pending Invitations');
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument();
+  });
+
+  it('hides pending invitations section when invitation list is empty on own profile', async () => {
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Maya Chen');
+    expect(screen.queryByText('Pending Invitations')).not.toBeInTheDocument();
+  });
+
+  it('hides pending invitations section when viewing another profile', async () => {
+    mockAuthUser = {
+      id: '99',
+      username: 'otheruser',
+      displayName: 'Other User',
+      email: 'other@test.com',
+      onboardingCompleted: true,
+    };
+    const visitorMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: mockBuilder } },
+      },
+      // MY_PENDING_INVITATIONS should NOT fire — no mock needed
+    ];
+    render(
+      <MockedProvider mocks={visitorMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Maya Chen');
+    expect(screen.queryByText('Pending Invitations')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('invitation-card')).not.toBeInTheDocument();
+  });
+
+  it('removes invitation card after clicking Accept', async () => {
+    const confirmMock = {
+      request: { query: CONFIRM_COLLABORATION, variables: { projectId: 'proj-99' } },
+      result: {
+        data: {
+          projects: {
+            confirmCollaboration: {
+              user: { id: 'user-1', username: 'mayachen', displayName: 'Maya Chen' },
+              role: 'engineer',
+              status: 'confirmed',
+              confirmedAt: '2026-01-16T10:00:00Z',
+            },
+          },
+        },
+      },
+    };
+    const refetchMock = {
+      request: { query: MY_PENDING_INVITATIONS },
+      result: { data: { myPendingInvitations: [] } },
+    };
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([mockInvitation], [confirmMock, refetchMock])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Pending Invitations');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('invitation-card')).not.toBeInTheDocument();
+    }, { timeout: 1000 });
+  });
+
+  it('removes invitation card after clicking Decline', async () => {
+    const declineMock = {
+      request: { query: DECLINE_COLLABORATION, variables: { projectId: 'proj-99' } },
+      result: { data: { projects: { declineCollaboration: true } } },
+    };
+    const refetchMock = {
+      request: { query: MY_PENDING_INVITATIONS },
+      result: { data: { myPendingInvitations: [] } },
+    };
+    render(
+      <MockedProvider mocks={makeOwnProfileMocks([mockInvitation], [declineMock, refetchMock])}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Pending Invitations');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('invitation-card')).not.toBeInTheDocument();
+    }, { timeout: 1000 });
+  });
+});
+
+describe('ProfilePage — View All Projects', () => {
+  function makeProjectEntry(id: string, title: string) {
+    return {
+      id,
+      title,
+      description: `Description for ${title}`,
+      status: 'SHIPPED',
+      role: 'creator',
+      techStack: [],
+      links: {},
+      impactMetrics: {},
+      githubRepoFullName: null,
+      githubStars: null,
+      createdAt: '2025-01-01T00:00:00Z',
+      updatedAt: '2025-06-01T00:00:00Z',
+      collaborators: [],
+    };
+  }
+
+  it('shows "View all projects" link when builder has more than 7 projects', async () => {
+    const manyProjects = Array.from({ length: 8 }, (_, i) =>
+      makeProjectEntry(`proj-${i}`, `Project ${i + 1}`)
+    );
+    const manyProjectsBuilder = { ...mockBuilder, projects: manyProjects };
+    const builderMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: manyProjectsBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={builderMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Project 1');
+    const link = screen.getByRole('link', { name: /View all projects/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/projects?builder=mayachen');
+  });
+
+  it('hides "View all projects" link when builder has 7 or fewer projects', async () => {
+    const sevenProjects = Array.from({ length: 7 }, (_, i) =>
+      makeProjectEntry(`proj-${i}`, `Project ${i + 1}`)
+    );
+    const sevenProjectsBuilder = { ...mockBuilder, projects: sevenProjects };
+    const builderMocks = [
+      {
+        request: { query: GET_BUILDER, variables: { username: 'mayachen' } },
+        result: { data: { user: sevenProjectsBuilder } },
+      },
+    ];
+    render(
+      <MockedProvider mocks={builderMocks}>
+        <ProfilePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Project 1');
+    expect(screen.queryByRole('link', { name: /View all projects/i })).not.toBeInTheDocument();
   });
 });
