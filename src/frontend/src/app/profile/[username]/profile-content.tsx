@@ -1,14 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useMutation } from '@apollo/client/react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
 import { GET_BURN_SUMMARY } from '@/lib/graphql/queries/burn';
+import { MY_PENDING_INVITATIONS } from '@/lib/graphql/queries/invitations';
+import { CONFIRM_COLLABORATION, DECLINE_COLLABORATION } from '@/lib/graphql/mutations/projects';
 import type {
   GetBuilderData,
   GetBurnSummaryData,
+  GetPendingInvitationsData,
   Builder,
   AvailabilityStatus,
   AgentWorkflowStyle,
@@ -268,6 +272,33 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
   const availability = mapAvailabilityLabel(builder.availabilityStatus);
   const available = isAvailable(builder.availabilityStatus);
 
+  // Pending invitations state
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  // Pending invitations query (own profile only)
+  const { data: invitationsData, refetch: refetchInvitations } = useQuery<GetPendingInvitationsData>(
+    MY_PENDING_INVITATIONS,
+    { skip: !isOwnProfile },
+  );
+
+  const [confirmCollaboration] = useMutation(CONFIRM_COLLABORATION);
+  const [declineCollaboration] = useMutation(DECLINE_COLLABORATION);
+
+  const rawInvitations = invitationsData?.myPendingInvitations ?? [];
+  const pendingInvitations = rawInvitations.filter((inv) => !dismissedIds.has(inv.projectId));
+
+  const handleAccept = async (projectId: string) => {
+    setDismissedIds((prev) => new Set([...prev, projectId]));
+    await confirmCollaboration({ variables: { projectId } });
+    void refetchInvitations();
+  };
+
+  const handleDecline = async (projectId: string) => {
+    setDismissedIds((prev) => new Set([...prev, projectId]));
+    await declineCollaboration({ variables: { projectId } });
+    void refetchInvitations();
+  };
+
   // Burn data from real GraphQL query
   const { data: burnData } = useQuery<GetBurnSummaryData>(GET_BURN_SUMMARY, {
     variables: { userId: builder.id, weeks: 52 },
@@ -346,6 +377,64 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
 
   return (
     <div className="mx-auto max-w-[1080px] px-5 md:px-6 pb-12 md:pb-16">
+      {/* ─── PENDING INVITATIONS ─── */}
+      {isOwnProfile && pendingInvitations.length > 0 && (
+        <section className="pt-8 pb-2">
+          <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-4">
+            Pending Invitations
+          </div>
+          <div className="flex flex-col gap-3">
+            {pendingInvitations.map((invitation) => (
+              <div
+                key={invitation.projectId}
+                data-testid="invitation-card"
+                className="bg-in-progress-subtle rounded-xl p-5 flex items-center gap-4 transition-all duration-300"
+              >
+                {/* Inviter avatar */}
+                <div className="w-9 h-9 rounded-full bg-in-progress/20 flex items-center justify-center flex-shrink-0">
+                  <span className="font-serif text-[14px] text-in-progress">
+                    {getInitials(invitation.inviter.displayName)}
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-ink-secondary">
+                    <span className="font-medium text-ink">{invitation.inviter.displayName}</span>
+                    {' invited you to collaborate on '}
+                    <Link
+                      href={`/project/${invitation.projectId}`}
+                      className="font-medium text-accent hover:text-accent-hover transition-colors"
+                    >
+                      {invitation.projectTitle}
+                    </Link>
+                  </p>
+                  {invitation.role && (
+                    <p className="text-[12px] text-ink-tertiary mt-0.5">Role: {invitation.role}</p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => void handleAccept(invitation.projectId)}
+                    className="bg-ink text-ink-inverse text-[12px] font-medium px-3 py-1.5 rounded-lg hover:bg-ink/90 transition-colors"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => void handleDecline(invitation.projectId)}
+                    className="text-ink-tertiary text-[12px] font-medium px-3 py-1.5 rounded-lg hover:text-ink-secondary transition-colors"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ─── HERO SECTION ─── */}
       <section className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 sm:gap-8 lg:gap-12 items-start pt-10 lg:pt-14 pb-8 lg:pb-10">
         {/* Left: Identity */}
@@ -488,6 +577,18 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
                   burnStat={makeBurnStat(weeklyBuckets, idx + 1)}
                 />
               ))}
+            </div>
+          )}
+
+          {/* View all projects link */}
+          {builder.projects.length > 7 && (
+            <div className="mt-5">
+              <Link
+                href={`/projects?builder=${builder.username}`}
+                className="font-medium text-[13px] text-accent hover:text-accent-hover transition-colors"
+              >
+                View all projects →
+              </Link>
             </div>
           )}
         </section>
