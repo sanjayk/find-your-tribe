@@ -5,11 +5,13 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 from strawberry.types import Info
 
+from app.constants.tags import TAG_SUGGESTIONS
 from app.graphql.context import Context
+from app.graphql.helpers import require_auth
 from app.graphql.types.burn import BurnDayType as _BurnDayType
 from app.graphql.types.burn import BurnReceiptType, BurnSummaryType
 from app.graphql.types.feed_event import FeedEventType
-from app.graphql.types.project import ProjectType
+from app.graphql.types.project import InviteTokenInfoType, PendingInvitationType, ProjectType
 from app.graphql.types.tribe import TribeType
 from app.graphql.types.user import UserType
 from app.models.enums import ProjectStatus, TribeStatus
@@ -17,7 +19,7 @@ from app.models.feed_event import FeedEvent
 from app.models.project import Project, project_collaborators
 from app.models.tribe import Tribe
 from app.models.user import User
-from app.services import burn_service, project_service, tribe_service
+from app.services import burn_service, project_service, tribe_service, user_service
 
 
 def _dict_to_burn_summary(data: dict) -> BurnSummaryType:
@@ -313,4 +315,75 @@ class Query:
                 created_at=event.created_at,
             )
             for event in events
+        ]
+
+    @strawberry.field
+    async def tag_suggestions(
+        self,
+        field: str,
+        query: str = "",
+        limit: int = 10,
+    ) -> list[str]:
+        """Return tag suggestions for a given field, optionally filtered by query."""
+        candidates = TAG_SUGGESTIONS.get(field)
+        if candidates is None:
+            return []
+        if not query:
+            return candidates[:limit]
+        q_lower = query.lower()
+        return [tag for tag in candidates if q_lower in tag.lower()][:limit]
+
+    @strawberry.field
+    async def search_users(
+        self,
+        info: Info[Context, None],
+        query: str,
+        limit: int = 5,
+    ) -> list[UserType]:
+        """Search users by name or username for collaborator typeahead (authenticated)."""
+        session = info.context.session
+        current_user_id = require_auth(info)
+        users = await user_service.search(
+            session, query, exclude_user_id=current_user_id, limit=limit
+        )
+        return [UserType.from_model(u) for u in users]
+
+    @strawberry.field
+    async def invite_token_info(
+        self,
+        info: Info[Context, None],
+        token: str,
+    ) -> InviteTokenInfoType | None:
+        """Return public info about an invite token (no authentication required)."""
+        session = info.context.session
+        data = await project_service.get_invite_token_info(session, token)
+        if data is None:
+            return None
+        return InviteTokenInfoType(
+            project_title=data["project_title"],
+            project_id=data["project_id"],
+            inviter_name=data["inviter_name"],
+            inviter_avatar_url=data["inviter_avatar_url"],
+            role=data["role"],
+            expired=data["expired"],
+        )
+
+    @strawberry.field
+    async def my_pending_invitations(
+        self,
+        info: Info[Context, None],
+    ) -> list[PendingInvitationType]:
+        """Return pending collaboration invitations for the authenticated user."""
+        session = info.context.session
+        user_id = require_auth(info)
+        invitations = await project_service.get_pending_invitations(session, user_id)
+        return [
+            PendingInvitationType(
+                project_id=inv["project_id"],
+                project_title=inv["project_title"],
+                role=inv["role"],
+                inviter=UserType.from_model(inv["inviter"]),
+                invited_at=inv["invited_at"],
+            )
+            for inv in invitations
         ]
