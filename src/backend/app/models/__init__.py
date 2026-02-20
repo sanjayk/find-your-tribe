@@ -3,6 +3,7 @@
 from app.db.base import Base
 from app.models.api_token import ApiToken
 from app.models.build_activity import BuildActivity
+from app.models.collaborator_invite_token import CollaboratorInviteToken
 from app.models.enums import (
     AgentWorkflowStyle,
     AvailabilityStatus,
@@ -12,6 +13,7 @@ from app.models.enums import (
     EventType,
     MemberRole,
     MemberStatus,
+    MilestoneType,
     ProjectStatus,
     SkillCategory,
     TokenPrecision,
@@ -20,6 +22,7 @@ from app.models.enums import (
 )
 from app.models.feed_event import FeedEvent
 from app.models.project import Project, project_collaborators
+from app.models.project_milestone import ProjectMilestone
 from app.models.skill import Skill
 from app.models.tribe import Tribe, TribeOpenRole, tribe_members
 from app.models.user import RefreshToken, User, user_skills
@@ -32,12 +35,15 @@ __all__ = [
     "BuildActivity",
     "BuildActivitySource",
     "BurnVerification",
+    "CollaboratorInviteToken",
     "CollaboratorStatus",
     "EventType",
     "FeedEvent",
     "MemberRole",
     "MemberStatus",
+    "MilestoneType",
     "Project",
+    "ProjectMilestone",
     "ProjectStatus",
     "RefreshToken",
     "Skill",
