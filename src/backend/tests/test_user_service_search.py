@@ -1,6 +1,5 @@
 """Tests for user_service.search — collaborator typeahead (Task 5)."""
 
-import pytest
 
 from app.models.user import User
 from app.services import user_service
