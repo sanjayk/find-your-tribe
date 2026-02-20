@@ -10,6 +10,7 @@
 
 grounding_run() {
     local task_id="$1"
+    local worktree_path="${2:-$TRIBE_ROOT}"
     local all_passed=true
     local results=()
 
@@ -46,7 +47,7 @@ grounding_run() {
     fi
 
     # Check 4: Python import verification
-    if grounding_check_python_imports "$task_id"; then
+    if grounding_check_python_imports "$task_id" "$worktree_path"; then
         results+=("${GREEN}${SYM_CHECK} Python imports resolve${RESET}")
     else
         results+=("${YELLOW}${SYM_WARN} Unresolved Python imports detected${RESET}")
@@ -89,7 +90,7 @@ grounding_check_diff_nonempty() {
     fi
 
     local diff
-    diff=$(_git diff "main...${branch}" --stat 2>/dev/null)
+    diff=$(_git diff "$(git_main_branch)...${branch}" --stat 2>/dev/null)
 
     [[ -n "$diff" ]]
 }
@@ -148,7 +149,7 @@ grounding_check_scope() {
 
     # Get actual files changed on branch
     local actual_files
-    actual_files=$(_git diff "main...${branch}" --name-only 2>/dev/null)
+    actual_files=$(_git diff "$(git_main_branch)...${branch}" --name-only 2>/dev/null)
 
     if [[ -z "$actual_files" ]]; then
         return 0
@@ -187,13 +188,14 @@ grounding_check_scope() {
 
 grounding_check_python_imports() {
     local task_id="$1"
+    local worktree_path="${2:-$TRIBE_ROOT}"
     local task_json="${TASKS_DIR}/${task_id}.json"
     local branch
     branch=$(jq -r '.branch' "$task_json" 2>/dev/null)
 
     # Get Python files changed on this branch
     local py_files
-    py_files=$(_git diff "main...${branch}" --name-only 2>/dev/null | grep '\.py$' || true)
+    py_files=$(_git diff "$(git_main_branch)...${branch}" --name-only 2>/dev/null | grep '\.py$' || true)
 
     if [[ -z "$py_files" ]]; then
         return 0  # No Python files, nothing to check
@@ -202,7 +204,7 @@ grounding_check_python_imports() {
     local failed=false
     while IFS= read -r py_file; do
         [[ -z "$py_file" ]] && continue
-        local full_path="${TRIBE_ROOT}/${py_file}"
+        local full_path="${worktree_path}/${py_file}"
         [[ -f "$full_path" ]] || continue
 
         # Extract import statements and check if referenced files exist
@@ -225,16 +227,18 @@ except:
             # Convert module path to file path
             local imp_path
             imp_path=$(echo "$imp" | tr '.' '/')
-            # Check both as file and as package
+            # Check both as file and as package (look in worktree first, then main repo)
             local found=false
-            for base_dir in "src/backend" "src/frontend" "."; do
-                if [[ -f "${TRIBE_ROOT}/${base_dir}/${imp_path}.py" ]] || \
-                   [[ -f "${TRIBE_ROOT}/${base_dir}/${imp_path}/__init__.py" ]] || \
-                   [[ -f "${TRIBE_ROOT}/${imp_path}.py" ]] || \
-                   [[ -f "${TRIBE_ROOT}/${imp_path}/__init__.py" ]]; then
-                    found=true
-                    break
-                fi
+            for base_root in "$worktree_path" "$TRIBE_ROOT"; do
+                for base_dir in "src/backend" "src/frontend" "."; do
+                    if [[ -f "${base_root}/${base_dir}/${imp_path}.py" ]] || \
+                       [[ -f "${base_root}/${base_dir}/${imp_path}/__init__.py" ]] || \
+                       [[ -f "${base_root}/${imp_path}.py" ]] || \
+                       [[ -f "${base_root}/${imp_path}/__init__.py" ]]; then
+                        found=true
+                        break 2
+                    fi
+                done
             done
             if ! $found; then
                 log_warn "Unresolved import in ${py_file}: ${imp}"
@@ -265,114 +269,82 @@ grounding_check_not_blocked() {
 }
 
 # ── Contract Check: verify schema matches contract.json ───────────
+# Uses AST parsing (swarm/lib/contract_verify.py) instead of grep.
+# Structurally extracts __tablename__, Column(), ForeignKey(), and
+# op.create_table() from Python source — no false positives from
+# comments, docstrings, or substring matches.
 
 contract_check() {
-    local contract_file="${TRIBE_DIR}/contract.json"
+    local contract_file="${CONTRACT_FILE:-${TRIBE_DIR}/contract.json}"
 
     if [[ ! -f "$contract_file" ]]; then
         log_warn "No contract.json found — skipping contract verification"
         return 0
     fi
 
-    log_step "Verifying schema contract..."
-
-    local all_passed=true
-    local results=()
-
-    # Check 1: All declared tables exist in migrations
-    local tables
-    tables=$(jq -r '.entities[].table' "$contract_file" 2>/dev/null)
-
-    if [[ -n "$tables" ]]; then
-        while IFS= read -r table_name; do
-            [[ -z "$table_name" ]] && continue
-            # Search for table creation in migration files
-            local found=false
-            for mig_file in "${TRIBE_ROOT}"/src/backend/migrations/versions/*.py; do
-                [[ -f "$mig_file" ]] || continue
-                if grep -q "op.create_table('${table_name}'" "$mig_file" 2>/dev/null || \
-                   grep -q "__tablename__ = \"${table_name}\"" "$mig_file" 2>/dev/null; then
-                    found=true
-                    break
-                fi
-            done
-            # Also check model files
-            if ! $found; then
-                for model_file in "${TRIBE_ROOT}"/src/backend/app/models/*.py; do
-                    [[ -f "$model_file" ]] || continue
-                    if grep -q "__tablename__ = \"${table_name}\"" "$model_file" 2>/dev/null; then
-                        found=true
-                        break
-                    fi
-                done
-            fi
-            if $found; then
-                results+=("${GREEN}${SYM_CHECK} Table '${table_name}' exists${RESET}")
-            else
-                results+=("${RED}${SYM_CROSS} Table '${table_name}' NOT FOUND in models or migrations${RESET}")
-                all_passed=false
-            fi
-        done <<< "$tables"
+    local verify_script="${LIB_DIR}/contract_verify.py"
+    if [[ ! -f "$verify_script" ]]; then
+        log_error "contract_verify.py not found at ${verify_script}"
+        return 1
     fi
 
-    # Check 2: All declared relationships/FKs exist
-    local rel_count
-    rel_count=$(jq '.relationships | length' "$contract_file" 2>/dev/null || echo 0)
+    log_step "Verifying schema contract (AST-based)..."
 
+    local verify_output
+    verify_output=$(python3 "$verify_script" "$contract_file" "$TRIBE_ROOT" 2>&1)
+    local verify_exit=$?
+
+    # Exit code 2 = script error (bad args, unreadable contract)
+    if [[ $verify_exit -eq 2 ]]; then
+        local err_msg
+        err_msg=$(echo "$verify_output" | jq -r '.error // "Unknown error"' 2>/dev/null || echo "$verify_output")
+        log_error "Contract verification script failed: ${err_msg}"
+        return 1
+    fi
+
+    # Parse structured results
+    local results_json
+    results_json=$(echo "$verify_output" | jq -c '.' 2>/dev/null)
+
+    if [[ -z "$results_json" ]]; then
+        log_error "Contract verification produced no output"
+        return 1
+    fi
+
+    local all_passed
+    all_passed=$(echo "$results_json" | jq -r '.passed')
+
+    # Print each check result
+    echo ""
+    echo -e "  ${BOLD}Contract Verification (AST):${RESET}"
+
+    local check_count
+    check_count=$(echo "$results_json" | jq '.results | length')
     local i=0
-    while [[ $i -lt $rel_count ]]; do
-        local from_table to_table rel_type via
-        from_table=$(jq -r ".relationships[$i].from" "$contract_file")
-        to_table=$(jq -r ".relationships[$i].to" "$contract_file")
-        rel_type=$(jq -r ".relationships[$i].type" "$contract_file")
-        via=$(jq -r ".relationships[$i].via" "$contract_file")
+    while [[ $i -lt $check_count ]]; do
+        local check_name passed detail
+        check_name=$(echo "$results_json" | jq -r ".results[$i].check")
+        passed=$(echo "$results_json" | jq -r ".results[$i].passed")
+        detail=$(echo "$results_json" | jq -r ".results[$i].detail")
 
-        local found=false
-
-        if [[ "$rel_type" == "many_to_many" ]]; then
-            # Check for join table
-            for model_file in "${TRIBE_ROOT}"/src/backend/app/models/*.py; do
-                [[ -f "$model_file" ]] || continue
-                if grep -q "\"${via}\"" "$model_file" 2>/dev/null; then
-                    found=true
-                    break
-                fi
-            done
-            if $found; then
-                results+=("${GREEN}${SYM_CHECK} Join table '${via}' (${from_table} ↔ ${to_table})${RESET}")
-            else
-                results+=("${RED}${SYM_CROSS} Join table '${via}' NOT FOUND (${from_table} ↔ ${to_table})${RESET}")
-                all_passed=false
-            fi
+        if [[ "$passed" == "true" ]]; then
+            echo -e "    ${GREEN}${SYM_CHECK} ${check_name}${RESET} ${DIM}${detail}${RESET}"
         else
-            # Check for FK column
-            for model_file in "${TRIBE_ROOT}"/src/backend/app/models/*.py; do
-                [[ -f "$model_file" ]] || continue
-                if grep -q "${via}" "$model_file" 2>/dev/null; then
-                    found=true
-                    break
-                fi
-            done
-            if $found; then
-                results+=("${GREEN}${SYM_CHECK} FK '${via}' (${from_table} → ${to_table})${RESET}")
-            else
-                results+=("${RED}${SYM_CROSS} FK '${via}' NOT FOUND (${from_table} → ${to_table})${RESET}")
-                all_passed=false
-            fi
+            echo -e "    ${RED}${SYM_CROSS} ${check_name}${RESET} — ${detail}"
         fi
-
         ((i++))
     done
 
-    # Print results
+    # Print schema summary
+    local model_tables migration_tables
+    model_tables=$(echo "$results_json" | jq -r '.schema_summary.model_tables | join(", ")')
+    migration_tables=$(echo "$results_json" | jq -r '.schema_summary.migration_tables | join(", ")')
     echo ""
-    echo -e "  ${BOLD}Contract Verification:${RESET}"
-    for r in "${results[@]}"; do
-        echo -e "    $r"
-    done
+    echo -e "  ${DIM}Models: ${model_tables:-none}${RESET}"
+    echo -e "  ${DIM}Migrations: ${migration_tables:-none}${RESET}"
     echo ""
 
-    if $all_passed; then
+    if [[ "$all_passed" == "true" ]]; then
         log_success "Schema contract satisfied"
         return 0
     else
@@ -475,6 +447,89 @@ grounding_check_file_conflicts() {
         echo -e "$conflicts"
         return 1
     fi
+
+    return 0
+}
+
+# ── Spec Grounding: verify spec claims against codebase ───────────
+# Runs BEFORE the architect to catch spec-codebase discrepancies.
+# Parses spec markdown for table/column claims, code patterns, and
+# file paths, then compares against the actual codebase via AST.
+#
+# Always returns 0 (warnings don't block planning).
+# Sets SPEC_CODEBASE_CONTEXT with a text block for the architect.
+#
+# Args: spec_file
+
+spec_grounding_check() {
+    local spec_file="$1"
+
+    local ground_script="${LIB_DIR}/spec_ground.py"
+    if [[ ! -f "$ground_script" ]]; then
+        log_warn "spec_ground.py not found — skipping spec grounding"
+        SPEC_CODEBASE_CONTEXT=""
+        return 0
+    fi
+
+    log_step "Grounding spec against codebase (AST)..."
+
+    local output
+    output=$(python3 "$ground_script" "$spec_file" "$TRIBE_ROOT" 2>&1)
+    local exit_code=$?
+
+    if [[ $exit_code -eq 2 ]]; then
+        local err_msg
+        err_msg=$(echo "$output" | jq -r '.error // "unknown"' 2>/dev/null || echo "$output")
+        log_warn "Spec grounding error: ${err_msg} — skipping"
+        SPEC_CODEBASE_CONTEXT=""
+        return 0
+    fi
+
+    # Parse results
+    local stats_json warnings_json
+    stats_json=$(echo "$output" | jq -c '.stats // {}')
+    warnings_json=$(echo "$output" | jq -c '.warnings // []')
+
+    local errors warns infos spec_tables codebase_tables
+    errors=$(echo "$stats_json" | jq -r '.errors // 0')
+    warns=$(echo "$stats_json" | jq -r '.warnings // 0')
+    infos=$(echo "$stats_json" | jq -r '.infos // 0')
+    spec_tables=$(echo "$stats_json" | jq -r '.spec_tables // 0')
+    codebase_tables=$(echo "$stats_json" | jq -r '.codebase_tables // 0')
+
+    # Display summary
+    echo ""
+    echo -e "  ${BOLD}Spec Grounding:${RESET} ${spec_tables} tables in spec, ${codebase_tables} in codebase"
+
+    local warn_count
+    warn_count=$(echo "$warnings_json" | jq 'length')
+
+    if [[ $warn_count -gt 0 ]]; then
+        local i=0
+        while [[ $i -lt $warn_count ]]; do
+            local severity msg
+            severity=$(echo "$warnings_json" | jq -r ".[$i].severity")
+            msg=$(echo "$warnings_json" | jq -r ".[$i].message")
+
+            case "$severity" in
+                error) echo -e "    ${RED}${SYM_CROSS} ${msg}${RESET}" ;;
+                warn)  echo -e "    ${YELLOW}${SYM_WARN} ${msg}${RESET}" ;;
+                info)  echo -e "    ${DIM}${SYM_CHECK} ${msg}${RESET}" ;;
+            esac
+            ((i++))
+        done
+    else
+        echo -e "    ${GREEN}${SYM_CHECK} No discrepancies found${RESET}"
+    fi
+    echo ""
+
+    if [[ $errors -gt 0 ]]; then
+        log_warn "Spec has ${errors} convention error(s) — consider fixing before planning"
+    fi
+
+    # Export codebase context for injection into architect prompt
+    SPEC_CODEBASE_CONTEXT=$(echo "$output" | jq -r '.codebase_context // ""')
+    export SPEC_CODEBASE_CONTEXT
 
     return 0
 }

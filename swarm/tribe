@@ -14,7 +14,7 @@
 #   coherence               Check cross-task consistency before integration
 #   integrate               Merge completed branches into main
 #   review [--task-id ID]   Run code review on completed tasks
-#   retry [--task-id ID]    Retry a failed task
+#   retry --task-id ID      Retry a failed task with human guidance
 #   recover                 Recover from crashed/stale state
 #   guardian [spec-file]     Run Product Guardian vision check
 #   help                    Show this help message
@@ -31,6 +31,8 @@ source "${SCRIPT_DIR}/lib/claude.sh"
 source "${SCRIPT_DIR}/lib/tasks.sh"
 source "${SCRIPT_DIR}/lib/grounding.sh"
 source "${SCRIPT_DIR}/lib/gates.sh"
+source "${SCRIPT_DIR}/lib/lock.sh"
+source "${SCRIPT_DIR}/lib/features.sh"
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -61,36 +63,48 @@ tribe_help() {
     echo -e "    ${CYAN}coherence${RESET}                    Cross-task consistency check pre-integration"
     echo -e "    ${CYAN}integrate${RESET}                    Merge completed branches + regression + contract"
     echo -e "    ${CYAN}review${RESET} [--task-id ID]        Run code review on completed tasks"
-    echo -e "    ${CYAN}retry${RESET}  [--task-id ID]        Retry a failed task with optional escalation"
+    echo -e "    ${CYAN}retry${RESET}  --task-id ID --context Retry a failed task with human guidance"
     echo -e "    ${CYAN}recover${RESET}                      Recover from crashed/stale swarm state"
+    echo -e "    ${CYAN}clean${RESET}   [logs|all]            Remove logs or entire .tribe/ state"
     echo -e "    ${CYAN}guardian${RESET} [spec-file]           Run Product Guardian vision check"
     echo -e "    ${CYAN}help${RESET}                         Show this help message"
+    echo ""
+    echo -e "${BOLD}GLOBAL OPTIONS${RESET}"
+    echo -e "    --feature NAME              Target a specific feature (auto-detected if omitted)"
     echo ""
     echo -e "${BOLD}PLAN OPTIONS${RESET}"
     echo -e "    --specs-dir DIR             Directory with related specs for cross-referencing"
     echo ""
     echo -e "${BOLD}RUN OPTIONS${RESET}"
     echo -e "    --max-parallel N            Max concurrent agents (default: ${DEFAULT_MAX_PARALLEL})"
-    echo -e "    --max-budget USD            Total budget in USD (default: ${DEFAULT_MAX_BUDGET})"
-    echo -e "    --model MODEL               Default model: sonnet|opus|haiku (default: ${DEFAULT_MODEL})"
+    echo -e "    --model MODEL               Developer model: sonnet|opus|haiku (default: ${MODEL_SUPPORT})"
     echo ""
     echo -e "${BOLD}RETRY OPTIONS${RESET}"
-    echo -e "    --task-id ID                Retry a specific task"
+    echo -e "    --task-id ID                Target a specific failed task (required)"
+    echo -e "    --context \"...\"             Human guidance for the retry (required)"
     echo -e "    --escalate                  Upgrade model on retry (sonnet→opus)"
     echo ""
     echo -e "${BOLD}GUARDIAN OPTIONS${RESET}"
     echo -e "    SKIP_GUARDIAN=true             Skip guardian gates in plan/review/integrate"
     echo ""
+    echo -e "${BOLD}PARALLEL FEATURES${RESET}"
+    echo -e "    Each ${CYAN}tribe plan${RESET} creates an isolated feature namespace."
+    echo -e "    Run multiple features in parallel across separate sessions:"
+    echo -e "    ${DIM}Session 1:${RESET} ./swarm/tribe plan specs/tech/f3-projects.md && ./swarm/tribe run"
+    echo -e "    ${DIM}Session 2:${RESET} ./swarm/tribe plan specs/tech/f4-tribes.md && ./swarm/tribe run"
+    echo -e "    Use ${CYAN}--feature${RESET} to target a specific feature, or omit to auto-detect."
+    echo ""
     echo -e "${BOLD}EXAMPLES${RESET}"
     echo "    ./swarm/tribe init"
     echo "    ./swarm/tribe validate specs/"
-    echo "    ./swarm/tribe plan specs/product/f4-tribes.md --specs-dir specs/"
-    echo "    ./swarm/tribe verify"
-    echo "    ./swarm/tribe run --max-parallel 3 --max-budget 10"
-    echo "    ./swarm/tribe review"
+    echo "    ./swarm/tribe plan specs/product/f3-projects.md --specs-dir specs/"
+    echo "    ./swarm/tribe run"
+    echo "    ./swarm/tribe run --feature f4-tribes --max-parallel 3"
+    echo "    ./swarm/tribe status"
+    echo "    ./swarm/tribe review --feature f3-projects"
     echo "    ./swarm/tribe coherence"
     echo "    ./swarm/tribe integrate"
-    echo "    ./swarm/tribe guardian specs/product/f4-tribes.md"
+    echo "    ./swarm/tribe clean feature f3-projects"
     echo ""
 }
 
@@ -104,25 +118,28 @@ cmd_init() {
     log_success "Git repository ready"
 
     # 2. Directory structure
-    mkdir -p "$TASKS_DIR" "$LOGS_DIR" src tests
+    mkdir -p "$FEATURES_DIR" "$LOGS_DIR" src tests
     log_success "Directory structure created"
 
     # 3. .gitignore
-    if ! grep -q '.tribe/logs/' "$TRIBE_ROOT/.gitignore" 2>/dev/null; then
+    if ! grep -q '.tribe/features/' "$TRIBE_ROOT/.gitignore" 2>/dev/null; then
         cat >> "$TRIBE_ROOT/.gitignore" << 'EOF'
 
 # Tribe runtime state
 .tribe/logs/
+.tribe/features/*/logs/
+.tribe/features/*/state.json
+.tribe/features/*/failure_history.jsonl
+.tribe/active_feature
 .tribe/state.json
-.tribe/budget.json
 .tribe/running/
+.tribe/worktrees/
 EOF
         log_success "Updated .gitignore"
     fi
 
-    # 4. Initialize state
-    echo '{"status":"idle","agents":[],"started_at":null}' | jq '.' > "$STATE_FILE"
-    echo '{"total_budget":0,"spent":0,"per_task":{}}' | jq '.' > "$BUDGET_FILE"
+    # 4. Runtime state (global — for validate and cross-feature use)
+    echo '{"status":"idle","agents":[],"started_at":null}' | jq '.' > "${TRIBE_DIR}/state.json"
     log_success "Runtime state initialized"
 
     # 5. CLAUDE.md
@@ -187,9 +204,8 @@ cmd_validate() {
     validator_output=$(claude_run \
         "${AGENTS_DIR}/validator.md" \
         "Cross-validate the following ${file_count} specification files for consistency, completeness, and missing relationships:${spec_files}" \
-        "sonnet" \
-        "$DEFAULT_TASK_BUDGET" \
-        "Read Glob Grep")
+        "$MODEL_SUPPORT" \
+        "$AGENT_TOOLS_READONLY")
 
     echo "$validator_output"
     echo ""
@@ -244,15 +260,18 @@ _gather_related_specs() {
 }
 
 # ── Store the primary spec file path for downstream commands ──
+# Uses FEATURE_DIR when a feature is active, otherwise TRIBE_DIR fallback.
 
 _save_spec_path() {
     local spec_file="$1"
-    echo "$spec_file" > "${TRIBE_DIR}/spec_path"
+    local dir="${FEATURE_DIR:-${TRIBE_DIR}}"
+    echo "$spec_file" > "${dir}/spec_path"
 }
 
 _get_spec_path() {
-    if [[ -f "${TRIBE_DIR}/spec_path" ]]; then
-        cat "${TRIBE_DIR}/spec_path"
+    local dir="${FEATURE_DIR:-${TRIBE_DIR}}"
+    if [[ -f "${dir}/spec_path" ]]; then
+        cat "${dir}/spec_path"
     fi
 }
 
@@ -294,6 +313,15 @@ cmd_plan() {
         fi
     fi
 
+    # ── Activate feature namespace ────────────────────────────────
+    local feature_name="${GLOBAL_FEATURE:-}"
+    if [[ -z "$feature_name" ]]; then
+        feature_name=$(feature_name_from_spec "$spec_file")
+    fi
+    feature_activate "$feature_name"
+    feature_set_active "$feature_name"
+    log_info "Feature: ${CYAN}${feature_name}${RESET}"
+
     # Save spec path for verify and review commands
     _save_spec_path "$spec_file"
 
@@ -323,6 +351,11 @@ cmd_plan() {
     }
     echo ""
 
+    # ── Spec-Codebase Grounding ────────────────────────────────────
+    # Check: does the spec accurately describe the current codebase?
+    SPEC_CODEBASE_CONTEXT=""
+    spec_grounding_check "$spec_file"
+
     # Gather related specs for cross-referencing
     local related_specs=""
     if [[ -n "$specs_dir" ]]; then
@@ -336,8 +369,11 @@ cmd_plan() {
     log_step "Sending to Architect agent..."
     echo ""
 
-    # Build the message with primary spec and related specs
+    # Build the message with primary spec, codebase context, and related specs
     local architect_message="Here is the product specification to decompose into tasks:\n\n${spec_content}"
+    if [[ -n "$SPEC_CODEBASE_CONTEXT" ]]; then
+        architect_message+="\n\n${SPEC_CODEBASE_CONTEXT}"
+    fi
     if [[ -n "$related_specs" ]]; then
         architect_message+="\n\n## Related Specs (cross-reference these for entity relationships)\n${related_specs}"
     fi
@@ -348,48 +384,31 @@ cmd_plan() {
         "${AGENTS_DIR}/architect.md" \
         "$architect_message" \
         "${TEMPLATES_DIR}/task.json" \
-        "sonnet")
+        "$MODEL_PLANNING")
 
     # Save raw output for debugging
     echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
 
     # ── Extract tasks and contract from architect output ──────────
 
+    local parsed_architect
+    parsed_architect=$(parse_agent_json "$architect_output") || {
+        log_error "Could not extract JSON from architect output"
+        log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+        exit 1
+    }
+
     local tasks_json=""
     local contract_json=""
 
-    # Try to parse as {tasks: [...], contract: {...}}
-    if echo "$architect_output" | jq -e '.tasks | type == "array"' &>/dev/null; then
-        tasks_json=$(echo "$architect_output" | jq '.tasks')
-        contract_json=$(echo "$architect_output" | jq '.contract // empty')
-    # Fallback: already a valid JSON array (old format)
-    elif echo "$architect_output" | jq -e 'type == "array"' &>/dev/null; then
-        tasks_json="$architect_output"
-    fi
-
-    # Fallback: text with embedded JSON in ```json code fences
-    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
-        local fenced_json
-        fenced_json=$(echo "$architect_output" | sed -n '/^```/,/^```/p' | sed '/^```/d' | jq -s '.[0]' 2>/dev/null || true)
-
-        if [[ -n "$fenced_json" ]]; then
-            # Code-fenced JSON may be {tasks: [...], contract: {...}} wrapper
-            if echo "$fenced_json" | jq -e '.tasks | type == "array"' &>/dev/null; then
-                tasks_json=$(echo "$fenced_json" | jq '.tasks')
-                contract_json=$(echo "$fenced_json" | jq '.contract // empty')
-            elif echo "$fenced_json" | jq -e 'type == "array"' &>/dev/null; then
-                tasks_json="$fenced_json"
-            fi
-        fi
-    fi
-
-    # Fallback: brute force — find the first [ and last ] in the output
-    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
-        tasks_json=$(echo "$architect_output" | sed -n '/^\[/,/^\]/p' | jq '.' 2>/dev/null || true)
-    fi
-
-    if [[ -z "$tasks_json" ]] || ! echo "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
-        log_error "Could not extract task array from architect output"
+    # Handle {tasks: [...], contract: {...}} wrapper or bare array
+    if echo "$parsed_architect" | jq -e '.tasks | type == "array"' &>/dev/null; then
+        tasks_json=$(echo "$parsed_architect" | jq '.tasks')
+        contract_json=$(echo "$parsed_architect" | jq '.contract // empty')
+    elif echo "$parsed_architect" | jq -e 'type == "array"' &>/dev/null; then
+        tasks_json="$parsed_architect"
+    else
+        log_error "Architect output is not a task array or {tasks: [...]}"
         log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
         exit 1
     fi
@@ -398,7 +417,7 @@ cmd_plan() {
 
     # Save contract if present
     if [[ -n "$contract_json" ]] && echo "$contract_json" | jq -e '.' &>/dev/null; then
-        echo "$contract_json" | jq '.' > "${TRIBE_DIR}/contract.json"
+        echo "$contract_json" | jq '.' > "${CONTRACT_FILE}"
         log_success "Contract saved to ${TRIBE_DIR}/contract.json"
     else
         log_warn "No contract produced by Architect — verification will be limited"
@@ -429,7 +448,7 @@ cmd_plan() {
         description=$(echo "$task" | jq -r '.description')
         criteria=$(echo "$task" | jq -r '.acceptance_criteria')
         depends_on=$(echo "$task" | jq -c '.depends_on // []')
-        model=$(echo "$task" | jq -r '.agent_model // "sonnet"')
+        model=$(echo "$task" | jq -r --arg def "$MODEL_SUPPORT" '.agent_model // $def')
         files_touched=$(echo "$task" | jq -c '.files_touched // []')
 
         task_create "$id" "$title" "$description" "$criteria" "$depends_on" "$model"
@@ -460,6 +479,7 @@ cmd_plan() {
 # ── Verify: blind plan verification against product spec ─────
 
 cmd_verify() {
+    _require_feature "$GLOBAL_FEATURE"
     log_header "Verifying Plan Against Spec"
 
     # Check prerequisites
@@ -505,10 +525,10 @@ Files: ${files}
 
     # Gather contract if it exists
     local contract_section=""
-    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
+    if [[ -f "${CONTRACT_FILE}" ]]; then
         contract_section="
 ## Data Model Contract
-$(cat "${TRIBE_DIR}/contract.json")
+$(cat "${CONTRACT_FILE}")
 "
     fi
 
@@ -531,9 +551,8 @@ Verify this plan against the product specification. Read the spec FIRST, form yo
     verify_output=$(claude_run \
         "${AGENTS_DIR}/plan-verifier.md" \
         "$verify_message" \
-        "sonnet" \
-        "$DEFAULT_TASK_BUDGET" \
-        "Read Glob Grep")
+        "$MODEL_PLANNING" \
+        "$AGENT_TOOLS_READONLY")
 
     echo "$verify_output"
     echo ""
@@ -570,22 +589,28 @@ Verify this plan against the product specification. Read the spec FIRST, form yo
 }
 
 cmd_run() {
+    _require_feature "$GLOBAL_FEATURE"
+
     local max_parallel=$DEFAULT_MAX_PARALLEL
-    local max_budget=$DEFAULT_MAX_BUDGET
-    local model=$DEFAULT_MODEL
+    local model=$MODEL_SUPPORT
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --max-parallel) max_parallel="$2"; shift 2 ;;
-            --max-budget)   max_budget="$2"; shift 2 ;;
             --model)        model="$2"; shift 2 ;;
             *) log_error "Unknown option: $1"; exit 1 ;;
         esac
     done
 
+    # ── Acquire exclusive lock ────────────────────────────────────
+    swarm_acquire_lock "run" || exit 1
+
+    # ── Hard gate: timeout command is required ────────────────────
+    require_timeout_cmd || exit 1
+
     log_header "Running Swarm"
-    log_info "Max parallel: ${max_parallel} | Budget: \$${max_budget} | Model: ${model}"
+    log_info "Max parallel: ${max_parallel} | Model: ${model}"
 
     # Check for circular dependencies before starting
     if ! task_topo_sort > /dev/null; then
@@ -610,13 +635,8 @@ cmd_run() {
     if [[ "$current_state" == "running" ]]; then
         log_warn "Swarm state is 'running' — may be stale from a previous crash."
         log_warn "Run ${CYAN}tribe recover${RESET} first, or press Ctrl+C to abort."
-        sleep 3
+        sleep "$STALE_STATE_PAUSE"
     fi
-
-    # Initialize budget tracking
-    jq -n \
-        --arg budget "$max_budget" \
-        '{total_budget: ($budget | tonumber), spent: 0, per_task: {}}' > "$BUDGET_FILE"
 
     # Update state
     jq -n \
@@ -624,12 +644,12 @@ cmd_run() {
         --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         '{status: $status, agents: [], started_at: $started, failure_history: []}' > "$STATE_FILE"
 
-    # Ensure we're on main branch
+    # Detect the base branch all task branches fork from
     local main_branch
-    main_branch=$(git_current_branch)
+    main_branch=$(git_main_branch)
 
     # ── Agent tracking via files (bash 3 compatible) ───────────
-    local running_dir="${TRIBE_ROOT}/.tribe/running"
+    local running_dir="${FEATURE_DIR}/running"
     rm -rf "$running_dir"
     mkdir -p "$running_dir"
 
@@ -649,7 +669,7 @@ cmd_run() {
     }
 
     # ── Failure tracking for pattern detection ─────────────────
-    local failure_log="${TRIBE_DIR}/failure_history.jsonl"
+    local failure_log="${FEATURE_DIR}/failure_history.jsonl"
     > "$failure_log"  # Clear
 
     _record_failure() {
@@ -665,14 +685,6 @@ cmd_run() {
 
     # ── Main orchestration loop ──────────────────────────────────
     while true; do
-        # Check budget
-        local spent
-        spent=$(jq -r '.spent' "$BUDGET_FILE")
-        if (( $(echo "$spent >= $max_budget" | bc -l 2>/dev/null || echo 0) )); then
-            log_warn "Budget exhausted (\$${spent}/\$${max_budget}). Halting."
-            break
-        fi
-
         # Check for completed agents
         for pid_file in "$running_dir"/*.pid; do
             [[ -f "$pid_file" ]] || continue
@@ -686,72 +698,105 @@ cmd_run() {
 
             if [[ -f "$done_marker" ]] || ! claude_is_running "$pid"; then
                 # Wait briefly for file writes to flush
-                sleep 1
+                sleep "$COMPLETION_FLUSH_WAIT"
 
-                # ── Check for blocked status first ────────────────
-                if [[ -s "$output_file" ]] && grep -q '"status"[[:space:]]*:[[:space:]]*"blocked"' "$output_file" 2>/dev/null; then
-                    log_warn "Task ${task_id}: agent reported BLOCKED"
-                    task_update "$task_id" "status" "blocked"
+                # ── Check for crash: process gone but no .done marker ──
+                if [[ ! -f "$done_marker" ]] && ! claude_is_running "$pid"; then
+                    log_error "Task ${task_id}: agent process disappeared without completion marker (crash/OOM/SIGKILL)"
+                    task_set_failed "$task_id" "Agent process crashed (no completion marker)"
+                    _record_failure "$task_id" "Agent process crashed"
+                    rm -f "$pid_file"
+                    git_remove_worktree "$task_id"
+                    continue
+                fi
 
-                    # Extract the blocked reason
-                    local blocked_info
-                    blocked_info=$(python3 -c "
-import json, sys
-try:
-    text = open('${output_file}').read()
-    # Find JSON in the output
-    start = text.find('{')
-    end = text.rfind('}') + 1
-    if start >= 0 and end > start:
-        data = json.loads(text[start:end])
-        if data.get('status') == 'blocked':
-            print(json.dumps(data))
-except:
-    pass
-" 2>/dev/null || echo "")
+                # ── Check for timeout (before blocked — timeouts are not blocked) ──
+                local timeout_marker="${output_file}.timeout"
+                if [[ -f "$timeout_marker" ]]; then
+                    local timeout_count current_model
+                    timeout_count=$(jq -r '.timeout_count // 0' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
+                    current_model=$(jq -r --arg def "$MODEL_SUPPORT" '.agent_model // $def' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
 
-                    if [[ -n "$blocked_info" ]]; then
-                        task_update "$task_id" "error" "$blocked_info"
-                        local uncertain_about
-                        uncertain_about=$(echo "$blocked_info" | jq -r '.uncertain_about // "Unknown"' 2>/dev/null)
-                        log_warn "  Uncertainty: ${uncertain_about}"
+                    task_set_timeout "$task_id" "Agent timed out after ${DEFAULT_AGENT_TIMEOUT}s"
+                    rm -f "$pid_file" "$done_marker" "$timeout_marker"
+                    git_remove_worktree "$task_id"
+
+                    if [[ "$timeout_count" -eq 0 ]] && [[ "$current_model" != "opus" ]]; then
+                        # First timeout on sonnet → escalate to opus
+                        log_warn "Task ${task_id}: timed out on ${current_model} — escalating to opus and retrying"
+                        task_update "$task_id" "agent_model" "opus"
+                        task_reset_pending "$task_id"
+                    else
+                        # Already on opus or second timeout → human problem
+                        log_error "Task ${task_id}: timed out on ${current_model} (attempt $((timeout_count + 1))) — needs human intervention"
+                        log_error "  Consider decomposing this task into smaller subtasks"
+                        _record_failure "$task_id" "Timeout after model escalation"
                     fi
+                    continue
+                fi
+
+                # ── Check for blocked status ───────────────────────
+                local blocked_json
+                blocked_json=$(parse_agent_json "$(cat "$output_file")" 2>/dev/null) || blocked_json=""
+                if [[ -n "$blocked_json" ]] && echo "$blocked_json" | jq -e '.status == "blocked"' &>/dev/null; then
+                    log_warn "Task ${task_id}: agent reported BLOCKED"
+
+                    local uncertain_about
+                    uncertain_about=$(echo "$blocked_json" | jq -r '.uncertain_about // "Unknown"' 2>/dev/null)
+                    log_warn "  Uncertainty: ${uncertain_about}"
+
+                    # Atomic: status + error + agent_pid in one write
+                    task_set_blocked "$task_id" "$blocked_json"
 
                     # Invoke supervisor for blocked tasks
                     _invoke_supervisor "$task_id" "blocked"
 
                     rm -f "$pid_file" "$done_marker"
-                    task_update_raw "$task_id" "agent_pid" "null"
-                    _git checkout "$main_branch" 2>/dev/null || true
+                    git_remove_worktree "$task_id"
                     continue
                 fi
 
                 # ── Normal completion check ───────────────────────
+                # Resolve worktree path for this task
+                local task_worktree="${WORKTREES_DIR}/task-${task_id}"
+
                 if [[ -s "$output_file" ]]; then
                     log_success "Task ${task_id} agent completed"
 
-                    if gates_run "$task_id"; then
-                        task_update "$task_id" "status" "done"
-                        task_update "$task_id" "completed_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                    if gates_run "$task_id" "$task_worktree"; then
+                        # Atomic: status + completed_at + agent_pid in one write
+                        task_set_done "$task_id"
                         log_success "Task ${task_id}: ${GREEN}DONE${RESET}"
 
-                        # Progressive merge: merge completed branch into main immediately
-                        # so dependent tasks branch from up-to-date main
-                        local done_branch
-                        done_branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
-                        if [[ -n "$done_branch" ]] && [[ "$done_branch" != "null" ]] && git_branch_exists "$done_branch"; then
-                            log_step "Progressive merge: ${done_branch} → main"
-                            if git_safe_merge "$done_branch" "$main_branch"; then
-                                log_success "Merged ${done_branch} into ${main_branch}"
-                            else
-                                log_warn "Progressive merge failed for ${done_branch} — will retry at integration"
+                        # Extract decisions and concerns from agent output
+                        # so downstream dependent tasks can see what this agent learned
+                        local completion_json
+                        completion_json=$(parse_agent_json "$(cat "$output_file")" 2>/dev/null) || completion_json=""
+                        if [[ -n "$completion_json" ]] && echo "$completion_json" | jq -e '.status == "done"' &>/dev/null; then
+                            local has_metadata
+                            has_metadata=$(echo "$completion_json" | jq 'has("decisions") or has("concerns")' 2>/dev/null)
+                            if [[ "$has_metadata" == "true" ]]; then
+                                local tmp_task; tmp_task=$(mktemp)
+                                jq --argjson dec "$(echo "$completion_json" | jq '.decisions // []')" \
+                                   --argjson con "$(echo "$completion_json" | jq '.concerns // []')" \
+                                    '.decisions = $dec | .concerns = $con' \
+                                    "${TASKS_DIR}/${task_id}.json" > "$tmp_task" && mv "$tmp_task" "${TASKS_DIR}/${task_id}.json"
                             fi
                         fi
+
+                        # Clean up worktree (frees the branch lock)
+                        # NOTE: We do NOT merge into main here. Merging is deferred
+                        # to just before spawning a dependent task, so in-flight agents
+                        # are never disturbed by main moving underneath them.
+                        git_remove_worktree "$task_id"
                     else
-                        task_update "$task_id" "status" "failed"
-                        task_update "$task_id" "error" "Quality gates failed"
+                        # Atomic: status + error + agent_pid in one write
+                        task_set_failed "$task_id" "Quality gates failed"
                         log_error "Task ${task_id}: quality gates failed"
                         _record_failure "$task_id" "Quality gates failed"
+
+                        # Keep worktree for debugger analysis
+                        # (will be cleaned up on retry or recover)
 
                         # Invoke debugger for diagnosis
                         _invoke_debugger "$task_id"
@@ -759,24 +804,21 @@ except:
                         # Check for pattern failures
                         local fail_count
                         fail_count=$(_failure_count)
-                        if [[ "$fail_count" -ge 3 ]]; then
+                        if [[ "$fail_count" -ge "$PATTERN_FAILURE_THRESHOLD" ]]; then
                             log_warn "Multiple failures detected — invoking Supervisor for pattern analysis"
                             _invoke_supervisor "$task_id" "pattern"
                         fi
                     fi
                 else
-                    task_update "$task_id" "status" "failed"
-                    task_update "$task_id" "error" "Agent produced no output"
+                    # Atomic: status + error + agent_pid in one write
+                    task_set_failed "$task_id" "Agent produced no output"
                     log_error "Task ${task_id}: agent produced no output"
                     _record_failure "$task_id" "Agent produced no output"
+                    git_remove_worktree "$task_id"
                 fi
 
                 # Clean up tracking
                 rm -f "$pid_file" "$done_marker"
-                task_update_raw "$task_id" "agent_pid" "null"
-
-                # Return to main branch
-                _git checkout "$main_branch" 2>/dev/null || true
             fi
         done
 
@@ -794,7 +836,7 @@ except:
             blocked_count=$(task_count_by_status "blocked")
             if [[ "$blocked_count" -gt 0 ]]; then
                 log_warn "${blocked_count} task(s) blocked — awaiting human input"
-                log_warn "Check .tribe/logs/supervisor-*.log for details"
+                log_warn "Run ${CYAN}tribe status${RESET} for supervisor analysis"
                 break
             fi
             # Otherwise we're done
@@ -844,11 +886,75 @@ except:
                     extra_context+=$'\n\n## Debugger Analysis (from previous failure)\n\n'"$(cat "$debugger_log")"
                 fi
 
-                # Create branch
-                local slug
-                slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-40)
-                git_create_task_branch "$task_id" "$slug" >/dev/null 2>&1
-                _git checkout "$main_branch" 2>/dev/null || true
+                # Gather decisions and concerns from completed dependencies
+                # so this agent knows what upstream agents learned and flagged
+                local upstream_context=""
+                local dep_ids_for_context
+                dep_ids_for_context=$(echo "$task_json" | jq -r '.depends_on[]' 2>/dev/null)
+                if [[ -n "$dep_ids_for_context" ]]; then
+                    while IFS= read -r dep_id; do
+                        [[ -z "$dep_id" ]] && continue
+                        local dep_file="${TASKS_DIR}/${dep_id}.json"
+                        [[ -f "$dep_file" ]] || continue
+                        local dep_title dep_decisions dep_concerns
+                        dep_title=$(jq -r '.title' "$dep_file")
+                        dep_decisions=$(jq -r '.decisions // [] | if length > 0 then map("  - " + .) | join("\n") else empty end' "$dep_file" 2>/dev/null)
+                        dep_concerns=$(jq -r '.concerns // [] | if length > 0 then map("  - " + .) | join("\n") else empty end' "$dep_file" 2>/dev/null)
+                        if [[ -n "$dep_decisions" ]] || [[ -n "$dep_concerns" ]]; then
+                            upstream_context+=$'\n'"#### Task ${dep_id}: ${dep_title}"
+                            if [[ -n "$dep_decisions" ]]; then
+                                upstream_context+=$'\n'"Decisions:"$'\n'"${dep_decisions}"
+                            fi
+                            if [[ -n "$dep_concerns" ]]; then
+                                upstream_context+=$'\n'"Concerns:"$'\n'"${dep_concerns}"
+                            fi
+                        fi
+                    done <<< "$dep_ids_for_context"
+                fi
+                if [[ -n "$upstream_context" ]]; then
+                    extra_context+=$'\n\n## Context from Completed Dependencies\n'"${upstream_context}"
+                fi
+
+                # ── Deferred dependency merge ────────────────────
+                # Merge completed dependency branches into main NOW, right
+                # before creating this task's worktree. This ensures the new
+                # worktree sees all predecessor work without ever disturbing
+                # agents that are already running in their own worktrees.
+                local dep_ids
+                dep_ids=$(echo "$task_json" | jq -r '.depends_on[]' 2>/dev/null)
+                if [[ -n "$dep_ids" ]]; then
+                    local merge_failed=false
+                    while IFS= read -r dep_id; do
+                        [[ -z "$dep_id" ]] && continue
+                        local dep_branch
+                        dep_branch=$(jq -r '.branch' "${TASKS_DIR}/${dep_id}.json" 2>/dev/null)
+                        [[ -z "$dep_branch" || "$dep_branch" == "null" ]] && continue
+                        git_branch_exists "$dep_branch" || continue
+
+                        # Skip if already merged into main
+                        if _git merge-base --is-ancestor "$dep_branch" "$main_branch" 2>/dev/null; then
+                            continue
+                        fi
+
+                        log_step "Deferred merge: ${dep_branch} → ${main_branch} (dependency of task ${task_id})"
+                        if git_safe_merge "$dep_branch" "$main_branch"; then
+                            log_success "Merged ${dep_branch} into ${main_branch}"
+                        else
+                            log_warn "Deferred merge failed for ${dep_branch} — deferring task ${task_id}"
+                            merge_failed=true
+                            break
+                        fi
+                    done <<< "$dep_ids"
+
+                    if $merge_failed; then
+                        continue  # skip this task, try again next loop iteration
+                    fi
+                fi
+
+                # Create isolated worktree for this agent
+                local worktree_path
+                worktree_path=$(git_create_worktree "$task_id" "$branch")
+                git_setup_worktree_deps "$worktree_path"
 
                 # Build agent message
                 local files_section=""
@@ -869,26 +975,27 @@ ${files_section}
 
 ### Git Branch
 You are working on branch: \`${branch}\`
-First run: \`git checkout ${branch}\`
+You are already on this branch in an isolated worktree. Do NOT run git checkout.
 Commit your work to this branch.${extra_context}
 
 ### Working Directory
-${TRIBE_ROOT}"
+${worktree_path}"
 
-                # Spawn agent
+                # Spawn agent in the worktree directory
                 local output_file="${LOGS_DIR}/${task_id}.log"
                 local pid
                 pid=$(claude_spawn_bg \
                     "${AGENTS_DIR}/developer.md" \
                     "$agent_message" \
                     "$output_file" \
-                    "$task_model")
+                    "$task_model" \
+                    "$AGENT_TOOLS_FULL" \
+                    "$worktree_path")
 
                 echo "$pid" > "${running_dir}/${task_id}.pid"
 
-                task_update "$task_id" "status" "running"
-                task_update "$task_id" "started_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-                task_update_raw "$task_id" "agent_pid" "$pid"
+                # Atomic: status + started_at + agent_pid in one write
+                task_set_running "$task_id" "$pid"
                 ((running_count++))
 
                 log_step "Spawned agent for task ${task_id}: ${CYAN}${title}${RESET} (PID: ${pid}, model: ${task_model})"
@@ -910,12 +1017,12 @@ ${TRIBE_ROOT}"
         blocked_count=$(task_count_by_status "blocked")
         echo -ne "\r${DIM}[${done_count}/${total} done | ${running_count} running | ${pending_count} pending | ${failed_count} failed | ${blocked_count} blocked]${RESET}  "
 
-        # Check halt threshold: >30% failed
+        # Check halt threshold
         local fail_pct=0
         if [[ "$total" -gt 0 ]]; then
             fail_pct=$(( (failed_count * 100) / total ))
         fi
-        if [[ "$fail_pct" -ge 30 ]]; then
+        if [[ "$fail_pct" -ge "$HALT_FAILURE_PCT" ]]; then
             echo ""
             log_error "Over 30% of tasks have failed (${failed_count}/${total}). Halting swarm."
             log_error "Review failures with: tribe status"
@@ -923,7 +1030,7 @@ ${TRIBE_ROOT}"
         fi
 
         # Sleep before next check
-        sleep 5
+        sleep "$POLL_INTERVAL"
     done
 
     echo ""
@@ -945,13 +1052,13 @@ ${TRIBE_ROOT}"
     local failed_count
     failed_count=$(task_count_by_status "failed")
     if [[ "$failed_count" -gt 0 ]]; then
-        log_warn "${failed_count} task(s) failed. Use ${CYAN}tribe retry --task-id ID${RESET} to retry."
+        log_warn "${failed_count} task(s) failed. Diagnose with ${CYAN}tribe retry --task-id ID${RESET} then provide guidance with ${CYAN}--context${RESET}."
     fi
 
     local blocked_count
     blocked_count=$(task_count_by_status "blocked")
     if [[ "$blocked_count" -gt 0 ]]; then
-        log_warn "${blocked_count} task(s) blocked. Check supervisor logs for questions that need human answers."
+        log_warn "${blocked_count} task(s) blocked. Run ${CYAN}tribe status${RESET} for details and supervisor analysis."
     fi
 
     local done_count
@@ -996,12 +1103,12 @@ _invoke_debugger() {
     local agent_output=""
     if [[ -f "$output_file" ]]; then
         # Tail last 200 lines to keep context manageable
-        agent_output=$(tail -200 "$output_file")
+        agent_output=$(tail -"$AGENT_OUTPUT_TAIL" "$output_file")
     fi
 
     local diff=""
     if git_branch_exists "$branch" 2>/dev/null; then
-        diff=$(_git diff "main...${branch}" 2>/dev/null | head -500 || echo "No diff")
+        diff=$(_git diff "$(git_main_branch)...${branch}" 2>/dev/null | head -"$DIFF_HEAD_LINES" || echo "No diff")
     fi
 
     local debugger_message="## Failed Task ${task_id}: ${title}
@@ -1028,11 +1135,12 @@ Diagnose why this task failed and provide a specific fix."
     debugger_output=$(claude_run \
         "${AGENTS_DIR}/debugger.md" \
         "$debugger_message" \
-        "sonnet" \
-        "1" \
-        "Read Glob Grep" 2>/dev/null || echo '{"error": "Debugger agent failed"}')
+        "$MODEL_SUPPORT" \
+        "$AGENT_TOOLS_READONLY" 2>/dev/null || echo '{"error": "Debugger agent failed"}')
 
-    echo "$debugger_output" > "${LOGS_DIR}/debugger-${task_id}.json"
+    local parsed_debugger
+    parsed_debugger=$(parse_agent_json "$debugger_output") || parsed_debugger="$debugger_output"
+    echo "$parsed_debugger" > "${LOGS_DIR}/debugger-${task_id}.json"
     log_step "Debugger analysis saved to ${LOGS_DIR}/debugger-${task_id}.json"
 }
 
@@ -1056,7 +1164,7 @@ _invoke_supervisor() {
 
     # Gather failure history
     local failure_history=""
-    local failure_log="${TRIBE_DIR}/failure_history.jsonl"
+    local failure_log="${FEATURE_DIR}/failure_history.jsonl"
     if [[ -f "$failure_log" ]]; then
         failure_history=$(cat "$failure_log")
     fi
@@ -1092,32 +1200,72 @@ Diagnose the situation and recommend recovery actions."
     supervisor_output=$(claude_run \
         "${AGENTS_DIR}/supervisor.md" \
         "$supervisor_message" \
-        "sonnet" \
-        "1" \
-        "Read Glob Grep" 2>/dev/null || echo '{"error": "Supervisor agent failed"}')
+        "$MODEL_SUPPORT" \
+        "$AGENT_TOOLS_READONLY" 2>/dev/null || echo '{"error": "Supervisor agent failed"}')
 
-    echo "$supervisor_output" > "${LOGS_DIR}/supervisor-${task_id}-$(date +%s).log"
+    local parsed_supervisor
+    parsed_supervisor=$(parse_agent_json "$supervisor_output") || parsed_supervisor="$supervisor_output"
+    local supervisor_log="${LOGS_DIR}/supervisor-${task_id}-$(date +%s).json"
+    echo "$parsed_supervisor" > "$supervisor_log"
+    _prune_logs "supervisor-${task_id}-" ".json"
 
-    # Check if supervisor recommends halting
+    # ── Surface diagnosis to stdout ──────────────────────────────
+    local diagnosis
+    diagnosis=$(echo "$parsed_supervisor" | jq -r '.diagnosis // empty' 2>/dev/null)
+    if [[ -n "$diagnosis" ]]; then
+        echo ""
+        echo -e "${BOLD}Supervisor Diagnosis:${RESET}"
+        echo -e "  ${diagnosis}"
+    fi
+
+    # ── Surface pattern detection prominently ────────────────────
+    local pattern_desc
+    pattern_desc=$(echo "$parsed_supervisor" | jq -r '.pattern_detected.description // empty' 2>/dev/null)
+    if [[ -n "$pattern_desc" ]]; then
+        local root_cause affected
+        root_cause=$(echo "$parsed_supervisor" | jq -r '.pattern_detected.root_cause // "Unknown"' 2>/dev/null)
+        affected=$(echo "$parsed_supervisor" | jq -r '.pattern_detected.affected_tasks // [] | join(", ")' 2>/dev/null)
+        echo ""
+        echo -e "${RED}${BOLD}PATTERN DETECTED:${RESET} ${pattern_desc}"
+        echo -e "  ${BOLD}Root cause:${RESET} ${root_cause}"
+        echo -e "  ${BOLD}Affected tasks:${RESET} ${affected}"
+    fi
+
+    # ── Surface recommended actions ──────────────────────────────
+    local action_count
+    action_count=$(echo "$parsed_supervisor" | jq '[.actions // [] | .[]] | length' 2>/dev/null || echo "0")
+    if [[ "$action_count" -gt 0 ]]; then
+        echo ""
+        echo -e "${BOLD}Supervisor Recommendations:${RESET}"
+        echo "$parsed_supervisor" | jq -r '
+            .actions[]? |
+            "  \(.action) task \(.task_id // "?"): \(.reason // "no reason given")" +
+            if .human_question then "\n    → HUMAN INPUT: \(.human_question)" else "" end +
+            if .additional_context then "\n    → Context: \(.additional_context)" else "" end
+        ' 2>/dev/null
+    fi
+
+    # ── Surface human-readable recommendations ───────────────────
+    local rec_count
+    rec_count=$(echo "$parsed_supervisor" | jq '[.recommendations // [] | .[]] | length' 2>/dev/null || echo "0")
+    if [[ "$rec_count" -gt 0 ]]; then
+        echo ""
+        echo -e "${BOLD}Suggestions:${RESET}"
+        echo "$parsed_supervisor" | jq -r '.recommendations[]? | "  • \(.)"' 2>/dev/null
+    fi
+
+    # ── Check if supervisor recommends halting ────────────────────
     local should_halt
-    should_halt=$(echo "$supervisor_output" | jq -r '.should_halt' 2>/dev/null || echo "false")
+    should_halt=$(echo "$parsed_supervisor" | jq -r '.should_halt' 2>/dev/null || echo "false")
     if [[ "$should_halt" == "true" ]]; then
         local halt_reason
-        halt_reason=$(echo "$supervisor_output" | jq -r '.halt_reason' 2>/dev/null || echo "Unknown")
+        halt_reason=$(echo "$parsed_supervisor" | jq -r '.halt_reason' 2>/dev/null || echo "Unknown")
+        echo ""
         log_error "Supervisor recommends HALTING: ${halt_reason}"
     fi
 
-    # Check for escalation (needs human input)
-    local has_escalation
-    has_escalation=$(echo "$supervisor_output" | jq -r '.actions[]? | select(.action == "escalate") | .human_question' 2>/dev/null || echo "")
-    if [[ -n "$has_escalation" ]]; then
-        echo ""
-        log_warn "HUMAN INPUT NEEDED:"
-        echo -e "  ${YELLOW}${has_escalation}${RESET}"
-        echo ""
-    fi
-
-    log_step "Supervisor analysis saved to ${LOGS_DIR}/"
+    echo ""
+    log_step "Full analysis: ${supervisor_log}"
 }
 
 # ── Product Guardian: vision alignment check ──────────────────
@@ -1153,23 +1301,18 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
     raw_guardian_output=$(claude_run \
         "${AGENTS_DIR}/product-guardian.md" \
         "$guardian_message" \
-        "sonnet" \
-        "$DEFAULT_TASK_BUDGET" \
-        "Read Glob Grep")
+        "$MODEL_SUPPORT" \
+        "$AGENT_TOOLS_READONLY")
 
-    # Extract JSON from code fences if present
     local guardian_output
-    if echo "$raw_guardian_output" | jq -e '.status' &>/dev/null; then
-        guardian_output="$raw_guardian_output"
-    else
-        guardian_output=$(echo "$raw_guardian_output" | sed -n '/^```/,/^```/p' | sed '/^```/d' | jq -s '.[0]' 2>/dev/null || echo "$raw_guardian_output")
-    fi
+    guardian_output=$(parse_agent_json "$raw_guardian_output") || guardian_output="$raw_guardian_output"
 
     # Save report
     local timestamp
     timestamp=$(date +%s)
     local log_file="${LOGS_DIR}/guardian-${check_type}-${timestamp}.json"
     echo "$guardian_output" > "$log_file"
+    _prune_logs "guardian-${check_type}-" ".json"
 
     # Parse status
     local status
@@ -1236,7 +1379,7 @@ cmd_guardian() {
 
     log_header "Product Guardian"
 
-    # If a file is provided, evaluate it
+    # If a file is provided, evaluate it (ad-hoc — no feature needed)
     if [[ -n "$input_file" ]]; then
         if [[ ! -f "$input_file" ]]; then
             if [[ -f "${TRIBE_ROOT}/${input_file}" ]]; then
@@ -1246,6 +1389,9 @@ cmd_guardian() {
                 exit 1
             fi
         fi
+
+        # Use feature context for log output if available, else default LOGS_DIR
+        feature_resolve "$GLOBAL_FEATURE" &>/dev/null && _require_feature "$GLOBAL_FEATURE" || mkdir -p "$LOGS_DIR"
 
         log_step "Evaluating: ${CYAN}${input_file}${RESET}"
         local content
@@ -1260,7 +1406,9 @@ cmd_guardian() {
         return $rc
     fi
 
-    # No file — evaluate the current task plan + completed work
+    # No file — evaluate the current task plan + completed work (requires feature)
+    _require_feature "$GLOBAL_FEATURE"
+
     local spec_file
     spec_file=$(_get_spec_path)
     if [[ -z "$spec_file" ]] || [[ ! -f "$spec_file" ]]; then
@@ -1300,10 +1448,73 @@ cmd_guardian() {
 cmd_status() {
     log_header "Swarm Status"
 
+    # ── Feature overview ──────────────────────────────────────────
+    local features
+    features=$(feature_list)
+    local active_feature
+    active_feature=$(feature_get_active)
+
+    if [[ -z "$features" ]]; then
+        log_info "No features planned. Run 'tribe plan <spec>' to start."
+        return
+    fi
+
+    echo -e "${BOLD}Features:${RESET}"
+    while IFS= read -r feat; do
+        [[ -z "$feat" ]] && continue
+        local feat_dir="${FEATURES_DIR}/${feat}"
+        local feat_done=0 feat_total=0 feat_running=0 feat_failed=0
+        for f in "${feat_dir}/tasks/"*.json; do
+            [[ -f "$f" ]] || continue
+            ((feat_total++))
+            local s
+            s=$(jq -r '.status' "$f" 2>/dev/null)
+            case "$s" in
+                done) ((feat_done++)) ;;
+                running) ((feat_running++)) ;;
+                failed) ((feat_failed++)) ;;
+            esac
+        done
+        local marker=""
+        if [[ "$feat" == "$active_feature" ]]; then
+            marker=" ${GREEN}(active)${RESET}"
+        fi
+        local progress="${feat_done}/${feat_total}"
+        local detail=""
+        if [[ $feat_running -gt 0 ]]; then detail+=", ${YELLOW}${feat_running} running${RESET}"; fi
+        if [[ $feat_failed -gt 0 ]]; then detail+=", ${RED}${feat_failed} failed${RESET}"; fi
+        echo -e "  ${CYAN}${feat}${RESET}${marker} — ${progress} done${detail}"
+    done <<< "$features"
+    echo ""
+
+    # ── Detailed view for the target feature ──────────────────────
+    # If --feature is specified, show that one. Otherwise show the active feature.
+    local target_feature=""
+    if [[ -n "$GLOBAL_FEATURE" ]]; then
+        target_feature="$GLOBAL_FEATURE"
+    elif [[ -n "$active_feature" ]] && [[ -d "${FEATURES_DIR}/${active_feature}" ]]; then
+        target_feature="$active_feature"
+    else
+        # Show first feature if only one exists
+        local feat_count
+        feat_count=$(echo "$features" | grep -c . 2>/dev/null || echo "0")
+        if [[ "$feat_count" -eq 1 ]]; then
+            target_feature="$features"
+        else
+            echo -e "Use ${CYAN}--feature <name>${RESET} to see details for a specific feature."
+            echo ""
+            return
+        fi
+    fi
+
+    feature_activate "$target_feature"
+    echo -e "${BOLD}Showing: ${CYAN}${target_feature}${RESET}"
+    echo ""
+
     # Check if initialized
     if [[ ! -d "$TASKS_DIR" ]]; then
-        log_error "Not initialized. Run 'tribe init' first."
-        exit 1
+        log_info "Feature '${target_feature}' has no tasks."
+        return
     fi
 
     local total
@@ -1335,18 +1546,8 @@ cmd_status() {
         fi
     fi
 
-    # Budget info
-    if [[ -f "$BUDGET_FILE" ]]; then
-        local budget spent
-        budget=$(jq -r '.total_budget' "$BUDGET_FILE")
-        spent=$(jq -r '.spent' "$BUDGET_FILE")
-        if [[ "$budget" != "0" ]]; then
-            echo -e "${BOLD}Budget:${RESET} \$${spent} / \$${budget}"
-        fi
-    fi
-
     # Contract info
-    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
+    if [[ -f "${CONTRACT_FILE}" ]]; then
         echo -e "${BOLD}Contract:${RESET} ${GREEN}present${RESET}"
     else
         echo -e "${BOLD}Contract:${RESET} ${YELLOW}missing${RESET}"
@@ -1373,12 +1574,64 @@ cmd_status() {
         done
     fi
 
+    # Timed-out tasks (failed after timeout escalation — need decomposition)
+    local has_timeouts=false
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local tc
+        tc=$(jq -r '.timeout_count // 0' "$f")
+        if [[ "$tc" -gt 0 ]]; then
+            if ! $has_timeouts; then
+                echo ""
+                echo -e "${BOLD}Timed-Out Tasks (consider decomposing):${RESET}"
+                has_timeouts=true
+            fi
+            local id title model tc_val status
+            id=$(jq -r '.id' "$f")
+            title=$(jq -r '.title' "$f")
+            model=$(jq -r --arg def "$MODEL_SUPPORT" '.agent_model // $def' "$f")
+            tc_val=$(jq -r '.timeout_count' "$f")
+            status=$(jq -r '.status' "$f")
+            echo -e "  ${YELLOW}${SYM_WARN}${RESET} Task ${id}: ${title} ${DIM}(${tc_val}x timeout, model: ${model}, status: ${status})${RESET}"
+        fi
+    done
+
+    # Latest supervisor analysis (show the most recent log if it exists)
+    local latest_supervisor
+    latest_supervisor=$(ls -t "${LOGS_DIR}"/supervisor-*.json 2>/dev/null | head -1 || true)
+    if [[ -n "$latest_supervisor" ]] && [[ -f "$latest_supervisor" ]]; then
+        local sup_diagnosis sup_pattern sup_recommendations
+        sup_diagnosis=$(jq -r '.diagnosis // empty' "$latest_supervisor" 2>/dev/null)
+        sup_pattern=$(jq -r '.pattern_detected.description // empty' "$latest_supervisor" 2>/dev/null)
+        sup_recommendations=$(jq -r '[.recommendations // [] | .[]] | length' "$latest_supervisor" 2>/dev/null || echo "0")
+
+        if [[ -n "$sup_diagnosis" ]] || [[ -n "$sup_pattern" ]]; then
+            echo ""
+            echo -e "${BOLD}Latest Supervisor Analysis:${RESET}"
+            if [[ -n "$sup_diagnosis" ]]; then
+                echo -e "  ${DIM}Diagnosis:${RESET} ${sup_diagnosis}"
+            fi
+            if [[ -n "$sup_pattern" ]]; then
+                local sup_root_cause
+                sup_root_cause=$(jq -r '.pattern_detected.root_cause // "Unknown"' "$latest_supervisor" 2>/dev/null)
+                echo -e "  ${RED}Pattern:${RESET} ${sup_pattern}"
+                echo -e "  ${RED}Root cause:${RESET} ${sup_root_cause}"
+            fi
+            if [[ "$sup_recommendations" -gt 0 ]]; then
+                echo -e "  ${DIM}Suggestions:${RESET}"
+                jq -r '.recommendations[]? | "    • \(.)"' "$latest_supervisor" 2>/dev/null
+            fi
+            echo -e "  ${DIM}Full log: ${latest_supervisor}${RESET}"
+        fi
+    fi
+
     echo ""
 }
 
 # ── Coherence: cross-task consistency check ──────────────────
 
 cmd_coherence() {
+    _require_feature "$GLOBAL_FEATURE"
     log_header "Coherence Check"
 
     local done_tasks
@@ -1424,8 +1677,8 @@ ${diff}
 
     # Gather contract
     local contract_content=""
-    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
-        contract_content=$(cat "${TRIBE_DIR}/contract.json")
+    if [[ -f "${CONTRACT_FILE}" ]]; then
+        contract_content=$(cat "${CONTRACT_FILE}")
     fi
 
     local coherence_message="## Coherence Check: ${task_count} completed tasks
@@ -1448,29 +1701,30 @@ Check that all these task implementations compose correctly. Focus on interfaces
     coherence_output=$(claude_run \
         "${AGENTS_DIR}/coherence-checker.md" \
         "$coherence_message" \
-        "sonnet" \
-        "$DEFAULT_TASK_BUDGET" \
-        "Read Glob Grep")
+        "$MODEL_PLANNING" \
+        "$AGENT_TOOLS_READONLY")
 
     echo "$coherence_output"
     echo ""
 
-    # Save report
-    echo "$coherence_output" > "${LOGS_DIR}/coherence.log"
+    # Parse and save report
+    local parsed_coherence
+    parsed_coherence=$(parse_agent_json "$coherence_output") || parsed_coherence="$coherence_output"
+    echo "$parsed_coherence" > "${LOGS_DIR}/coherence.log"
     log_success "Coherence report saved to ${LOGS_DIR}/coherence.log"
 
     local status
-    status=$(echo "$coherence_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+    status=$(echo "$parsed_coherence" | jq -r '.status' 2>/dev/null || echo "unknown")
 
     if [[ "$status" == "fail" ]]; then
         echo ""
         log_error "Coherence check FAILED — tasks have compatibility issues"
         local issue_count
-        issue_count=$(echo "$coherence_output" | jq '.critical_issues | length' 2>/dev/null || echo "?")
+        issue_count=$(echo "$parsed_coherence" | jq '.critical_issues | length' 2>/dev/null || echo "?")
         log_error "${issue_count} critical issue(s) found"
         echo ""
         echo -e "Fix issues before integrating. Options:"
-        echo -e "  1. ${CYAN}tribe retry --task-id ID${RESET} to fix specific tasks"
+        echo -e "  1. ${CYAN}tribe retry --task-id ID --context \"...\"${RESET} to fix specific tasks"
         echo -e "  2. Review the coherence report and fix manually"
         exit 1
     elif [[ "$status" == "pass" ]]; then
@@ -1485,6 +1739,10 @@ Check that all these task implementations compose correctly. Focus on interfaces
 }
 
 cmd_integrate() {
+    _require_feature "$GLOBAL_FEATURE"
+    # ── Acquire exclusive lock ────────────────────────────────────
+    swarm_acquire_lock "integrate" || exit 1
+
     log_header "Integrating Completed Work"
 
     # Check for circular dependencies
@@ -1513,8 +1771,8 @@ cmd_integrate() {
             local branch
             branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json")
             if git_branch_exists "$branch"; then
-                # Skip branches already merged into main (idempotent)
-                if _git merge-base --is-ancestor "$branch" main 2>/dev/null; then
+                # Skip branches already merged (idempotent)
+                if _git merge-base --is-ancestor "$branch" "$(git_main_branch)" 2>/dev/null; then
                     log_step "Branch ${branch} already merged — skipping"
                     continue
                 fi
@@ -1537,9 +1795,12 @@ cmd_integrate() {
         branch_list+="- ${b}"$'\n'
     done
 
+    local integrate_branch
+    integrate_branch=$(git_main_branch)
+
     local agent_message="## Integration Task
 
-Merge the following branches into main, in the order listed (dependency order):
+Merge the following branches into ${integrate_branch}, in the order listed (dependency order):
 
 ${branch_list}
 
@@ -1547,7 +1808,7 @@ ${branch_list}
 ${TRIBE_ROOT}
 
 ### Instructions
-1. For each branch, checkout main, then merge the branch with --no-ff
+1. For each branch, checkout ${integrate_branch}, then merge the branch with --no-ff
 2. If there are merge conflicts, resolve them intelligently
 3. After each merge, verify the code still works
 4. Report results as JSON"
@@ -1558,9 +1819,8 @@ ${TRIBE_ROOT}
     output=$(claude_run \
         "${AGENTS_DIR}/integrator.md" \
         "$agent_message" \
-        "sonnet" \
-        "$DEFAULT_TASK_BUDGET" \
-        "Bash Edit Read Write Glob Grep")
+        "$MODEL_SUPPORT" \
+        "$AGENT_TOOLS_FULL")
 
     echo "$output"
     echo ""
@@ -1587,7 +1847,7 @@ ${TRIBE_ROOT}
     fi
 
     # ── Post-integration: contract check ──────────────────────────
-    if [[ -f "${TRIBE_DIR}/contract.json" ]]; then
+    if [[ -f "${CONTRACT_FILE}" ]]; then
         if contract_check; then
             log_success "Contract check passed — schema matches plan"
         else
@@ -1646,6 +1906,7 @@ This is a post-integration check. Evaluate whether the integrated result, taken 
 }
 
 cmd_review() {
+    _require_feature "$GLOBAL_FEATURE"
     local task_id=""
 
     while [[ $# -gt 0 ]]; do
@@ -1734,24 +1995,25 @@ Respond with your review as JSON."
         review_output=$(claude_run \
             "${AGENTS_DIR}/reviewer.md" \
             "$agent_message" \
-            "sonnet" \
-            "1" \
-            "Read Glob Grep")
+            "$MODEL_SUPPORT" \
+            "$AGENT_TOOLS_READONLY")
 
         echo ""
         echo "$review_output"
         echo ""
 
-        # Save review
-        echo "$review_output" > "${LOGS_DIR}/review-${tid}.json"
+        # Parse and save review
+        local parsed_review
+        parsed_review=$(parse_agent_json "$review_output") || parsed_review="$review_output"
+        echo "$parsed_review" > "${LOGS_DIR}/review-${tid}.json"
 
         # Check verdict
         local verdict
-        verdict=$(echo "$review_output" | jq -r '.verdict' 2>/dev/null || echo "unknown")
+        verdict=$(echo "$parsed_review" | jq -r '.verdict' 2>/dev/null || echo "unknown")
         if [[ "$verdict" == "request_changes" ]]; then
             log_warn "Task ${tid}: changes requested"
-            task_update "$tid" "status" "pending"
-            task_update "$tid" "review_feedback" "$review_output"
+            # Atomic: status + review_feedback in one write
+            task_request_changes "$tid" "$parsed_review"
         elif [[ "$verdict" == "approve" ]]; then
             log_success "Task ${tid}: approved by Reviewer"
 
@@ -1772,10 +2034,10 @@ ${criteria}"
                     local grc=$?
                     if [[ $grc -eq 1 ]]; then
                         log_error "Task ${tid}: Guardian REJECTED — vision violation in implementation"
-                        task_update "$tid" "status" "pending"
                         local guardian_log
                         guardian_log=$(ls -t "${LOGS_DIR}"/guardian-post-review-*.json 2>/dev/null | head -1)
-                        task_update "$tid" "review_feedback" "GUARDIAN REJECTED: $(cat "$guardian_log" 2>/dev/null | jq -r '.summary' 2>/dev/null || echo 'See guardian log')"
+                        # Atomic: status + review_feedback in one write
+                        task_request_changes "$tid" "GUARDIAN REJECTED: $(cat "$guardian_log" 2>/dev/null | jq -r '.summary' 2>/dev/null || echo 'See guardian log')"
                         verdict="request_changes"
                     fi
                     # grc == 2 means flagged — warn but keep approved
@@ -1789,90 +2051,123 @@ ${criteria}"
 }
 
 cmd_retry() {
+    _require_feature "$GLOBAL_FEATURE"
     local task_id=""
     local escalate=false
+    local context=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --task-id)  task_id="$2"; shift 2 ;;
             --escalate) escalate=true; shift ;;
+            --context)  context="$2"; shift 2 ;;
             *) log_error "Unknown option: $1"; exit 1 ;;
         esac
     done
 
     if [[ -z "$task_id" ]]; then
-        # Retry all failed + blocked tasks
-        local retryable
-        retryable=$(task_list_by_status "failed")
-        local blocked
-        blocked=$(task_list_by_status "blocked")
-        if [[ -n "$blocked" ]]; then
-            if [[ -n "$retryable" ]]; then
-                retryable+=$'\n'"$blocked"
-            else
-                retryable="$blocked"
-            fi
-        fi
-        if [[ -z "$retryable" ]]; then
-            log_info "No failed or blocked tasks to retry."
-            return
-        fi
-        task_id="$retryable"
+        log_error "Required: --task-id ID"
+        log_error "Retry requires targeting a specific task. Use ${CYAN}tribe status${RESET} to see failed tasks."
+        exit 1
     fi
 
-    while IFS= read -r tid; do
+    if [[ -z "$context" ]]; then
+        # Show the failure details so the human can diagnose
         local task_json
-        task_json=$(task_get "$tid")
-        local title current_model error_msg
+        task_json=$(task_get "$task_id")
+        local title error_msg status retry_count
         title=$(echo "$task_json" | jq -r '.title')
-        current_model=$(echo "$task_json" | jq -r '.agent_model')
         error_msg=$(echo "$task_json" | jq -r '.error // "No error details"')
+        status=$(echo "$task_json" | jq -r '.status')
+        retry_count=$(echo "$task_json" | jq -r '.retry_count // 0')
 
-        log_step "Retrying task ${tid}: ${CYAN}${title}${RESET}"
+        echo ""
+        echo -e "${BOLD}Task ${task_id}:${RESET} ${title}"
+        echo -e "${BOLD}Status:${RESET} ${status}"
+        echo -e "${BOLD}Error:${RESET} ${error_msg}"
+        echo -e "${BOLD}Previous retries:${RESET} ${retry_count}"
 
-        # Append failure context
-        local prev_feedback
-        prev_feedback=$(echo "$task_json" | jq -r '.review_feedback // ""')
-        local retry_context="Previous attempt failed with: ${error_msg}"
-        if [[ -n "$prev_feedback" ]]; then
-            retry_context+="\n\nPrevious review feedback:\n${prev_feedback}"
-        fi
-        task_update "$tid" "review_feedback" "$retry_context"
-
-        # Escalate model if requested
-        if $escalate; then
-            local new_model
-            case "$current_model" in
-                haiku)  new_model="sonnet" ;;
-                sonnet) new_model="opus" ;;
-                opus)   new_model="opus" ;;
-            esac
-            task_update "$tid" "agent_model" "$new_model"
-            log_info "Escalated model: ${current_model} → ${new_model}"
+        # Show debugger analysis if available
+        local debugger_log="${LOGS_DIR}/debugger-${task_id}.json"
+        if [[ -f "$debugger_log" ]]; then
+            echo ""
+            echo -e "${BOLD}Debugger analysis:${RESET}"
+            echo -e "  ${DIM}$(cat "$debugger_log" | jq -r '.root_cause // .diagnosis // "See full log"' 2>/dev/null)${RESET}"
         fi
 
-        # Reset status
-        task_update "$tid" "status" "pending"
-        task_update "$tid" "error" ""
-        task_update_raw "$tid" "agent_pid" "null"
-        task_update "$tid" "started_at" ""
-        task_update "$tid" "completed_at" ""
+        echo ""
+        log_error "Blind retries are not allowed. Diagnose the failure and provide guidance:"
+        echo -e "  ${CYAN}tribe retry --task-id ${task_id} --context \"what to do differently\"${RESET}"
+        echo ""
+        exit 1
+    fi
 
-        log_success "Task ${tid} reset to pending"
+    local task_json
+    task_json=$(task_get "$task_id")
+    local title current_model error_msg status
+    title=$(echo "$task_json" | jq -r '.title')
+    current_model=$(echo "$task_json" | jq -r '.agent_model')
+    error_msg=$(echo "$task_json" | jq -r '.error // "No error details"')
+    status=$(echo "$task_json" | jq -r '.status')
 
-    done <<< "$task_id"
+    if [[ "$status" != "failed" ]] && [[ "$status" != "blocked" ]]; then
+        log_error "Task ${task_id} is '${status}', not failed or blocked. Nothing to retry."
+        exit 1
+    fi
+
+    log_step "Retrying task ${task_id}: ${CYAN}${title}${RESET}"
+
+    # Accumulate attempt history — append, never overwrite
+    local prev_feedback
+    prev_feedback=$(echo "$task_json" | jq -r '.review_feedback // ""')
+    local retry_count
+    retry_count=$(echo "$task_json" | jq -r '.retry_count // 0')
+    local attempt_entry
+    attempt_entry="--- Attempt $((retry_count + 1)) ---\nFailed with: ${error_msg}\nHuman guidance: ${context}"
+
+    local accumulated_feedback
+    if [[ -n "$prev_feedback" ]]; then
+        accumulated_feedback="${prev_feedback}\n\n${attempt_entry}"
+    else
+        accumulated_feedback="$attempt_entry"
+    fi
+    task_update "$task_id" "review_feedback" "$(echo -e "$accumulated_feedback")"
+
+    # Escalate model if requested
+    if $escalate; then
+        local new_model
+        case "$current_model" in
+            haiku)  new_model="sonnet" ;;
+            sonnet) new_model="opus" ;;
+            opus)   new_model="opus" ;;
+        esac
+        task_update "$task_id" "agent_model" "$new_model"
+        log_info "Escalated model: ${current_model} → ${new_model}"
+    fi
+
+    # Clean up stale worktree if present
+    git_remove_worktree "$task_id"
+
+    # Atomic reset to pending (increments retry_count)
+    task_reset_pending "$task_id"
+
+    log_success "Task ${task_id} reset to pending (attempt $((retry_count + 2)))"
 
     echo ""
-    echo -e "Run ${CYAN}./swarm/tribe run${RESET} to execute retried tasks."
+    echo -e "Run ${CYAN}./swarm/tribe run${RESET} to execute."
     echo ""
 }
 
 # ── Recover: fix stale state from crashed swarm ──────────────
 
 cmd_recover() {
+    _require_feature "$GLOBAL_FEATURE"
     log_header "Recovering Swarm State"
 
-    local running_dir="${TRIBE_ROOT}/.tribe/running"
+    # Force-break any stale lock
+    swarm_force_break_lock
+
+    local running_dir="${FEATURE_DIR}/running"
     local recovered=0
 
     # Clean stale PID files
@@ -1904,9 +2199,8 @@ cmd_recover() {
             agent_pid=$(jq -r '.agent_pid // "null"' "$f")
             if [[ "$agent_pid" == "null" ]] || ! kill -0 "$agent_pid" 2>/dev/null; then
                 log_step "Resetting stale running task ${tid} to pending"
-                task_update "$tid" "status" "pending"
-                task_update_raw "$tid" "agent_pid" "null"
-                task_update "$tid" "started_at" ""
+                task_reset_pending "$tid"
+                git_remove_worktree "$tid"
                 ((recovered++))
             fi
         fi
@@ -1914,6 +2208,9 @@ cmd_recover() {
 
     # Reset swarm state
     jq '.status = "idle" | .agents = []' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+    # Clean up orphaned worktrees
+    git_cleanup_worktrees
 
     if [[ "$recovered" -gt 0 ]]; then
         log_success "Recovered ${recovered} stale item(s)"
@@ -1926,11 +2223,126 @@ cmd_recover() {
     echo ""
 }
 
+# ── Clean ─────────────────────────────────────────────────────────
+
+cmd_clean() {
+    local what="${1:-logs}"
+
+    case "$what" in
+        logs)
+            # If a feature is specified or active, clean that feature's logs
+            if feature_resolve "$GLOBAL_FEATURE" &>/dev/null; then
+                _require_feature "$GLOBAL_FEATURE"
+                local file_count size_before
+                file_count=$(ls -1 "$LOGS_DIR" 2>/dev/null | wc -l | tr -d ' ')
+                size_before=$(du -sh "$LOGS_DIR" 2>/dev/null | cut -f1)
+                rm -rf "$LOGS_DIR"
+                mkdir -p "$LOGS_DIR"
+                log_success "Cleaned ${file_count} log files (${size_before}) for feature ${FEATURE_NAME}"
+            else
+                # Clean logs across all features
+                local total_cleaned=0
+                for feat_dir in "${FEATURES_DIR}"/*/logs; do
+                    [[ -d "$feat_dir" ]] || continue
+                    local fc
+                    fc=$(ls -1 "$feat_dir" 2>/dev/null | wc -l | tr -d ' ')
+                    total_cleaned=$((total_cleaned + fc))
+                    rm -rf "$feat_dir"
+                    mkdir -p "$feat_dir"
+                done
+                # Also clean top-level logs
+                if [[ -d "${TRIBE_DIR}/logs" ]]; then
+                    local fc
+                    fc=$(ls -1 "${TRIBE_DIR}/logs" 2>/dev/null | wc -l | tr -d ' ')
+                    total_cleaned=$((total_cleaned + fc))
+                    rm -rf "${TRIBE_DIR}/logs"
+                    mkdir -p "${TRIBE_DIR}/logs"
+                fi
+                log_success "Cleaned ${total_cleaned} log files across all features"
+            fi
+            ;;
+
+        feature)
+            local feat_name="${2:-}"
+            if [[ -z "$feat_name" ]]; then
+                log_error "Usage: tribe clean feature <name>"
+                echo ""
+                echo "Available features:"
+                feature_list | while IFS= read -r f; do echo "  - $f"; done
+                exit 1
+            fi
+            local feat_dir="${FEATURES_DIR}/${feat_name}"
+            if [[ ! -d "$feat_dir" ]]; then
+                log_error "Feature '${feat_name}' not found"
+                exit 1
+            fi
+            # Clean worktrees for this feature
+            local wt_dir="${TRIBE_DIR}/worktrees/${feat_name}"
+            if [[ -d "$wt_dir" ]]; then
+                for wt in "$wt_dir"/task-*; do
+                    [[ -d "$wt" ]] || continue
+                    git -C "$TRIBE_ROOT" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
+                done
+                git -C "$TRIBE_ROOT" worktree prune 2>/dev/null || true
+            fi
+            local size_before
+            size_before=$(du -sh "$feat_dir" 2>/dev/null | cut -f1)
+            rm -rf "$feat_dir" "$wt_dir"
+            # Clear active feature if it was the one we deleted
+            if [[ "$(feature_get_active)" == "$feat_name" ]]; then
+                rm -f "${TRIBE_DIR}/active_feature"
+            fi
+            log_success "Cleaned feature '${feat_name}' (${size_before})"
+            ;;
+
+        all)
+            if [[ ! -d "$TRIBE_DIR" ]]; then
+                log_info "No .tribe directory — nothing to clean"
+                return 0
+            fi
+
+            # Clean all worktrees (iterate all feature worktree dirs)
+            if [[ -d "${TRIBE_DIR}/worktrees" ]]; then
+                for wt_dir in "${TRIBE_DIR}"/worktrees/*/task-* "${TRIBE_DIR}"/worktrees/task-*; do
+                    [[ -d "$wt_dir" ]] || continue
+                    git -C "$TRIBE_ROOT" worktree remove --force "$wt_dir" 2>/dev/null || rm -rf "$wt_dir"
+                done
+                git -C "$TRIBE_ROOT" worktree prune 2>/dev/null || true
+            fi
+
+            local size_before
+            size_before=$(du -sh "$TRIBE_DIR" 2>/dev/null | cut -f1)
+
+            rm -rf "$TRIBE_DIR"
+            log_success "Cleaned entire .tribe/ directory (${size_before})"
+            ;;
+
+        *)
+            echo -e "Usage: ${CYAN}./swarm/tribe clean${RESET} [logs|feature <name>|all]"
+            echo ""
+            echo -e "  ${CYAN}logs${RESET}               Remove log files (active feature or all)"
+            echo -e "  ${CYAN}feature <name>${RESET}      Remove a specific feature's state and worktrees"
+            echo -e "  ${CYAN}all${RESET}                Remove entire .tribe/ directory"
+            ;;
+    esac
+}
+
 # ── Main ─────────────────────────────────────────────────────────
 
 main() {
     local command="${1:-help}"
     shift || true
+
+    # ── Extract global --feature flag before dispatching ──────────
+    GLOBAL_FEATURE=""
+    local args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --feature|-f) GLOBAL_FEATURE="$2"; shift 2 ;;
+            *) args+=("$1"); shift ;;
+        esac
+    done
+    set -- "${args[@]+"${args[@]}"}"
 
     case "$command" in
         init)      cmd_init "$@" ;;
@@ -1945,6 +2357,7 @@ main() {
         retry)     cmd_retry "$@" ;;
         recover)   cmd_recover "$@" ;;
         guardian)   cmd_guardian "$@" ;;
+        clean)     cmd_clean "$@" ;;
         help|--help|-h) tribe_help ;;
         *)
             log_error "Unknown command: ${command}"

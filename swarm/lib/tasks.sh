@@ -18,7 +18,7 @@ task_create() {
     local description="$3"
     local acceptance_criteria="$4"
     local depends_on="$5"  # JSON array string, e.g. '["1","2"]'
-    local agent_model="${6:-$DEFAULT_MODEL}"
+    local agent_model="${6:-$MODEL_SUPPORT}"
 
     _ensure_jq
 
@@ -106,6 +106,102 @@ task_update_raw() {
     local tmp
     tmp=$(mktemp)
     jq --argjson val "$value" ".${field} = \$val" "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# ── Atomic state transitions ─────────────────────────────────────
+# Each function applies all field changes in a single jq invocation.
+# The task file is either fully in the old state or fully in the new
+# state — never in between, even if the process crashes.
+
+# Transition: * → running
+task_set_running() {
+    local id="$1"
+    local pid="$2"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson pid "$pid" \
+        '.status = "running" | .started_at = $ts | .agent_pid = $pid' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Transition: running → done
+task_set_done() {
+    local id="$1"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '.status = "done" | .completed_at = $ts | .agent_pid = null' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Transition: running → failed
+task_set_failed() {
+    local id="$1"
+    local error="$2"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    jq --arg err "$error" \
+        '.status = "failed" | .error = $err | .agent_pid = null' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Transition: running → blocked
+task_set_blocked() {
+    local id="$1"
+    local error="$2"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    jq --arg err "$error" \
+        '.status = "blocked" | .error = $err | .agent_pid = null' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Transition: done → pending (review requested changes)
+task_request_changes() {
+    local id="$1"
+    local feedback="$2"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    jq --arg fb "$feedback" \
+        '.status = "pending" | .review_feedback = $fb' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Transition: running → failed (timeout with escalation tracking)
+# Increments timeout_count so the orchestrator can apply deterministic
+# escalation: first timeout → escalate model, second → human.
+task_set_timeout() {
+    local id="$1"
+    local reason="$2"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    jq --arg err "$reason" \
+        '.status = "failed" | .error = $err | .agent_pid = null | .timeout_count = ((.timeout_count // 0) + 1)' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Transition: failed/blocked → pending (full reset for retry or recover)
+# Preserves review_feedback, agent_model, timeout_count, retry_count.
+task_reset_pending() {
+    local id="$1"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    jq '.status = "pending" | .error = null | .agent_pid = null | .started_at = null | .completed_at = null | .retry_count = ((.retry_count // 0) + 1)' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
 }
 
 # Get all task IDs
@@ -224,6 +320,10 @@ task_print_graph() {
         deps=$(jq -r '.depends_on | join(", ")' "$f")
 
         local status_icon status_color
+        local timeout_count retry_count
+        timeout_count=$(jq -r '.timeout_count // 0' "$f")
+        retry_count=$(jq -r '.retry_count // 0' "$f")
+
         case "$status" in
             pending) status_icon="$SYM_PENDING"; status_color="$DIM" ;;
             running) status_icon="$SYM_RUNNING"; status_color="$YELLOW" ;;
@@ -237,7 +337,15 @@ task_print_graph() {
             dep_str=" ${DIM}(depends on: ${deps})${RESET}"
         fi
 
-        printf "  %b%s%b  %-4s %s%s\n" "$status_color" "$status_icon" "$RESET" "$id" "$title" "$dep_str"
+        local history_str=""
+        if [[ "$timeout_count" -gt 0 ]]; then
+            history_str+=" ${YELLOW}[timed out x${timeout_count}]${RESET}"
+        fi
+        if [[ "$retry_count" -gt 0 ]]; then
+            history_str+=" ${MAGENTA}[retry x${retry_count}]${RESET}"
+        fi
+
+        printf "  %b%s%b  %-4s %s%s%s\n" "$status_color" "$status_icon" "$RESET" "$id" "$title" "$dep_str" "$history_str"
     done | sort -t' ' -k4 -n
 }
 

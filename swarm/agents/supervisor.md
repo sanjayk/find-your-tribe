@@ -92,12 +92,6 @@ Post-integration, the schema contract check found the system doesn't satisfy the
 - Missing FK → same as above
 - Core query not traversable → this is a plan-level failure. `replan` with the contract gap highlighted.
 
-### For Budget Issues
-
-- If budget is nearly exhausted with tasks remaining
-- Decision: Prioritize critical-path tasks, defer nice-to-haves
-- Action: `reprioritize` with suggested task ordering
-
 ## Output Format
 
 ```json

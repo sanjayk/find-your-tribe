@@ -11,9 +11,13 @@
 # Requires config.sh, log.sh, and grounding.sh to be sourced first
 
 # Run all gates on a completed task: grounding + quality
+# Args: task_id [worktree_path]
+# When worktree_path is provided, gates run inside the isolated worktree
+# (no git checkout needed). Falls back to TRIBE_ROOT for backwards compat.
 # Returns 0 if all pass, 1 if any fail
 gates_run() {
     local task_id="$1"
+    local worktree_path="${2:-$TRIBE_ROOT}"
     local grounding_passed=true
     local quality_passed=true
 
@@ -23,23 +27,8 @@ gates_run() {
         return 0
     fi
 
-    # Checkout the task branch so gates run against the correct code
-    # (parallel agents share a single working tree — without this,
-    #  gates may check whichever branch another agent last checked out)
-    local _gate_branch=""
-    if [[ -n "$task_id" ]]; then
-        local _task_file="${TASKS_DIR}/${task_id}.json"
-        if [[ -f "$_task_file" ]]; then
-            _gate_branch=$(jq -r '.branch // empty' "$_task_file" 2>/dev/null)
-            if [[ -n "$_gate_branch" ]] && git_branch_exists "$_gate_branch" 2>/dev/null; then
-                log_step "Checking out ${_gate_branch} for quality gates"
-                _git checkout "$_gate_branch" 2>/dev/null || true
-            fi
-        fi
-    fi
-
     # ── Grounding gates first (non-LLM) ──────────────────────────
-    if ! grounding_run "$task_id"; then
+    if ! grounding_run "$task_id" "$worktree_path"; then
         grounding_passed=false
     fi
 
@@ -54,10 +43,10 @@ gates_run() {
     local subsystem
     subsystem=$(_detect_subsystem "$task_id")
 
-    log_step "Running quality gates for task ${task_id} (subsystem: ${subsystem})..."
+    log_step "Running quality gates for task ${task_id} (subsystem: ${subsystem}) in ${worktree_path}..."
 
     # Gate 1: Syntax check — look for common syntax errors
-    if gate_syntax_check "$task_id"; then
+    if gate_syntax_check "$task_id" "$worktree_path"; then
         results+=("${GREEN}${SYM_CHECK} Syntax check${RESET}")
     else
         results+=("${RED}${SYM_CROSS} Syntax check${RESET}")
@@ -79,7 +68,7 @@ gates_run() {
             local all_ok=true
             while IFS= read -r cmd; do
                 [[ -z "$cmd" ]] && continue
-                if gate_run_command "${gate_label}" "$cmd"; then
+                if gate_run_command "${gate_label}" "$cmd" "$worktree_path"; then
                     results+=("${GREEN}${SYM_CHECK} ${gate_label}: ${DIM}${cmd}${RESET}")
                 else
                     results+=("${RED}${SYM_CROSS} ${gate_label}: ${DIM}${cmd}${RESET}")
@@ -102,11 +91,6 @@ gates_run() {
     done
     echo ""
 
-    # Return to main branch after running gates
-    if [[ -n "${_gate_branch:-}" ]]; then
-        _git checkout main 2>/dev/null || true
-    fi
-
     if $quality_passed; then
         return 0
     else
@@ -116,8 +100,10 @@ gates_run() {
 
 # Basic syntax check for common file types
 # Uses branch diff against main (not HEAD~1) to check correct files
+# Args: task_id [worktree_path]
 gate_syntax_check() {
     local task_id="${1:-}"
+    local worktree_path="${2:-$TRIBE_ROOT}"
     local failed=false
 
     # Determine diff base: use task branch if available, fallback to HEAD~1
@@ -133,9 +119,9 @@ gate_syntax_check() {
         fi
     fi
 
-    # Check Python syntax
+    # Check Python syntax (read files from worktree)
     for f in $(eval "$diff_cmd" 2>/dev/null | grep '\.py$' || true); do
-        local full_path="${TRIBE_ROOT}/${f}"
+        local full_path="${worktree_path}/${f}"
         [[ -f "$full_path" ]] || continue
         if ! python3 -c "import ast; ast.parse(open('${full_path}').read())" 2>/dev/null; then
             log_error "Syntax error in: $f"
@@ -143,9 +129,9 @@ gate_syntax_check() {
         fi
     done
 
-    # Check JSON syntax
+    # Check JSON syntax (read files from worktree)
     for f in $(eval "$diff_cmd" 2>/dev/null | grep '\.json$' || true); do
-        local full_path="${TRIBE_ROOT}/${f}"
+        local full_path="${worktree_path}/${f}"
         [[ -f "$full_path" ]] || continue
         if ! jq empty "$full_path" 2>/dev/null; then
             log_error "JSON syntax error in: $f"
@@ -158,7 +144,7 @@ gate_syntax_check() {
     # TypeScript (.ts/.tsx) syntax is validated by the typecheck gate (tsc --noEmit) instead.
     # JSX (.jsx/.tsx) is also excluded because JSX is not valid plain JavaScript.
     for f in $(eval "$diff_cmd" 2>/dev/null | grep -E '\.js$' || true); do
-        local full_path="${TRIBE_ROOT}/${f}"
+        local full_path="${worktree_path}/${f}"
         [[ -f "$full_path" ]] || continue
         if command -v node &>/dev/null; then
             if ! node --check "$full_path" 2>/dev/null; then
@@ -172,10 +158,12 @@ gate_syntax_check() {
 }
 
 # Run a gate command and return its exit code
-# Captures output to a log file for diagnostics (Fix 8)
+# Args: name cmd [worktree_path]
+# Captures output to a log file for diagnostics
 gate_run_command() {
     local name="$1"
     local cmd="$2"
+    local gate_cwd="${3:-$TRIBE_ROOT}"
     local timestamp
     timestamp=$(date +%s)
     local log_file="${LOGS_DIR}/gate-${name}-${timestamp}.log"
@@ -186,21 +174,44 @@ gate_run_command() {
 
     # Activate venv if it exists in the target directory so tools like ruff/pytest are on PATH
     local venv_activate=""
-    if [[ "$cmd" == cd\ src/backend* ]] && [[ -f "${TRIBE_ROOT}/src/backend/.venv/bin/activate" ]]; then
-        venv_activate="source ${TRIBE_ROOT}/src/backend/.venv/bin/activate && "
-    elif [[ "$cmd" == cd\ src/frontend* ]] && [[ -f "${TRIBE_ROOT}/src/frontend/node_modules/.bin" ]]; then
-        venv_activate="export PATH=${TRIBE_ROOT}/src/frontend/node_modules/.bin:\$PATH && "
+    if [[ "$cmd" == cd\ src/backend* ]] && [[ -f "${gate_cwd}/src/backend/.venv/bin/activate" ]]; then
+        venv_activate="source ${gate_cwd}/src/backend/.venv/bin/activate && "
+    elif [[ "$cmd" == cd\ src/frontend* ]] && [[ -d "${gate_cwd}/src/frontend/node_modules/.bin" ]]; then
+        venv_activate="export PATH=${gate_cwd}/src/frontend/node_modules/.bin:\$PATH && "
     fi
 
-    if (cd "$TRIBE_ROOT" && eval "${venv_activate}${cmd}" > "$log_file" 2>&1); then
+    if (cd "$gate_cwd" && eval "${venv_activate}${cmd}" > "$log_file" 2>&1); then
+        _prune_logs "gate-${name}-" ".log"
         return 0
     else
         log_error "${name} failed. Last 20 lines:"
         tail -20 "$log_file" | while IFS= read -r line; do
             echo -e "    ${DIM}${line}${RESET}" >&2
         done
+        _prune_logs "gate-${name}-" ".log"
         return 1
     fi
+}
+
+# Prune old log files, keeping only the most recent N per category.
+# Args: prefix suffix
+# Matches files: ${LOGS_DIR}/${prefix}*${suffix}
+_prune_logs() {
+    local prefix="$1"
+    local suffix="$2"
+    local keep="${LOG_RETAIN_PER_CATEGORY:-3}"
+
+    local files
+    files=$(ls -t "${LOGS_DIR}/${prefix}"*"${suffix}" 2>/dev/null || true)
+    [[ -z "$files" ]] && return
+
+    local count=0
+    while IFS= read -r f; do
+        ((count++))
+        if [[ $count -gt $keep ]]; then
+            rm -f "$f"
+        fi
+    done <<< "$files"
 }
 
 # Detect which subsystem a task touches based on its files_touched

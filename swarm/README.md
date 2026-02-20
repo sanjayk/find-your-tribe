@@ -86,7 +86,7 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 ./swarm/tribe verify
 
 # Execute tasks with parallel agents
-./swarm/tribe run --max-parallel 3 --max-budget 10
+./swarm/tribe run --max-parallel 3
 
 # Show swarm state and progress
 ./swarm/tribe status
@@ -115,7 +115,6 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--max-parallel N` | 3 | Max concurrent agents |
-| `--max-budget USD` | 10 | Total budget cap in USD |
 | `--model MODEL` | sonnet | Default model (sonnet, opus, haiku) |
 | `--task-id ID` | — | Target a specific task (retry, review) |
 | `--escalate` | — | Upgrade model on retry (sonnet → opus) |

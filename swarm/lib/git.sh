@@ -8,6 +8,28 @@ _git() {
     git -C "$TRIBE_ROOT" "$@"
 }
 
+# Detect the repo's default branch (main, master, etc.)
+# Tries: MAIN_BRANCH env var → origin HEAD → verify main → verify master → fallback "main"
+git_main_branch() {
+    if [[ -n "${MAIN_BRANCH:-}" ]]; then
+        echo "$MAIN_BRANCH"
+        return
+    fi
+    local default
+    default=$(_git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
+    if [[ -n "$default" ]]; then
+        echo "$default"
+        return
+    fi
+    if _git rev-parse --verify main &>/dev/null; then
+        echo "main"
+    elif _git rev-parse --verify master &>/dev/null; then
+        echo "master"
+    else
+        echo "main"
+    fi
+}
+
 git_ensure_repo() {
     if ! _git rev-parse --git-dir &>/dev/null; then
         _git init
@@ -92,6 +114,110 @@ git_create_task_branch() {
     fi
 
     echo "$branch"
+}
+
+# ── Worktree management ──────────────────────────────────────────
+
+# Create an isolated worktree for a task agent.
+# Returns the worktree path on stdout.
+git_create_worktree() {
+    local task_id="$1"
+    local branch="$2"
+    local worktree_path="${WORKTREES_DIR}/task-${task_id}"
+
+    mkdir -p "$WORKTREES_DIR"
+
+    # Clean up stale worktree if it exists (from a previous failed run)
+    if [[ -d "$worktree_path" ]]; then
+        _git worktree remove --force "$worktree_path" 2>/dev/null || rm -rf "$worktree_path"
+        _git worktree prune 2>/dev/null || true
+    fi
+
+    # Create worktree on the task branch
+    if git_branch_exists "$branch"; then
+        _git worktree add "$worktree_path" "$branch" 2>/dev/null
+    else
+        # Create branch + worktree in one command, based on current HEAD
+        _git worktree add -b "$branch" "$worktree_path" 2>/dev/null
+    fi
+
+    log_step "Created worktree: ${CYAN}${worktree_path}${RESET} (branch: ${branch})"
+    echo "$worktree_path"
+}
+
+# Symlink shared dependencies (node_modules, .venv) into a worktree
+# so that lint/typecheck/test gates can run without a full install.
+git_setup_worktree_deps() {
+    local worktree_path="$1"
+
+    # Frontend node_modules
+    local fe_nm="${TRIBE_ROOT}/src/frontend/node_modules"
+    local wt_fe="${worktree_path}/src/frontend"
+    if [[ -d "$fe_nm" ]] && [[ -d "$wt_fe" ]] && [[ ! -e "$wt_fe/node_modules" ]]; then
+        ln -s "$fe_nm" "$wt_fe/node_modules"
+    fi
+
+    # Backend .venv
+    local be_venv="${TRIBE_ROOT}/src/backend/.venv"
+    local wt_be="${worktree_path}/src/backend"
+    if [[ -d "$be_venv" ]] && [[ -d "$wt_be" ]] && [[ ! -e "$wt_be/.venv" ]]; then
+        ln -s "$be_venv" "$wt_be/.venv"
+    fi
+
+    # Plugin node_modules
+    local pl_nm="${TRIBE_ROOT}/src/plugins/claude-code-hook/node_modules"
+    local wt_pl="${worktree_path}/src/plugins/claude-code-hook"
+    if [[ -d "$pl_nm" ]] && [[ -d "$wt_pl" ]] && [[ ! -e "$wt_pl/node_modules" ]]; then
+        ln -s "$pl_nm" "$wt_pl/node_modules"
+    fi
+
+    # Frontend .next cache (needed for next lint / next build)
+    local fe_next="${TRIBE_ROOT}/src/frontend/.next"
+    local wt_fe_next="${worktree_path}/src/frontend"
+    if [[ -d "$fe_next" ]] && [[ -d "$wt_fe_next" ]] && [[ ! -e "$wt_fe_next/.next" ]]; then
+        ln -s "$fe_next" "$wt_fe_next/.next"
+    fi
+}
+
+# Remove a task's worktree
+git_remove_worktree() {
+    local task_id="$1"
+    local worktree_path="${WORKTREES_DIR}/task-${task_id}"
+
+    if [[ -d "$worktree_path" ]]; then
+        _git worktree remove --force "$worktree_path" 2>/dev/null || rm -rf "$worktree_path"
+        _git worktree prune 2>/dev/null || true
+        log_step "Removed worktree: task-${task_id}"
+    fi
+}
+
+# Clean up all orphaned worktrees (no running process)
+git_cleanup_worktrees() {
+    _git worktree prune 2>/dev/null || true
+
+    if [[ ! -d "$WORKTREES_DIR" ]]; then
+        return
+    fi
+
+    for wt_dir in "$WORKTREES_DIR"/task-*; do
+        [[ -d "$wt_dir" ]] || continue
+        local task_id
+        task_id=$(basename "$wt_dir" | sed 's/^task-//')
+
+        # If no task file exists, remove the worktree
+        local task_file="${TASKS_DIR}/${task_id}.json"
+        if [[ ! -f "$task_file" ]]; then
+            _git worktree remove --force "$wt_dir" 2>/dev/null || rm -rf "$wt_dir"
+            continue
+        fi
+
+        # If the task is not running, remove the worktree
+        local status
+        status=$(jq -r '.status' "$task_file" 2>/dev/null || echo "unknown")
+        if [[ "$status" != "running" ]]; then
+            _git worktree remove --force "$wt_dir" 2>/dev/null || rm -rf "$wt_dir"
+        fi
+    done
 }
 
 git_safe_merge() {
