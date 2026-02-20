@@ -10,6 +10,10 @@ import {
   CONFIRM_COLLABORATION,
   DECLINE_COLLABORATION,
   REMOVE_COLLABORATOR,
+  ADD_MILESTONE,
+  DELETE_MILESTONE,
+  GENERATE_INVITE_LINK,
+  REDEEM_INVITE_TOKEN,
 } from './projects';
 import {
   CREATE_TRIBE,
@@ -126,11 +130,17 @@ describe('GraphQL mutation documents', () => {
         expect(getOperationName(CREATE_PROJECT)).toBe('CreateProject');
       });
 
+      it('uses CreateProjectInput input type', () => {
+        const printed = print(CREATE_PROJECT);
+        expect(printed).toContain('$input: CreateProjectInput!');
+      });
+
       it('requests project fields in response', () => {
         const printed = print(CREATE_PROJECT);
         expect(printed).toContain('title');
         expect(printed).toContain('status');
         expect(printed).toContain('techStack');
+        expect(printed).toContain('links');
       });
     });
 
@@ -143,10 +153,20 @@ describe('GraphQL mutation documents', () => {
         expect(getOperationName(UPDATE_PROJECT)).toBe('UpdateProject');
       });
 
-      it('requests updated fields in response', () => {
+      it('uses UpdateProjectInput input type', () => {
+        const printed = print(UPDATE_PROJECT);
+        expect(printed).toContain('$input: UpdateProjectInput!');
+      });
+
+      it('requests build story fields in response', () => {
         const printed = print(UPDATE_PROJECT);
         expect(printed).toContain('title');
         expect(printed).toContain('updatedAt');
+        expect(printed).toContain('domains');
+        expect(printed).toContain('aiTools');
+        expect(printed).toContain('buildStyle');
+        expect(printed).toContain('services');
+        expect(printed).toContain('impactMetrics');
       });
     });
 
@@ -168,6 +188,17 @@ describe('GraphQL mutation documents', () => {
       it('has correct operation name', () => {
         expect(getOperationName(INVITE_COLLABORATOR)).toBe('InviteCollaborator');
       });
+
+      it('requests collaborator fields in response', () => {
+        const printed = print(INVITE_COLLABORATOR);
+        expect(printed).toContain('user');
+        expect(printed).toContain('username');
+        expect(printed).toContain('displayName');
+        expect(printed).toContain('avatarUrl');
+        expect(printed).toContain('role');
+        expect(printed).toContain('status');
+        expect(printed).toContain('invitedAt');
+      });
     });
 
     describe('CONFIRM_COLLABORATION', () => {
@@ -177,6 +208,14 @@ describe('GraphQL mutation documents', () => {
 
       it('has correct operation name', () => {
         expect(getOperationName(CONFIRM_COLLABORATION)).toBe('ConfirmCollaboration');
+      });
+
+      it('requests collaborator fields in response', () => {
+        const printed = print(CONFIRM_COLLABORATION);
+        expect(printed).toContain('user');
+        expect(printed).toContain('role');
+        expect(printed).toContain('status');
+        expect(printed).toContain('confirmedAt');
       });
     });
 
@@ -197,6 +236,69 @@ describe('GraphQL mutation documents', () => {
 
       it('has correct operation name', () => {
         expect(getOperationName(REMOVE_COLLABORATOR)).toBe('RemoveCollaborator');
+      });
+    });
+
+    describe('ADD_MILESTONE', () => {
+      it('is a valid GraphQL document', () => {
+        expect(() => print(ADD_MILESTONE)).not.toThrow();
+      });
+
+      it('has correct operation name', () => {
+        expect(getOperationName(ADD_MILESTONE)).toBe('AddMilestone');
+      });
+
+      it('uses AddMilestoneInput input type', () => {
+        const printed = print(ADD_MILESTONE);
+        expect(printed).toContain('$input: AddMilestoneInput!');
+      });
+
+      it('requests milestone fields in response', () => {
+        const printed = print(ADD_MILESTONE);
+        expect(printed).toContain('id');
+        expect(printed).toContain('title');
+        expect(printed).toContain('date');
+        expect(printed).toContain('milestoneType');
+        expect(printed).toContain('createdAt');
+      });
+    });
+
+    describe('DELETE_MILESTONE', () => {
+      it('is a valid GraphQL document', () => {
+        expect(() => print(DELETE_MILESTONE)).not.toThrow();
+      });
+
+      it('has correct operation name', () => {
+        expect(getOperationName(DELETE_MILESTONE)).toBe('DeleteMilestone');
+      });
+    });
+
+    describe('GENERATE_INVITE_LINK', () => {
+      it('is a valid GraphQL document', () => {
+        expect(() => print(GENERATE_INVITE_LINK)).not.toThrow();
+      });
+
+      it('has correct operation name', () => {
+        expect(getOperationName(GENERATE_INVITE_LINK)).toBe('GenerateInviteLink');
+      });
+    });
+
+    describe('REDEEM_INVITE_TOKEN', () => {
+      it('is a valid GraphQL document', () => {
+        expect(() => print(REDEEM_INVITE_TOKEN)).not.toThrow();
+      });
+
+      it('has correct operation name', () => {
+        expect(getOperationName(REDEEM_INVITE_TOKEN)).toBe('RedeemInviteToken');
+      });
+
+      it('requests collaborator fields in response', () => {
+        const printed = print(REDEEM_INVITE_TOKEN);
+        expect(printed).toContain('user');
+        expect(printed).toContain('username');
+        expect(printed).toContain('displayName');
+        expect(printed).toContain('role');
+        expect(printed).toContain('status');
       });
     });
   });
@@ -321,6 +423,10 @@ describe('GraphQL mutation documents', () => {
       { name: 'CONFIRM_COLLABORATION', doc: CONFIRM_COLLABORATION },
       { name: 'DECLINE_COLLABORATION', doc: DECLINE_COLLABORATION },
       { name: 'REMOVE_COLLABORATOR', doc: REMOVE_COLLABORATOR },
+      { name: 'ADD_MILESTONE', doc: ADD_MILESTONE },
+      { name: 'DELETE_MILESTONE', doc: DELETE_MILESTONE },
+      { name: 'GENERATE_INVITE_LINK', doc: GENERATE_INVITE_LINK },
+      { name: 'REDEEM_INVITE_TOKEN', doc: REDEEM_INVITE_TOKEN },
       { name: 'CREATE_TRIBE', doc: CREATE_TRIBE },
       { name: 'UPDATE_TRIBE', doc: UPDATE_TRIBE },
       { name: 'ADD_OPEN_ROLE', doc: ADD_OPEN_ROLE },
