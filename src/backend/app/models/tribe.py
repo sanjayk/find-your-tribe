@@ -69,6 +69,12 @@ tribe_members = Table(
         nullable=False,
         server_default=func.now(),
     ),
+    Column(
+        "requested_role_id",
+        String(26),
+        ForeignKey("tribe_open_roles.id", ondelete="SET NULL"),
+        nullable=True,
+    ),
 )
 
 

@@ -65,9 +65,9 @@ mutation RemoveOpenRole($roleId: ID!) {
 """
 
 REQUEST_TO_JOIN_MUTATION = """
-mutation RequestToJoin($tribeId: ID!) {
+mutation RequestToJoin($tribeId: ID!, $roleId: ID!) {
   tribes {
-    requestToJoin(tribeId: $tribeId)
+    requestToJoin(tribeId: $tribeId, roleId: $roleId)
   }
 }
 """
@@ -143,6 +143,20 @@ async def _create_tribe_via_gql(
     })
     assert body.get("errors") is None, body.get("errors")
     return body["data"]["tribes"]["createTribe"]
+
+
+async def _add_open_role_via_gql(
+    client: AsyncClient,
+    tribe_id: str,
+    title: str = "Engineer",
+) -> str:
+    """Add an open role via GraphQL and return the role ID."""
+    body = await _gql(client, ADD_OPEN_ROLE_MUTATION, {
+        "tribeId": tribe_id,
+        "title": title,
+    })
+    assert body.get("errors") is None, body.get("errors")
+    return body["data"]["tribes"]["addOpenRole"]["id"]
 
 
 # ---------------------------------------------------------------------------
@@ -464,12 +478,15 @@ async def test_request_to_join_happy_path(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     _set_auth(async_session, joiner_id)
     try:
-        body = await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        body = await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
         assert body.get("errors") is None, body.get("errors")
         assert body["data"]["tribes"]["requestToJoin"] is True
     finally:

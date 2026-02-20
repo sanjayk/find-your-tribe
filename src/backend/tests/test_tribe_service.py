@@ -134,8 +134,11 @@ async def test_request_to_join_happy_path(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Open Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     result = await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=joiner.id
+        async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role.id,
     )
     assert result["status"] == MemberStatus.PENDING
     assert result["user_id"] == joiner.id
@@ -149,12 +152,15 @@ async def test_request_to_join_tribe_not_open(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Closed Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     await tribe_service.update(
         async_session, tribe_id=tribe.id, user_id=owner.id, status="active"
     )
     with pytest.raises(ValueError, match="Tribe is not accepting new members"):
         await tribe_service.request_to_join(
-            async_session, tribe_id=tribe.id, user_id=joiner.id
+            async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role.id,
         )
 
 
@@ -166,12 +172,15 @@ async def test_request_to_join_already_member(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Duped Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=joiner.id
+        async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role.id,
     )
     with pytest.raises(ValueError, match="Already a member"):
         await tribe_service.request_to_join(
-            async_session, tribe_id=tribe.id, user_id=joiner.id
+            async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role.id,
         )
 
 
@@ -186,9 +195,15 @@ async def test_request_to_join_tribe_full(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Full Tribe", max_members=2
     )
+    role1 = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
+    role2 = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Designer",
+    )
     # Add second member to fill it
     await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=member2.id
+        async_session, tribe_id=tribe.id, user_id=member2.id, role_id=role1.id,
     )
     await tribe_service.approve_member(
         async_session, tribe_id=tribe.id, member_id=member2.id, owner_id=owner.id
@@ -196,7 +211,7 @@ async def test_request_to_join_tribe_full(async_session, seed_test_data):
 
     with pytest.raises(ValueError, match="Tribe is full"):
         await tribe_service.request_to_join(
-            async_session, tribe_id=tribe.id, user_id=joiner.id
+            async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role2.id,
         )
 
 
@@ -213,8 +228,11 @@ async def test_approve_member_happy_path(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Approve Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=joiner.id
+        async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role.id,
     )
     result = await tribe_service.approve_member(
         async_session, tribe_id=tribe.id, member_id=joiner.id, owner_id=owner.id
@@ -231,8 +249,11 @@ async def test_approve_member_owner_only(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Perm Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=joiner.id
+        async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role.id,
     )
     with pytest.raises(PermissionError, match="Only the tribe owner"):
         await tribe_service.approve_member(
@@ -256,8 +277,11 @@ async def test_reject_member_happy_path(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Reject Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=joiner.id
+        async_session, tribe_id=tribe.id, user_id=joiner.id, role_id=role.id,
     )
     # Should not raise
     await tribe_service.reject_member(
@@ -288,8 +312,11 @@ async def test_remove_member_happy_path(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Remove Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=member.id
+        async_session, tribe_id=tribe.id, user_id=member.id, role_id=role.id,
     )
     await tribe_service.approve_member(
         async_session, tribe_id=tribe.id, member_id=member.id, owner_id=owner.id
@@ -339,8 +366,11 @@ async def test_leave_happy_path(async_session, seed_test_data):
     tribe = await tribe_service.create(
         async_session, owner_id=owner.id, name="Leave Tribe"
     )
+    role = await tribe_service.add_open_role(
+        async_session, tribe_id=tribe.id, user_id=owner.id, title="Engineer",
+    )
     await tribe_service.request_to_join(
-        async_session, tribe_id=tribe.id, user_id=member.id
+        async_session, tribe_id=tribe.id, user_id=member.id, role_id=role.id,
     )
     await tribe_service.approve_member(
         async_session, tribe_id=tribe.id, member_id=member.id, owner_id=owner.id
