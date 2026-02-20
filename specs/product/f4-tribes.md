@@ -10,12 +10,12 @@ This spec covers tribe formation, joining, and management for **Find Your Tribe*
 
 ## Feature Summary
 
-A tribe is a small team (2-8 members) of builders with complementary skills, either actively building together or recruiting members. Tribes have a name, mission statement, current members, and open roles. Builders can create tribes, browse and filter open tribes, request to join, and manage membership. Tribes are the key differentiator of Find Your Tribe -- no other platform offers structured team formation around shipped work.
+A tribe is a team of builders with complementary skills, either actively building together or recruiting members. Tribes have a name, mission statement, current members, and open roles. Builders can create tribes, browse and search tribes, request to join, and manage membership. Tribes are the key differentiator of Find Your Tribe -- no other platform offers structured team formation around shipped work.
 
 This feature has three components:
 1. **Tribe Creation & Management** -- creating tribes, defining roles, managing status
 2. **Tribe Join Requests** -- requesting to join, accepting/declining
-3. **Tribe Dashboard** -- viewing members, active project, and status
+3. **Tribe Page** -- viewing members, open roles, and status (with contextual owner controls)
 
 ---
 
@@ -24,7 +24,7 @@ This feature has three components:
 | Component | Priority |
 |---|---|
 | Tribe Creation & Management | **Should** |
-| Tribe Discovery (browse and filter) | **Should** |
+| Tribe Discovery (browse and search) | **Should** |
 | Tribe Join Requests | **Should** |
 
 **Note:** Tribes are a "Should Have" feature -- a key differentiator that significantly improves the experience but is not a blocker for initial launch. The rationale: tribes require a critical mass of builders to be meaningful. Discovery and projects must come first to build that base.
@@ -36,11 +36,12 @@ This feature has three components:
 | ID | Story | Priority |
 |---|---|---|
 | T-1 | As a builder, I want to create a tribe with a name, mission, and open roles so that I can recruit co-builders. | Should |
-| T-2 | As a builder, I want to browse open tribes filtered by skills needed, timezone, and project type so that I can find teams to join. | Should |
-| T-3 | As a builder, I want to request to join a tribe so that I can offer my skills to a team. | Should |
-| T-4 | As a tribe creator, I want to accept or decline join requests so that I control team composition. | Should |
-| T-5 | As a tribe member, I want to see a tribe dashboard with members, the active project, and status so that I have context on the team. | Should |
-| T-6 | As a tribe creator, I want to mark roles as filled so that the tribe's open positions are accurate. | Should |
+| T-2 | As a builder, I want to search tribes via a single search bar (matching skills, roles, members, regions) so that I can find teams to join. | Should |
+| T-3 | As a builder, I want to request to join a tribe for a specific open role so that the owner knows what I'm offering. | Should |
+| T-4 | As a tribe owner, I want to accept or decline join requests so that I control team composition. | Should |
+| T-5 | As a tribe member, I want to see the tribe page with members, open roles, and status so that I have context on the team. | Should |
+| T-6 | As a tribe owner, I want open roles to be automatically marked as filled when I approve a member who applied for that role. | Should |
+| T-7 | As a tribe member (non-owner), I want to leave a tribe so that I can move on. | Should |
 
 ---
 
@@ -50,19 +51,19 @@ A tribe consists of:
 
 - **Name:** Tribe name (e.g., "Hospitality OS")
 - **Mission:** Mission statement (e.g., "Building an operations platform for boutique hotels")
-- **Creator:** The builder who created the tribe
-- **Members:** List of builders in the tribe (2-8 members, including creator)
+- **Owner:** The builder who created the tribe
+- **Members:** List of builders in the tribe (including owner)
 - **Open Roles:** Roles the tribe needs filled (e.g., "Backend Engineer," "Product Designer"), with optional skill requirements
-- **Status:** Open (has unfilled roles) / Active (all roles filled) / Closed
-- **Associated Project:** The project the tribe is building (optional, links to F3)
+- **Status:** Open (recruiting members) / Active (full team, building) / Alumni (past collaboration)
+- **Max Members:** Owner-defined team size (positive integer, no upper bound)
 
 ---
 
-## Key Product Decision: Tribes Are Small by Design
+## Key Product Decision: Tribes Are Teams, Not Communities
 
-**Decision:** Tribes are capped at 2-8 members.
+**Decision:** Tribes have no enforced size cap. The owner sets `max_members` to whatever makes sense for their team.
 
-**Rationale:** This is not a community platform or a Discord alternative. Tribes represent working teams -- small groups of complementary builders actively collaborating on a project. The 2-8 range reflects the reality of high-leverage small teams in the AI era. Larger groups can form multiple tribes.
+**Rationale:** This is not a community platform or a Discord alternative. Tribes represent working teams — builders actively collaborating on a project. Most will naturally stay small, but the platform doesn't impose an artificial limit.
 
 ---
 
@@ -73,24 +74,27 @@ A tribe consists of:
 2. Builder fills in tribe details:
    a. Tribe name (e.g., "Hospitality OS").
    b. Mission statement (e.g., "Building an operations platform for boutique hotels").
-   c. Current members: auto-includes the creator. Can invite existing platform builders.
+   c. Current members: auto-includes the creator. Can share the tribe link
+      via personal channels (WhatsApp, SMS, email) to invite builders.
    d. Open roles: selects roles needed (e.g., "Backend Engineer," "Product Designer")
       with optional skill requirements.
-3. Tribe is created with status "Open."
-4. Tribe appears in discovery for builders browsing open tribes.
+3. Tribe is created with status "Open." (Backend: `createTribe` creates the tribe,
+   then `addOpenRole` is called for each role — two-step creation.)
+4. Tribe appears in discovery for builders browsing tribes.
 5. Other builders find the tribe via discovery:
-   a. They filter by skills needed, timezone, or project type.
+   a. They search using a single search bar (matches tribe name, mission,
+      skills, roles, member names, regions).
    b. They click into the tribe page to see the mission, current members
       (with links to their profiles), and open roles.
-6. A builder clicks "Request to Join" and selects the role they want to fill.
-7. The tribe creator receives the join request:
+6. A builder clicks "Request to Join" for a specific open role.
+7. The tribe owner receives the join request:
    a. They review the requesting builder's profile and projects.
    b. They accept or decline the request.
 8. If accepted:
    a. The new member appears on the tribe page.
-   b. The open role is marked as filled (or remains open if multiple slots exist).
-   c. The tribe status updates based on whether roles are still open.
-9. When all roles are filled, the tribe status changes to "Active."
+   b. The open role they applied for is automatically marked as filled.
+9. The owner manually transitions the tribe status via Edit Tribe
+   (Open → Active when the team is ready, Active → Alumni when done).
 ```
 
 ## User Flow: Finding and Joining a Tribe
@@ -98,39 +102,37 @@ A tribe consists of:
 ```
 1. Builder sets their availability to "Open to tribe" on their profile.
 2. Builder navigates to Discover and selects the "Tribes" tab.
-3. Builder applies filters:
-   a. Skills needed: e.g., "React, TypeScript" (matches their skills).
-   b. Timezone: compatible with their own.
-4. Builder browses open tribes.
+3. Builder types into a single search bar. No filter dropdowns.
+   The search matches across tribe name, mission, open role titles,
+   skills needed, member names, and member timezones/regions.
+   Examples: "React", "hotel", "Europe", "Maya Chen", "Python backend"
+4. Builder browses matching tribes (all statuses shown; open, active, alumni).
 5. Builder clicks into a tribe that interests them:
    a. Reads the mission statement.
    b. Reviews current members by clicking through to their profiles.
    c. Checks the open roles to see if their skills match.
 6. Builder clicks "Request to Join" for a specific open role.
-7. Builder waits for the tribe creator to review and respond.
-8. If accepted, builder sees the tribe on their profile and gains access
-   to the tribe dashboard.
+7. Builder waits for the tribe owner to review and respond.
+8. If accepted, builder sees the tribe on their profile and can view
+   the tribe page as a member.
 ```
 
 ---
 
-## Tribe Page
+## Tribe Page (`/tribe/:id`)
 
-The tribe page is a public view of a tribe. It includes:
+The tribe page is public. It shows the tribe's mission, members, open roles, and status. There is no separate dashboard — the same page renders contextual controls based on who is viewing it:
 
+- **Visitor / non-member:** Sees the public page. Can click "Request to Join" on open roles (if tribe is open).
+- **Member (non-owner):** Sees the public page plus a "Leave Tribe" action.
+- **Owner:** Sees the public page plus inline management controls throughout — edit tribe, remove members, add/edit/remove roles, and a "Pending Requests" section below open roles.
+
+Public page includes:
 - Tribe name and mission statement
+- Status overline (Open / Active / Alumni)
 - Current members with links to their profiles
-- Open roles with skill requirements
-- Tribe status (Open / Active / Closed)
-- Associated project (if linked)
-
-## Tribe Dashboard
-
-The tribe dashboard is visible only to tribe members. It includes:
-
-- All information from the tribe page
-- Pending join requests (visible to creator only)
-- Active project status and details
+- Open roles with skill requirements and join CTAs
+- Owner attribution and creation date
 
 ---
 
@@ -155,7 +157,7 @@ Non-technical builders may be more motivated by "find a technical co-builder" th
 
 ### Retention
 
-Builders in tribes have a reason to check the tribe dashboard for updates and new join requests. Tribe activity is a key re-engagement surface.
+Builders in tribes have a reason to check the tribe page for updates and new join requests. Tribe activity is a key re-engagement surface.
 
 ---
 
@@ -192,15 +194,27 @@ Tribes depend on authentication (F1), builder profiles (F2), and projects (F3). 
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Tribe model (backend) | Built | SQLAlchemy model with members, open roles |
-| Tribe GraphQL type | Built | Strawberry type with owner, members, open_roles |
+| Tribe model (backend) | Built | SQLAlchemy model with members, open roles, enums |
+| Tribe GraphQL type | Built | TribeType, TribeMemberType, OpenRoleType |
+| Tribe GraphQL queries | Built | `tribe(id)` and `tribes(limit, offset, status)` |
+| Tribe GraphQL mutations | Built | create, update, add/remove role, request join, approve, reject, remove, leave |
+| Tribe service layer | Built | `tribe_service.py` with all CRUD and membership ops |
 | MemberStatus enum | Built | 5 values: pending, active, rejected, left, removed |
-| Seed data (tribes) | Built | Demo tribes in various states |
-| Tribe Card (frontend) | Not built | Design spec exists in components.md |
-| Tribe page | Not built | |
+| Seed data (tribes) | Built | 3 demo tribes in various states |
+| Tribe Card (frontend) | Built | Compact card with members, tech stack |
+| Tribe detail page | Built | Hero, members grid, open roles grid, skeleton, not-found |
+| Frontend GraphQL queries | Built | GET_TRIBE, GET_TRIBES |
+| Frontend GraphQL mutations | Built | All 8 mutations wired up |
 | Tribe creation form | Not built | |
-| Join request flow | Not built | |
-| Tribe dashboard | Not built | |
+| Join request flow (UI) | Not built | Backend mutations exist but need `role_id` param added, no UI |
+| Owner contextual controls | Not built | Pending requests, member/role management, edit tribe |
+
+## TBD
+
+- **Associated Project** — Linking a tribe to the project it's building (FK on `tribes` or `projects`). Not yet in the data model, search, or UI. Deferred until projects and tribes are both stable.
+- **Notifications** — Owners need to know when someone requests to join. Builders need to know when they're approved or rejected. No notification system exists yet.
+- **Ownership transfer** — Currently the owner cannot leave (must archive). Transferring ownership to another member is not yet specced.
+- **Pagination on pending requests** — If a tribe receives many join requests, the owner needs a way to page through them.
 
 ## Out of Scope (V1)
 

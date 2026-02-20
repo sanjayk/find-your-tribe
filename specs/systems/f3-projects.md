@@ -29,33 +29,73 @@
 
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | |
-| owner_id | UUID | FK -> users(id) ON DELETE CASCADE, NOT NULL | |
+| id | CHAR(26) | PK | ULID |
+| owner_id | CHAR(26) | FK -> users(id) ON DELETE CASCADE, NOT NULL | |
 | title | VARCHAR(200) | NOT NULL | |
 | description | TEXT | NULLABLE | Markdown supported |
 | status | VARCHAR(20) | NOT NULL, DEFAULT 'in_progress' | 'shipped', 'in_progress', 'archived' |
+| role | VARCHAR(100) | NULLABLE | What the owner did on this project |
 | links | JSONB | DEFAULT '{}' | `{"repo": "...", "live_url": "...", "product_hunt": "...", "app_store": "..."}` |
-| tech_stack | TEXT[] | DEFAULT '{}' | Array of tech/framework names |
+| tech_stack | JSONB | DEFAULT '[]' | Array of tech/framework names |
+| domains | JSONB | DEFAULT '[]' | Industry/space tags: fintech, devtools, health, etc. |
+| ai_tools | JSONB | DEFAULT '[]' | AI tools used: claude-code, cursor, chatgpt, etc. |
+| build_style | JSONB | DEFAULT '[]' | How it was built: agent-driven, solo-with-ai, etc. |
+| services | JSONB | DEFAULT '[]' | Infra/services: stripe, vercel, supabase, etc. |
 | impact_metrics | JSONB | DEFAULT '{}' | `{"users": 1000, "stars": 500, "revenue": "10k MRR"}` |
 | thumbnail_url | VARCHAR(500) | NULLABLE | |
-| github_repo_id | BIGINT | NULLABLE | For GitHub-synced projects |
+| github_repo_full_name | VARCHAR(200) | NULLABLE, UNIQUE | For GitHub-imported projects |
+| github_stars | INTEGER | NULLABLE | |
+| tribe_id | CHAR(26) | FK -> tribes(id) ON DELETE SET NULL, NULLABLE | |
 | search_vector | TSVECTOR | NULLABLE | Auto-updated via trigger |
+| embedding | VECTOR(1536) | NULLABLE | pgvector for semantic search |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | |
 | updated_at | TIMESTAMPTZ | DEFAULT NOW() | |
 
-### `project_collaborators`
+### `project_milestones`
 
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | |
-| project_id | UUID | FK -> projects(id) ON DELETE CASCADE, NOT NULL | |
-| user_id | UUID | FK -> users(id) ON DELETE CASCADE, NOT NULL | |
-| role_description | VARCHAR(200) | NULLABLE | "Led frontend development" |
+| id | CHAR(26) | PK | ULID |
+| project_id | CHAR(26) | FK -> projects(id) ON DELETE CASCADE, NOT NULL | |
+| title | VARCHAR(200) | NOT NULL | "Launched on Product Hunt" |
+| date | DATE | NOT NULL | The date of the milestone |
+| milestone_type | VARCHAR(20) | NOT NULL, DEFAULT 'milestone' | start, milestone, deploy, launch |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | |
+
+### `project_collaborators`
+
+Implemented as a SQLAlchemy association `Table()` (not a mapped class) with composite primary key.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| project_id | CHAR(26) | PK, FK -> projects(id) ON DELETE CASCADE | ULID, composite PK with user_id |
+| user_id | CHAR(26) | PK, FK -> users(id) ON DELETE CASCADE | ULID, composite PK with project_id |
+| role | VARCHAR(100) | NULLABLE | "Designer", "Growth Lead" |
 | status | VARCHAR(20) | NOT NULL, DEFAULT 'pending' | 'pending', 'confirmed', 'declined' |
 | invited_at | TIMESTAMPTZ | DEFAULT NOW() | |
 | confirmed_at | TIMESTAMPTZ | NULLABLE | |
 
-**Unique constraint**: (project_id, user_id) -- a user can only be invited once per project.
+**Primary key**: Composite (project_id, user_id) -- a user can only be invited once per project. No separate `id` column.
+
+### `collaborator_invite_tokens`
+
+Shareable invite links for non-members. Each token is a unique, URL-safe string that maps to a project + inviter.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| id | CHAR(26) | PK | ULID |
+| project_id | CHAR(26) | FK -> projects(id) ON DELETE CASCADE, NOT NULL | |
+| invited_by | CHAR(26) | FK -> users(id) ON DELETE CASCADE, NOT NULL | The owner who generated the link |
+| token | VARCHAR(64) | NOT NULL, UNIQUE | Crypto-random URL-safe token (`secrets.token_urlsafe(32)`) |
+| role | VARCHAR(100) | NULLABLE | Optional role suggestion for the invitee |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | |
+| expires_at | TIMESTAMPTZ | NOT NULL | 30 days from creation |
+| redeemed_by | CHAR(26) | FK -> users(id) ON DELETE SET NULL, NULLABLE | User who redeemed the token |
+| redeemed_at | TIMESTAMPTZ | NULLABLE | When the token was redeemed |
+
+**Index**: `token` (unique, for fast lookup on the `/invite/[token]` page).
+**Expiry**: Tokens expire after 30 days. Expired tokens return an error on redemption. A background job can clean up expired tokens periodically.
+**Redemption**: A token can only be redeemed once. After redemption, a `project_collaborators` row is created with `status='pending'`. The invitee still needs to accept.
 
 ---
 
@@ -93,18 +133,24 @@
 
 ```sql
 -- Trigger function for projects search vector
+-- Includes new tag fields (domains, ai_tools, services) in search
 CREATE OR REPLACE FUNCTION projects_search_vector_update() RETURNS trigger AS $$
 BEGIN
   NEW.search_vector :=
     setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
     setweight(to_tsvector('english', COALESCE(NEW.description, '')), 'B') ||
-    setweight(to_tsvector('english', array_to_string(COALESCE(NEW.tech_stack, '{}'), ' ')), 'C');
+    setweight(to_tsvector('english',
+      COALESCE(array_to_string(ARRAY(SELECT jsonb_array_elements_text(NEW.tech_stack)), ' '), '') || ' ' ||
+      COALESCE(array_to_string(ARRAY(SELECT jsonb_array_elements_text(NEW.domains)), ' '), '') || ' ' ||
+      COALESCE(array_to_string(ARRAY(SELECT jsonb_array_elements_text(NEW.ai_tools)), ' '), '') || ' ' ||
+      COALESCE(array_to_string(ARRAY(SELECT jsonb_array_elements_text(NEW.services)), ' '), '')
+    ), 'C');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER projects_search_vector_trigger
-  BEFORE INSERT OR UPDATE OF title, description, tech_stack
+  BEFORE INSERT OR UPDATE OF title, description, tech_stack, domains, ai_tools, services
   ON projects
   FOR EACH ROW EXECUTE FUNCTION projects_search_vector_update();
 ```
@@ -112,7 +158,7 @@ CREATE TRIGGER projects_search_vector_trigger
 **Weight assignments**:
 - **A** (highest): `title` -- exact title matches are most relevant
 - **B**: `description` -- project description text
-- **C** (lowest): `tech_stack` -- technology tags
+- **C** (lowest): `tech_stack`, `domains`, `ai_tools`, `services` -- all tag fields
 
 ---
 
@@ -225,9 +271,9 @@ Project saved
 
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| id | CHAR(26) | PK | ULID |
 | source_type | VARCHAR(20) | NOT NULL | 'user', 'project' |
-| source_id | UUID | NOT NULL | FK to users or projects |
+| source_id | CHAR(26) | NOT NULL | FK to users or projects (ULID) |
 | embedding | VECTOR(1536) | NOT NULL | OpenAI-compatible dimension |
 | content_hash | VARCHAR(64) | NOT NULL | SHA-256 of input text; skip recompute if unchanged |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | |
@@ -259,73 +305,168 @@ CREATE INDEX idx_collab_status ON project_collaborators (status);
 -- Full-text search (GIN index)
 CREATE INDEX idx_projects_search ON projects USING GIN (search_vector);
 
--- Tech stack search (GIN for array containment)
+-- Tag search (GIN for JSONB array containment via @> operator)
 CREATE INDEX idx_projects_tech_stack ON projects USING GIN (tech_stack);
+CREATE INDEX idx_projects_domains ON projects USING GIN (domains);
+CREATE INDEX idx_projects_ai_tools ON projects USING GIN (ai_tools);
+CREATE INDEX idx_projects_services ON projects USING GIN (services);
+
+-- Milestones
+CREATE INDEX idx_milestones_project_date ON project_milestones (project_id, date);
+
+-- Invite tokens
+CREATE UNIQUE INDEX idx_invite_tokens_token ON collaborator_invite_tokens (token);
+CREATE INDEX idx_invite_tokens_project ON collaborator_invite_tokens (project_id);
 ```
 
 **Indexing rationale**:
-- **GIN indexes** for tsvector full-text search and array containment (`@>` operator on tech_stack).
+- **GIN indexes** for tsvector full-text search and JSONB array containment (`@>` operator on tag fields).
 - **Descending index** on `created_at` for chronological project listing.
+- **Composite index** on milestones for efficient timeline queries per project.
+
+---
+
+## Build Timeline Query
+
+The build timeline interleaves milestones with burn sessions. This is assembled in the resolver:
+
+```python
+async def resolve_build_timeline(project_id: str) -> list[TimelineEntry]:
+    # 1. Fetch milestones for this project
+    milestones = await milestone_service.get_by_project(project_id)
+
+    # 2. Fetch burn sessions attributed to this project (from build_activity table)
+    burn_sessions = await burn_service.get_by_project(project_id)
+
+    # 3. Group burn sessions by date range (consecutive days → one range)
+    burn_ranges = group_burn_by_date_range(burn_sessions)
+
+    # 4. Merge and sort by date
+    timeline = sorted(
+        [*milestone_entries, *burn_range_entries],
+        key=lambda e: e.date
+    )
+    return timeline
+```
+
+The timeline is read-only for visitors and editable (add/delete milestones) for the owner.
 
 ---
 
 ## Data Flow: Creating a Project and Inviting Collaborators
+
+### Path A: Inviting a Platform Member (Search Typeahead)
 
 ```
 Builder (owner)                FastAPI                  PostgreSQL             Collaborator
       |                           |                        |                       |
       | 1. createProject mutation |                        |                       |
       |    {title, desc, links,   |                        |                       |
-      |     tech_stack, status,   |                        |                       |
-      |     collaborator_ids}     |                        |                       |
+      |     status, role}         |                        |                       |
       |-------------------------->|                        |                       |
       |                           | 2. Validate input      |                       |
-      |                           |                        |                       |
-      |                           | 3. BEGIN TRANSACTION   |                       |
-      |                           |---INSERT project------>|                       |
-      |                           |                        |                       |
-      |                           | 4. For each collaborator_id:                   |
-      |                           |---INSERT project_collaborator-->|              |
-      |                           |    (status: 'pending')  |                      |
-      |                           |                        |                       |
-      |                           | 5. INSERT feed_event   |                       |
-      |                           |    (project_created)   |                       |
-      |                           |    COMMIT              |                       |
-      |                           |                        |                       |
-      |                           | 6. Background tasks:   |                       |
-      |                           |    - Generate embedding|                       |
-      |                           |                        |                       |
+      |                           | 3. INSERT project      |                       |
+      |                           |----------------------->|                       |
+      |                           | 4. Background: embed   |                       |
       |<--project created---------|                        |                       |
       |                           |                        |                       |
-      |                           |  ... later ...         |                       |
+      |  ... later, on detail page ...                     |                       |
+      |                           |                        |                       |
+      | 5. searchUsers("james")   |                        |                       |
+      |-------------------------->|                        |                       |
+      |                           | 6. Query users by name |                       |
+      |<--[James Okafor, ...]-----|                        |                       |
+      |                           |                        |                       |
+      | 7. inviteCollaborator     |                        |                       |
+      |    {project_id, user_id,  |                        |                       |
+      |     role: "Designer"}     |                        |                       |
+      |-------------------------->|                        |                       |
+      |                           | 8. INSERT collaborator |                       |
+      |                           |    (status: 'pending') |                       |
+      |                           |----------------------->|                       |
+      |<--invitation sent---------|                        |                       |
+      |                           |                        |                       |
+      |                           |  ... collaborator visits project page ...      |
       |                           |                        |                       |
       |                           |<-----confirmCollaboration(project_id)----------|
-      |                           |                        |                       |
-      |                           | 7. Verify user_id matches                     |
-      |                           |    a pending invitation |                      |
-      |                           |---UPDATE collaborator-->|                      |
-      |                           |    status='confirmed'   |                      |
-      |                           |    confirmed_at=NOW()   |                      |
-      |                           |                        |                       |
-      |                           | 8. Recalculate builder |                       |
-      |                           |    scores (background) |                       |
-      |                           |                        |                       |
-      |                           |<--confirmation result--|                       |
+      |                           | 9. UPDATE collaborator |                       |
+      |                           |    status='confirmed'  |                       |
+      |                           |    confirmed_at=NOW()  |                       |
+      |                           |----------------------->|                       |
+      |                           | 10. Background: recalc |                       |
+      |                           |     builder scores     |                       |
+```
+
+### Path B: Inviting a Non-Member (Copy Link)
+
+```
+Builder (owner)                FastAPI                  PostgreSQL         Non-member
+      |                           |                        |                    |
+      | 1. generateInviteLink     |                        |                    |
+      |    {project_id,           |                        |                    |
+      |     role: "Designer"}     |                        |                    |
+      |-------------------------->|                        |                    |
+      |                           | 2. Generate token      |                    |
+      |                           |    (secrets.token_urlsafe)                  |
+      |                           | 3. INSERT invite_token |                    |
+      |                           |    expires_at=+30 days |                    |
+      |                           |----------------------->|                    |
+      |<--invite URL returned-----|                        |                    |
+      |                           |                        |                    |
+      | 4. Builder copies link,   |                        |                    |
+      |    shares via SMS/email/  |                        |                    |
+      |    WhatsApp/Slack/etc.    |                        |                    |
+      |-----(out of band)---------|------------------------|---> non-member     |
+      |                           |                        |                    |
+      |                           |<--- GET /invite/[token] -------------------|
+      |                           | 5. inviteTokenInfo     |                    |
+      |                           |    query (public)      |                    |
+      |                           |----------------------->|                    |
+      |                           |<--project title,       |                    |
+      |                           |   inviter name---------|                    |
+      |                           |                        |                    |
+      |                           |    Landing page shows: |                    |
+      |                           |    "[Name] invited you  |                   |
+      |                           |     to collaborate on   |                   |
+      |                           |     [Project]"          |                   |
+      |                           |                        |                    |
+      |                           |  ... non-member signs up ...               |
+      |                           |                        |                    |
+      |                           |<--- redeemInviteToken(token) --------------|
+      |                           | 6. Validate token      |                    |
+      |                           |    (not expired,       |                    |
+      |                           |     not redeemed)      |                    |
+      |                           | 7. INSERT collaborator |                    |
+      |                           |    (status: 'pending') |                    |
+      |                           | 8. UPDATE invite_token |                    |
+      |                           |    redeemed_by, at     |                    |
+      |                           |----------------------->|                    |
+      |                           |                        |                    |
+      |                           |  ... user accepts from profile/project ... |
+      |                           |                        |                    |
+      |                           |<--- confirmCollaboration ------------------|
+      |                           | 9. UPDATE collaborator |                    |
+      |                           |    status='confirmed'  |                    |
 ```
 
 ---
 
 ## GraphQL Schema
 
+Actual codebase directory structure (not `src/backend/schema/`):
+
 ```
-src/backend/schema/
+src/backend/app/graphql/
   types/
-    project.py         # ProjectType, ProjectInput, ProjectConnection
+    project.py         # ProjectType, CollaboratorType, from_model() converters
   queries/
-    project_queries.py # project(id), projects(filters), searchProjects
+    health.py          # project(id), projects(filters) — add searchUsers, myPendingInvitations, tagSuggestions here
   mutations/
-    project_mutations.py # createProject, updateProject, deleteProject, inviteCollaborator, confirmCollaboration
+    projects.py        # createProject, updateProject, deleteProject, inviteCollaborator, confirmCollaboration, declineCollaboration
 ```
+
+New mutations to add: `addMilestone`, `deleteMilestone`, `generateInviteLink`, `redeemInviteToken`.
+New queries to add: `searchUsers`, `inviteTokenInfo` (public), `myPendingInvitations`, `tagSuggestions`.
 
 ---
 

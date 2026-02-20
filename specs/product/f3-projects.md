@@ -10,12 +10,17 @@ This spec covers projects, collaborator verification, and GitHub import for **Fi
 
 ## Feature Summary
 
-Projects are the foundational data entity of Find Your Tribe. A project represents something a builder has shipped -- code, design, a go-to-market strategy, an operational system, or any other tangible work product. Projects have rich metadata (title, description, role, links, tech stack, status, impact metrics) and support mutual collaborator verification, which is the trust backbone of the platform. GitHub import allows engineers to auto-populate projects from their repositories.
+Projects are the foundational data entity of Find Your Tribe. A project represents something a builder has shipped -- code, design, a go-to-market strategy, an operational system, or any other tangible work product.
 
-This feature has three components:
-1. **Project Creation & Management** -- creating, editing, and archiving projects
-2. **Collaborator Invitations & Verification** -- the mutual verification system
-3. **GitHub Project Import** -- auto-populating projects from GitHub repos
+Unlike a traditional portfolio item, a project on Find Your Tribe captures not just **what** was built and **who** built it, but **how** it was built -- the AI tools, build methodology, services, and a chronological build timeline that interleaves milestones with token burn data. This is the "build recipe" that makes the platform valuable to other builders evaluating collaborators.
+
+Projects have rich metadata (title, description, role, links, tech stack, domain, AI tools, build style, services, impact metrics, build timeline) and support mutual collaborator verification, which is the trust backbone of the platform. GitHub import allows engineers to auto-populate projects from their repositories.
+
+This feature has four components:
+1. **Project Creation & Management** -- creating, editing, and progressively enriching projects
+2. **Build Story** -- domain tags, AI tools, build style, services, and build timeline
+3. **Collaborator Invitations & Verification** -- the mutual verification system
+4. **GitHub Project Import** -- auto-populating projects from GitHub repos
 
 ---
 
@@ -54,19 +59,42 @@ This feature has three components:
 
 ---
 
+## User Stories (New)
+
+| ID | Story | Priority |
+|---|---|---|
+| PR-8 | As a builder, I want to tag my project with a domain (fintech, devtools, health, etc.) so that other builders can find work relevant to their industry. | Should |
+| PR-9 | As a builder, I want to list the AI tools I used (Claude Code, Cursor, ChatGPT, etc.) so that my build methodology is visible. | Should |
+| PR-10 | As a builder, I want to tag my build style (agent-driven, pair-programming, solo-with-ai, etc.) so that potential collaborators understand how I work. | Should |
+| PR-11 | As a builder, I want to list the services my project depends on (Stripe, Supabase, Vercel, etc.) so that the full build recipe is documented. | Should |
+| PR-12 | As a builder, I want to add milestones to a build timeline so that the story of how I built the project is visible. | Should |
+| PR-13 | As a visitor, I want to see a build timeline that interleaves milestones with token burn data so that I can understand the effort and process behind a project. | Should |
+
+---
+
 ## Project Data Model
 
 A project consists of:
 
+### Core Fields (set at creation)
 - **Title:** Name of the project
 - **Description:** What was built and why
 - **Role:** What the builder's role was on this project (e.g., "Lead Engineer," "Product Designer," "Growth Lead")
-- **Links:** External links -- live URL, repository, app store listing, case study, etc.
-- **Tech Stack:** Technologies used (tags from a searchable list, e.g., React, Python, Figma, Webflow)
 - **Status:** Shipped / In Progress / Archived
-- **Impact Metrics (optional):** Users, revenue, downloads, GitHub stars, or other quantifiable outcomes
-- **Collaborators:** Other builders who worked on the project (mutually verified)
+- **Links:** External links -- live URL, repository, app store listing, case study, etc.
 - **Creator:** The builder who created the project entry
+
+### Build Story (enriched after creation)
+- **Tech Stack:** Technologies used (tags, e.g., React, Python, Figma, Webflow)
+- **Domains:** What industry/space the project is in (tags, e.g., fintech, devtools, health, hospitality, education)
+- **AI Tools:** AI tools used to build (tags, e.g., Claude Code, Cursor, ChatGPT, Midjourney, v0, Copilot)
+- **Build Style:** How the builder works (tags, e.g., agent-driven, pair-programming, human-led, solo-with-ai, no-code)
+- **Services:** Infrastructure and services the project depends on (tags, e.g., Stripe, Supabase, Vercel, Cloudflare, Resend)
+- **Build Timeline:** Chronological milestones interleaved with auto-tracked burn sessions
+- **Impact Metrics (optional):** Users, revenue, downloads, GitHub stars, or other quantifiable outcomes
+
+### Social
+- **Collaborators:** Other builders who worked on the project (mutually verified)
 
 ---
 
@@ -74,24 +102,48 @@ A project consists of:
 
 ### How It Works
 
-1. Builder A creates a project and invites Builder B as a collaborator.
-2. Builder B receives the invitation.
-   - If Builder B is already on the platform, they see the invitation in their account.
-   - If Builder B is NOT on the platform, they receive a personalized signup invitation: "Maya tagged you as a collaborator on ProjectX. Claim your profile."
-3. Builder B can **confirm** or **decline** the collaboration.
-4. Only confirmed collaborations are displayed publicly on the project and on both builders' profiles.
-5. Unconfirmed collaborators are never shown.
+**Inviting platform members:**
+
+1. Builder A views their project detail page and clicks "+ Invite" in the collaborators section.
+2. A search typeahead appears. Builder A searches by name or username.
+3. Builder A selects Builder B from the results.
+4. Builder A optionally specifies Builder B's role on the project (e.g., "Designer", "Growth Lead").
+5. Builder A clicks "Send Invite."
+6. Builder B discovers the pending invitation in three places:
+   - **Profile page:** A "Pending Invitations" section appears at the top of their profile (visible only to them). Shows who invited them, which project, and Accept/Decline actions.
+   - **Project detail page:** A yellow highlight bar at the top of the collaborators section with Accept/Decline buttons.
+   - **Nav indicator:** A small dot on the profile/avatar nav item signals unresolved invitations.
+7. Builder B can **confirm** or **decline** the collaboration from any of these surfaces.
+8. Only confirmed collaborations are displayed publicly.
+
+**Inviting non-members (viral loop):**
+
+1. Builder A clicks "Copy invite link" in the collaborators section.
+2. The system generates a unique invite URL: `findyourtribe.dev/invite/[token]`
+3. Builder A copies the link and shares it however they choose — SMS, WhatsApp, email, Slack, Twitter DM.
+4. The non-member clicks the link and lands on a signup page with context: "Maya Chen invited you to collaborate on AI Resume Builder."
+5. After signup, the collaboration invitation is auto-created (pending status).
+6. The new user can accept or decline from their profile or the project page.
+
+**The platform never sends emails or notifications.** The builder owns the distribution channel. This is simpler to build, respects user preferences, and avoids spam infrastructure.
 
 ### Key Product Decision: Mutual Verification
 
 **Decision:** When a builder tags a collaborator on a project, the collaborator must confirm the relationship before it appears publicly.
 
-**Rationale:** This is the trust foundation of the platform. On LinkedIn, anyone can claim they worked at any company or on any project. On Find Your Tribe, collaboration claims are bilateral. This makes every displayed collaborator relationship a verified signal. It also creates a natural viral loop: inviting a collaborator who is not yet on the platform sends them a signup invitation.
+**Rationale:** This is the trust foundation of the platform. On LinkedIn, anyone can claim they worked at any company or on any project. On Find Your Tribe, collaboration claims are bilateral. This makes every displayed collaborator relationship a verified signal. It also creates a natural viral loop: inviting a collaborator who is not yet on the platform generates a shareable signup link.
+
+### Key Product Decision: Role Assignment is Optional
+
+**Decision:** When inviting a collaborator, specifying their role is optional. The owner may provide it, or leave it blank.
+
+**Rationale:** The owner may not know the best way to describe a collaborator's contribution. Forcing a role label adds friction to the invitation flow. An invitation with no role is better than no invitation at all.
 
 ### Viral Loop
 
 Collaborator invitations are the primary organic growth mechanism:
-- Every time a builder tags a collaborator who is not on the platform, they receive a personalized invitation
+- The "Copy invite link" feature lets builders share personalized signup links via any channel
+- The signup page shows context (who invited them, which project) to maximize conversion
 - Target: 50% of collaborator invitations to non-members result in a new signup
 - Target: 30% of all signups come through collaborator invitations
 
@@ -119,18 +171,69 @@ GitHub import reduces friction for engineers and solves the cold-start "empty pr
 
 ---
 
+## Key Product Decision: Lightweight Create, Progressive Enrichment
+
+**Decision:** Project creation is a dedicated page (`/projects/new`) with only essential fields: title, status, description, role, and links. After creation, the page becomes the project detail page (`/project/[id]`) with all enrichment sections available for inline editing.
+
+**Rationale:** The activation target is 40% of signups adding a project within 7 days. Every field in the creation form is friction. A project with just a title and a link is better than no project. The detail page grows as the builder adds tags, milestones, collaborators, and metrics over time. For visitors, empty sections are hidden entirely -- a sparse project looks intentional, not empty.
+
+### Creation Flow
+
+```
+1. Builder navigates to /projects/new (from profile page, nav, or onboarding).
+2. Builder fills in essentials: title, status, description, role, links.
+3. Builder clicks "Create Project."
+4. Page saves. URL becomes /project/[id].
+5. The full detail page renders with all enrichment sections visible to the owner.
+6. Each section has inline "+ Add" affordances for progressive enrichment.
+7. From onboarding: same flow, returns to onboarding after creation.
+```
+
+### Owner View vs Visitor View
+
+- **Owner view:** Sees all sections with inline "+ Add" actions. Empty sections show as invitations to add content. Edit button and collaborator invite actions visible.
+- **Visitor view:** Only sees sections that have content. Empty sections are hidden entirely. The project looks complete regardless of how much data is present.
+
+### Projects on Profile Page
+
+The profile page shows a builder's projects in a grid. To keep the profile focused:
+
+- **Maximum 6 projects shown** on the profile page.
+- **Sort order:** In Progress first, then Shipped, then Archived. Within each status group, sorted by most recently updated.
+- **"View all projects" link** appears below the grid when the builder has more than 6 projects. Links to a full project listing page filtered to that builder.
+- **Rationale:** In-progress work surfaces first because it signals what the builder is actively working on — most relevant for potential collaborators evaluating whether to reach out or join a tribe.
+
+---
+
 ## Project Detail Page
 
-The project detail page is a full view of a project, accessible to any visitor. It includes:
+The project detail page (`/project/[id]`) is a full view of a project. It serves dual purpose: public showcase for visitors and management surface for the owner.
 
+### Visitor View
+
+- Status badge (shipped / in progress / archived)
 - Title and description
 - Builder's role on the project
-- External links (clickable)
+- External links (clickable, open in new tab)
 - Tech stack tags
-- Status (shipped / in progress / archived)
+- Domain tags
+- AI tools tags
+- Build style tags
+- Services tags
+- Build timeline (milestones interleaved with burn sessions)
 - Impact metrics (if provided)
 - Collaborators section -- list of mutually verified collaborators with links to their profiles
 - Link back to the project creator's profile
+- Empty sections are hidden -- visitors only see what has content
+
+### Owner View (additional)
+
+- Edit button and "Invite Collaborators" action bar below hero
+- All sections visible with inline "+ Add" affordances
+- Empty sections show as prompts ("Add your tech stack", "Add a milestone")
+- Inline tag editing (typeahead from predefined list, can add custom)
+- Inline milestone addition
+- Inline impact metric addition
 
 ---
 
@@ -212,14 +315,32 @@ Projects depend on authentication (F1) and builder profiles (F2). They are a pre
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Project model (backend) | Built | SQLAlchemy model with all fields |
-| Project GraphQL type | Built | Strawberry type with collaborators, tech stack |
+| Project model (backend) | Partial | Core fields built. Missing: `domains`, `ai_tools`, `build_style`, `services` JSONB columns |
+| project_collaborators table | Built | Association Table() with composite PK, role, status, invited_at, confirmed_at |
+| project_milestones model | Not built | |
+| collaborator_invite_tokens model | Not built | |
+| Project GraphQL type | Partial | Missing: domains, ai_tools, build_style, services, milestones fields |
+| Project CRUD mutations | Built | create, update, delete |
+| Collaborator mutations (backend) | Built | invite, confirm, decline, remove |
+| Milestone mutations | Not built | add, delete |
+| Invite token mutations | Not built | generate link, redeem token |
+| New queries | Not built | searchUsers, inviteTokenInfo, myPendingInvitations, tagSuggestions |
+| Project service layer | Built | CRUD + collaborator operations |
 | Seed data (projects) | Built | 20+ demo projects with varied tech stacks |
 | Project Card (frontend) | Built | With status badge, tech stack tags, impact pills |
-| Project detail page | Not built | |
-| Project creation form | Not built | |
-| Collaborator invitation flow | Not built | |
-| Collaborator verification UI | Not built | |
+| Project detail page (visitor) | Built | Status, title, description, tech stack, links, impact, collaborators |
+| Project detail page (owner) | Not built | Edit affordances, "+ Add" sections, inline editing |
+| Projects listing page | Built | Grid layout with pagination |
+| Frontend GraphQL queries | Built | GET_PROJECT, GET_PROJECTS |
+| Frontend GraphQL mutations | Built | CREATE/UPDATE/DELETE_PROJECT, INVITE/CONFIRM/DECLINE_COLLABORATION |
+| Project creation form (/projects/new) | Not built | |
+| Tag typeahead component | Not built | Shared by tech_stack, domains, ai_tools, build_style, services |
+| Build timeline component | Not built | |
+| Collaborator invite UI | Not built | Search typeahead + copy link |
+| Pending invitations (profile) | Not built | |
+| Pending invitations (nav badge) | Not built | |
+| /invite/[token] landing page | Not built | |
+| Edit project overlay | Not built | |
 | GitHub import | Not built | V2 feature |
 
 ## Out of Scope (V1)
