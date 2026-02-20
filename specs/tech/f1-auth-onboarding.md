@@ -2,6 +2,15 @@
 
 > See [overview.md](./overview.md) for full architecture context.
 
+## Auth Architecture
+
+Two auth paths, one user table:
+
+- **Primary (Firebase Auth):** Google + GitHub OAuth via Firebase SDK. Frontend handles sign-in, backend verifies Firebase ID tokens. No session infrastructure needed.
+- **Fallback (home-grown):** Email/password with JWT. Fully built, not exposed in UI. Used for dev, tests, and emergencies.
+
+---
+
 ## Data Models
 
 ```python
@@ -29,8 +38,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String(26), primary_key=True)  # ULID
+    firebase_uid = Column(String(128), unique=True, nullable=True, index=True)  # Firebase Auth UID
     email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=True)  # null for GitHub-only users
+    password_hash = Column(String(255), nullable=True)  # Fallback auth only. NULL for Firebase users
     username = Column(String(50), unique=True, nullable=False, index=True)
     display_name = Column(String(100), nullable=False)
     avatar_url = Column(String(500), nullable=True)
@@ -42,9 +52,9 @@ class User(Base):
     bio = Column(Text, nullable=True)
     contact_links = Column(JSONB, default=dict)  # {"twitter": "...", "email": "...", "calendly": "..."}
 
-    # GitHub
+    # GitHub (from Firebase GitHub provider)
     github_username = Column(String(100), nullable=True, unique=True)
-    github_access_token_encrypted = Column(String(500), nullable=True)
+    github_access_token_encrypted = Column(String(500), nullable=True)  # For GitHub API access
 
     # Onboarding
     onboarding_completed = Column(Boolean, default=False)
@@ -63,7 +73,7 @@ class User(Base):
 ```
 
 ```python
-# backend/models/refresh_token.py
+# backend/models/refresh_token.py (fallback auth only)
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
@@ -79,14 +89,132 @@ class RefreshToken(Base):
     )
 ```
 
-## JWT Implementation
+---
+
+## Firebase Auth Integration (Primary)
+
+### Backend: Token Verification
+
+```python
+# backend/auth/firebase.py
+import firebase_admin
+from firebase_admin import auth as firebase_auth, credentials
+
+# Initialize once at app startup
+cred = credentials.Certificate("path/to/service-account.json")  # or from env var
+firebase_admin.initialize_app(cred)
+
+async def verify_firebase_token(token: str) -> dict:
+    """Verify a Firebase ID token. Returns decoded claims."""
+    try:
+        decoded = firebase_auth.verify_id_token(token)
+        return decoded
+    except firebase_auth.InvalidIdTokenError:
+        raise AuthError("Invalid Firebase token", code="INVALID_TOKEN")
+    except firebase_auth.ExpiredIdTokenError:
+        raise AuthError("Firebase token expired", code="TOKEN_EXPIRED")
+```
+
+### Backend: User Resolution from Firebase Claims
+
+```python
+# backend/services/firebase_auth_service.py
+async def find_or_create_user_from_firebase(
+    session: AsyncSession,
+    firebase_claims: dict,
+) -> tuple[User, bool]:
+    """Resolve a Firebase ID token to a User. Returns (user, is_new).
+
+    Account linking strategy: auto-merge on matching email.
+    1. If firebase_uid exists in DB → return existing user.
+    2. If email matches an existing user → link firebase_uid, return user.
+    3. Otherwise → create new user.
+    """
+    firebase_uid = firebase_claims["uid"]
+    email = firebase_claims.get("email")
+    name = firebase_claims.get("name", "")
+    picture = firebase_claims.get("picture")
+    provider = firebase_claims.get("firebase", {}).get("sign_in_provider", "")
+
+    # 1. Look up by firebase_uid
+    stmt = select(User).where(User.firebase_uid == firebase_uid)
+    user = (await session.execute(stmt)).scalar_one_or_none()
+    if user:
+        return user, False
+
+    # 2. Look up by email (account linking)
+    if email:
+        stmt = select(User).where(User.email == email)
+        user = (await session.execute(stmt)).scalar_one_or_none()
+        if user:
+            user.firebase_uid = firebase_uid
+            if picture and not user.avatar_url:
+                user.avatar_url = picture
+            # Extract GitHub username if signing in via GitHub
+            if provider == "github.com":
+                github_username = firebase_claims.get("firebase", {}).get("identities", {}).get("github.com", [None])[0]
+                if github_username:
+                    user.github_username = str(github_username)
+            await session.commit()
+            await session.refresh(user)
+            return user, False
+
+    # 3. Create new user
+    username = _generate_username(name or email.split("@")[0])
+    user = User(
+        id=str(ULID()),
+        firebase_uid=firebase_uid,
+        email=email,
+        username=username,
+        display_name=name or username,
+        avatar_url=picture,
+        onboarding_completed=False,
+    )
+    if provider == "github.com":
+        # Extract GitHub-specific data from Firebase claims
+        pass  # GitHub username extraction as above
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user, True
+```
+
+### Backend: Auth Middleware (Dual-Path)
+
+```python
+# backend/graphql/context.py (updated)
+async def _extract_user_id(request: Request, session: AsyncSession) -> str | None:
+    """Extract user_id from Authorization header. Tries Firebase first, then fallback JWT."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+
+    token = auth_header.split(" ", 1)[1]
+
+    # Primary: Firebase ID token
+    try:
+        claims = await verify_firebase_token(token)
+        user, is_new = await find_or_create_user_from_firebase(session, claims)
+        return user.id
+    except Exception:
+        pass
+
+    # Fallback: home-grown JWT
+    try:
+        payload = verify_access_token(token)
+        return payload["sub"]
+    except Exception:
+        return None
+```
+
+---
+
+## Home-Grown Auth (Fallback — Unchanged)
+
+### JWT Implementation
 
 ```python
 # backend/auth/jwt.py
-from datetime import datetime, timedelta, timezone
-import jwt
-from ulid import ULID
-
 SECRET_KEY = os.environ["SECRET_KEY"]
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
@@ -120,109 +248,7 @@ def verify_access_token(token: str) -> dict:
         raise AuthError("Invalid token", code="INVALID_TOKEN")
 ```
 
-## Token Storage Strategy
-
-- **Access token**: Stored in memory (React state / Apollo reactive var). Short-lived (15min), never persisted.
-- **Refresh token**: `httpOnly`, `Secure`, `SameSite=Lax` cookie. Cannot be accessed by JavaScript.
-- **CSRF protection**: `SameSite=Lax` prevents cross-site requests. Double-submit cookie for mutations.
-
-```python
-# backend/auth/middleware.py
-from fastapi import Request, Response
-
-def set_refresh_token_cookie(response: Response, token: str):
-    response.set_cookie(
-        key="refresh_token",
-        value=token,
-        httponly=True,
-        secure=True,  # HTTPS only (disabled in dev)
-        samesite="lax",
-        max_age=7 * 24 * 3600,  # 7 days
-        path="/",
-    )
-
-def clear_refresh_token_cookie(response: Response):
-    response.delete_cookie(key="refresh_token", path="/")
-
-async def get_current_user(request: Request) -> User | None:
-    """FastAPI dependency — extracts user from Authorization header."""
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return None
-    token = auth_header.split(" ")[1]
-    payload = verify_access_token(token)
-    user = await user_service.get_by_id(payload["sub"])
-    return user
-```
-
-## GitHub OAuth Flow
-
-**Scopes requested**: `read:user`, `user:email`, `repo` (for project import)
-
-```
-1. Frontend redirects to:
-   https://github.com/login/oauth/authorize?
-     client_id={GITHUB_CLIENT_ID}&
-     redirect_uri={BACKEND_URL}/auth/github/callback&
-     scope=read:user,user:email,repo&
-     state={random_csrf_token}
-
-2. GitHub redirects to callback with ?code=xxx&state=yyy
-
-3. Backend POST /auth/github/callback:
-   a. Verify state matches CSRF token
-   b. Exchange code for access_token via GitHub API
-   c. Fetch user profile: GET https://api.github.com/user
-   d. Fetch emails: GET https://api.github.com/user/emails
-   e. Find or create User:
-      - If github_username exists in DB → login (update token)
-      - If email exists in DB → link GitHub account
-      - Else → create new User with github info
-   f. Encrypt and store GitHub access_token
-   g. Issue JWT access_token + refresh_token
-   h. Redirect to frontend with access_token in URL fragment:
-      {FRONTEND_URL}/auth/callback#access_token=xxx
-
-4. Frontend extracts token, stores in memory, sets refresh cookie
-```
-
-```python
-# backend/auth/github.py
-GITHUB_CLIENT_ID = os.environ["GITHUB_CLIENT_ID"]
-GITHUB_CLIENT_SECRET = os.environ["GITHUB_CLIENT_SECRET"]
-
-async def exchange_code_for_token(code: str) -> str:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://github.com/login/oauth/access_token",
-            json={
-                "client_id": GITHUB_CLIENT_ID,
-                "client_secret": GITHUB_CLIENT_SECRET,
-                "code": code,
-            },
-            headers={"Accept": "application/json"},
-        )
-        data = response.json()
-        if "error" in data:
-            raise AuthError(f"GitHub OAuth error: {data['error_description']}")
-        return data["access_token"]
-
-async def get_github_user(access_token: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        return response.json()
-
-async def get_github_emails(access_token: str) -> list[dict]:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.github.com/user/emails",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        return response.json()
-```
+---
 
 ## GraphQL Types
 
@@ -234,6 +260,7 @@ from datetime import datetime
 @strawberry.type
 class AuthPayload:
     access_token: str
+    refresh_token: str  # Only used by fallback auth
     user: "UserType"
 
 @strawberry.input
@@ -242,103 +269,302 @@ class SignupInput:
     password: str
     username: str
     display_name: str
-
-@strawberry.input
-class OnboardingInput:
-    display_name: str
-    headline: str | None = None
-    primary_role: str
-    timezone: str
-    availability_status: str = "just_browsing"
-    skill_ids: list[str] = strawberry.field(default_factory=list)
 ```
+
+---
 
 ## Mutations
 
+### Fallback Auth Mutations (Unexposed — Kept for Dev/Tests)
+
 ```python
-# backend/schema/mutations.py (auth)
 @strawberry.type
-class Mutation:
+class AuthMutations:
     @strawberry.mutation
-    async def signup(self, input: SignupInput, info: strawberry.types.Info) -> AuthPayload:
-        # Validate email format, password strength (min 8 chars)
-        # Check email/username uniqueness
-        # Hash password with bcrypt (cost=12)
-        # Create User with ULID
-        # Create access + refresh tokens
-        # Set refresh cookie on response
-        # Create feed event: builder_joined
+    async def signup(self, email: str, password: str, username: str, display_name: str,
+                     info: strawberry.types.Info) -> AuthPayload:
+        # Existing implementation — unchanged
         ...
 
     @strawberry.mutation
     async def login(self, email: str, password: str, info: strawberry.types.Info) -> AuthPayload:
-        # Find user by email
-        # Verify password with bcrypt
-        # Create access + refresh tokens
-        # Set refresh cookie
+        # Existing implementation — unchanged
         ...
 
     @strawberry.mutation
-    async def refresh_token(self, info: strawberry.types.Info) -> AuthPayload:
-        # Read refresh_token from cookie
-        # Hash and look up in DB
-        # Verify not expired, not revoked
-        # Revoke old refresh token (one-time use)
-        # Issue new access + refresh tokens
-        # Set new refresh cookie
+    async def refresh_token(self, token: str, info: strawberry.types.Info) -> AuthPayload:
+        # Existing implementation — unchanged
         ...
 
     @strawberry.mutation
-    async def login_with_github(self, code: str, info: strawberry.types.Info) -> AuthPayload:
-        # Exchange code for GitHub access token
-        # Get GitHub user profile + emails
-        # Find or create user
-        # Store encrypted GitHub token
-        # Issue JWT tokens
+    async def logout(self, token: str, info: strawberry.types.Info) -> bool:
+        # Existing implementation — unchanged
         ...
 
     @strawberry.mutation
-    async def complete_onboarding(self, input: OnboardingInput, info: strawberry.types.Info) -> "UserType":
-        # Requires auth
-        # Update user profile fields
-        # Add selected skills
-        # Set onboarding_completed = True
-        ...
-
-    @strawberry.mutation
-    async def logout(self, info: strawberry.types.Info) -> bool:
-        # Revoke refresh token
-        # Clear cookie
-        ...
+    async def complete_onboarding(self, info: strawberry.types.Info) -> "UserType":
+        # Marks onboarding_completed = True. No profile fields — those are in Settings.
+        user_id = require_auth(info)
+        session = info.context.session
+        user = await get_user(session, user_id)
+        user.onboarding_completed = True
+        await session.commit()
+        await session.refresh(user)
+        return UserType.from_model(user)
 ```
 
-## Frontend Pages
+### Queries
+
+```python
+@strawberry.type
+class Query:
+    @strawberry.field
+    async def me(self, info: strawberry.types.Info) -> "UserType | None":
+        """Return the current authenticated user. Works with both Firebase and fallback auth."""
+        user_id = info.context.current_user_id
+        if not user_id:
+            return None
+        session = info.context.session
+        user = await get_user(session, user_id)
+        return UserType.from_model(user) if user else None
+```
+
+---
+
+## Frontend Implementation
+
+### Dependencies
+
+```json
+{
+  "firebase": "^11.x",
+  "@firebase/auth": "^1.x"
+}
+```
+
+### Firebase Client Setup
+
+```typescript
+// lib/firebase/config.ts
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+};
+
+export const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+```
+
+### Auth Hook (Updated)
+
+```typescript
+// hooks/use-auth.ts
+import { useEffect, useState, useCallback } from 'react';
+import {
+  signInWithPopup,
+  GithubAuthProvider,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signOut,
+  type User as FirebaseUser,
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
+
+interface AuthState {
+  user: FirebaseUser | null;
+  accessToken: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+export function useAuth() {
+  const [state, setState] = useState<AuthState>({
+    user: null, accessToken: null, isAuthenticated: false, isLoading: true,
+  });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const token = await firebaseUser.getIdToken();
+        setState({
+          user: firebaseUser,
+          accessToken: token,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        setState({
+          user: null, accessToken: null, isAuthenticated: false, isLoading: false,
+        });
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const signInWithGitHub = useCallback(async () => {
+    const provider = new GithubAuthProvider();
+    provider.addScope('read:user');
+    provider.addScope('user:email');
+    return signInWithPopup(auth, provider);
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    const provider = new GoogleAuthProvider();
+    return signInWithPopup(auth, provider);
+  }, []);
+
+  const logout = useCallback(async () => {
+    await signOut(auth);
+  }, []);
+
+  // Get fresh token for API calls (Firebase auto-refreshes)
+  const getToken = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) return null;
+    return user.getIdToken();
+  }, []);
+
+  return { ...state, signInWithGitHub, signInWithGoogle, logout, getToken };
+}
+```
+
+### Apollo Client Auth Link (Updated)
+
+```typescript
+// lib/graphql/client.ts
+import { setContext } from '@apollo/client/link/context';
+import { auth } from '@/lib/firebase/config';
+
+const authLink = setContext(async (_, { headers }) => {
+  // Get fresh Firebase ID token (auto-refreshed by SDK)
+  const user = auth.currentUser;
+  const token = user ? await user.getIdToken() : null;
+
+  // Fallback: check localStorage for home-grown JWT (dev/test only)
+  const fallbackToken = typeof window !== 'undefined'
+    ? JSON.parse(localStorage.getItem('tribe_auth') || 'null')?.accessToken
+    : null;
+
+  return {
+    headers: {
+      ...headers,
+      Authorization: token ? `Bearer ${token}` : fallbackToken ? `Bearer ${fallbackToken}` : '',
+    },
+  };
+});
+```
+
+### Frontend Pages
 
 ```
 app/
 ├── (auth)/
-│   ├── login/page.tsx        # Email + password form, GitHub OAuth button
-│   ├── signup/page.tsx       # Registration form, GitHub OAuth button
-│   └── callback/page.tsx     # GitHub OAuth callback handler
+│   ├── login/page.tsx        # Kept but removed from nav (fallback only)
+│   └── signup/page.tsx       # Kept but removed from nav (fallback only)
 ├── onboarding/
-│   ├── page.tsx              # Multi-step onboarding form
-│   └── layout.tsx            # Onboarding-specific layout (no nav)
+│   ├── page.tsx              # 4-screen onboarding flow (client component)
+│   └── layout.tsx            # Onboarding-specific layout (no nav, logo only)
 ```
 
-### Onboarding Steps (single page, multi-step form)
+**Removed:** No `/auth/callback` page needed. Firebase SDK handles OAuth callbacks internally via popup.
 
-1. **Identity**: display_name, avatar upload, headline
-2. **Role**: select primary_role from predefined list
-3. **Skills**: multi-select from skill taxonomy (searchable)
-4. **Availability**: timezone (auto-detected), availability_status
-5. **First Project**: create or import from GitHub (or skip)
+---
+
+## Onboarding Flow (Frontend)
+
+### Component Structure
+
+```typescript
+// app/onboarding/page.tsx (client component)
+"use client";
+
+// 4-screen flow managed by local state
+// Screen 1: Constellation — role selection
+// Screen 2: What Counts — project examples (static)
+// Screen 3: Builder Identity — aspirational profile card (static)
+// Screen 4: Go — CTAs to feed or settings
+
+interface OnboardingState {
+  currentStep: number;        // 0-3
+  selectedRole: string | null; // from Screen 1: "code" | "design" | "product" | "growth" | "operations" | "other"
+}
+```
+
+### Screen 1: Role Capture
+
+```typescript
+// Role selection is captured and sent to backend on completion
+// Updates user.primary_role via a GraphQL mutation
+
+const ROLE_OPTIONS = [
+  { id: "code", label: "Code" },
+  { id: "design", label: "Design" },
+  { id: "product", label: "Product" },
+  { id: "growth", label: "Growth" },
+  { id: "operations", label: "Operations" },
+  { id: "other", label: "Other" },
+] as const;
+```
+
+### Completion: Mutation
+
+```python
+# Updated complete_onboarding mutation — now accepts role from Screen 1
+@strawberry.mutation
+async def complete_onboarding(
+    self,
+    primary_role: str | None = None,
+    info: strawberry.types.Info,
+) -> "UserType":
+    user_id = require_auth(info)
+    session = info.context.session
+    user = await get_user(session, user_id)
+    if primary_role:
+        user.primary_role = primary_role
+    user.onboarding_completed = True
+    await session.commit()
+    await session.refresh(user)
+    return UserType.from_model(user)
+```
+
+### Constellation Animation
+
+```typescript
+// CSS animation for the constellation (Screen 1)
+// 5 circles appear with staggered delay (200ms each)
+// Lines connect between circles (150ms each, after circles)
+// Total animation: ~1.5s
+// Implementation: CSS keyframes + animation-delay, no JS animation library needed
+// Circles: 12px, surface-secondary fill, ink-tertiary stroke
+// Lines: 1px ink-tertiary, SVG paths
+```
+
+---
 
 ## Validation Rules
 
 | Field | Constraints |
 |-------|------------|
-| `email` | Valid format, max 255 chars, unique |
-| `password` | Min 8 chars, max 128 chars |
-| `username` | 3-50 chars, alphanumeric + hyphens, unique, no reserved words |
-| `display_name` | 1-100 chars |
-| `headline` | Max 200 chars |
+| `email` | Valid format, max 255 chars, unique (from Firebase claims) |
+| `username` | 3-50 chars, alphanumeric + hyphens, unique, no reserved words (auto-generated on first sign-in) |
+| `display_name` | 1-100 chars (from Firebase claims, editable in settings) |
+| `password` | Min 8 chars, max 128 chars (fallback auth only) |
+| `headline` | Max 200 chars (set in settings, not onboarding) |
+
+---
+
+## Backend Dependencies
+
+```
+firebase-admin>=6.0        # Firebase ID token verification
+```
+
+## Frontend Dependencies
+
+```
+firebase>=11.0             # Firebase Auth SDK (Google + GitHub OAuth)
+```
