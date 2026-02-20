@@ -62,6 +62,22 @@ vi.mock('@/components/features/built-with-section', () => ({
   ),
 }));
 
+vi.mock('@/components/features/collaborator-invite', () => ({
+  CollaboratorInvite: ({
+    projectId,
+    existingCollaborators,
+  }: {
+    projectId: string;
+    existingCollaborators: { user: { id: string } }[];
+  }) => (
+    <div
+      data-testid="collaborator-invite"
+      data-project-id={projectId}
+      data-existing-count={existingCollaborators.length}
+    />
+  ),
+}));
+
 vi.mock('@/components/features/build-timeline', () => ({
   BuildTimeline: ({
     milestones,
@@ -301,5 +317,107 @@ describe('BuildTimeline integration', () => {
     const timeline = screen.getByTestId('build-timeline');
     expect(timeline).toBeInTheDocument();
     expect(timeline).toHaveAttribute('data-editable', 'true');
+  });
+});
+
+describe('Collaborators section', () => {
+  const confirmedCollab = {
+    user: {
+      id: 'collab-1',
+      username: 'alice',
+      displayName: 'Alice Builder',
+      avatarUrl: null,
+      headline: 'Full-stack dev',
+      primaryRole: 'ENGINEER',
+    },
+    role: 'ENGINEER',
+    status: 'CONFIRMED',
+  };
+
+  const pendingCollab = {
+    user: {
+      id: 'collab-2',
+      username: 'bob',
+      displayName: 'Bob Designer',
+      avatarUrl: null,
+      headline: 'UI designer',
+      primaryRole: 'DESIGNER',
+    },
+    role: 'DESIGNER',
+    status: 'PENDING',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('visitor sees only confirmed collaborators', () => {
+    setVisitorAuth();
+    setProject({ collaborators: [confirmedCollab, pendingCollab] });
+
+    render(<ProjectPageContent />);
+    expect(screen.getByText('Alice Builder')).toBeInTheDocument();
+    expect(screen.queryByText('Bob Designer')).not.toBeInTheDocument();
+  });
+
+  it('visitor does NOT see pending collaborators', () => {
+    setVisitorAuth();
+    setProject({ collaborators: [pendingCollab] });
+
+    render(<ProjectPageContent />);
+    expect(screen.queryByText('Bob Designer')).not.toBeInTheDocument();
+  });
+
+  it('owner sees confirmed and pending collaborators', () => {
+    setOwnerAuth();
+    setProject({ collaborators: [confirmedCollab, pendingCollab] });
+
+    render(<ProjectPageContent />);
+    expect(screen.getByText('Alice Builder')).toBeInTheDocument();
+    expect(screen.getByText('Bob Designer')).toBeInTheDocument();
+  });
+
+  it('pending collaborators shown with Pending badge for owner', () => {
+    setOwnerAuth();
+    setProject({ collaborators: [pendingCollab] });
+
+    render(<ProjectPageContent />);
+    const pendingTexts = screen.getAllByText('Pending');
+    // Both the section heading and the badge
+    expect(pendingTexts.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Bob Designer')).toBeInTheDocument();
+  });
+
+  it('owner sees CollaboratorInvite panel', () => {
+    setOwnerAuth();
+    setProject({ collaborators: [confirmedCollab] });
+
+    render(<ProjectPageContent />);
+    expect(screen.getByTestId('collaborator-invite')).toBeInTheDocument();
+  });
+
+  it('visitor does NOT see CollaboratorInvite panel', () => {
+    setVisitorAuth();
+    setProject({ collaborators: [confirmedCollab] });
+
+    render(<ProjectPageContent />);
+    expect(screen.queryByTestId('collaborator-invite')).not.toBeInTheDocument();
+  });
+
+  it('section hidden for visitor when no confirmed collaborators', () => {
+    setVisitorAuth();
+    setProject({ collaborators: [] });
+
+    render(<ProjectPageContent />);
+    expect(screen.queryByText('Collaborators')).not.toBeInTheDocument();
+  });
+
+  it('section shown for owner even with no collaborators (invite panel visible)', () => {
+    setOwnerAuth();
+    setProject({ collaborators: [] });
+
+    render(<ProjectPageContent />);
+    expect(screen.getByText('Collaborators')).toBeInTheDocument();
+    expect(screen.getByTestId('collaborator-invite')).toBeInTheDocument();
   });
 });
