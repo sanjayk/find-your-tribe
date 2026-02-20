@@ -397,7 +397,7 @@ task_topo_sort() {
 
     # Kahn's algorithm
     local queue=()
-    for id in "${all_ids[@]}"; do
+    for id in ${all_ids[@]+"${all_ids[@]}"}; do
         local deg
         deg=$(cat "$tmpdir/degree/$id" 2>/dev/null || echo 0)
         if [[ "$deg" -eq 0 ]]; then
@@ -432,7 +432,7 @@ task_topo_sort() {
         log_error "Circular dependency detected! Sorted ${#sorted[@]} of ${#all_ids[@]} tasks."
         # Find the tasks that weren't sorted (they form the cycle)
         local unsorted=()
-        for id in "${all_ids[@]}"; do
+        for id in ${all_ids[@]+"${all_ids[@]}"}; do
             local found=false
             if [[ ${#sorted[@]} -gt 0 ]]; then
                 for sid in "${sorted[@]}"; do
