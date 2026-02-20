@@ -313,35 +313,50 @@ Projects depend on authentication (F1) and builder profiles (F2). They are a pre
 
 ## Implementation Status
 
+### Backend (Complete)
+
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Project model (backend) | Partial | Core fields built. Missing: `domains`, `ai_tools`, `build_style`, `services` JSONB columns |
-| project_collaborators table | Built | Association Table() with composite PK, role, status, invited_at, confirmed_at |
-| project_milestones model | Not built | |
-| collaborator_invite_tokens model | Not built | |
-| Project GraphQL type | Partial | Missing: domains, ai_tools, build_style, services, milestones fields |
-| Project CRUD mutations | Built | create, update, delete |
-| Collaborator mutations (backend) | Built | invite, confirm, decline, remove |
-| Milestone mutations | Not built | add, delete |
-| Invite token mutations | Not built | generate link, redeem token |
-| New queries | Not built | searchUsers, inviteTokenInfo, myPendingInvitations, tagSuggestions |
-| Project service layer | Built | CRUD + collaborator operations |
-| Seed data (projects) | Built | 20+ demo projects with varied tech stacks |
-| Project Card (frontend) | Built | With status badge, tech stack tags, impact pills |
-| Project detail page (visitor) | Built | Status, title, description, tech stack, links, impact, collaborators |
+| Project model | **Built** | All fields including `domains`, `ai_tools`, `build_style`, `services` JSONB columns |
+| project_collaborators table | **Built** | Association Table() with composite PK, role, status, invited_at, confirmed_at |
+| project_milestones model | **Built** | ProjectMilestone with MilestoneType enum |
+| collaborator_invite_tokens model | **Built** | CollaboratorInviteToken with token, expiry, redemption |
+| Alembic migration | **Built** | 20260220_f3_project_enhancements.py |
+| Project GraphQL type | **Built** | Full type with domains, ai_tools, build_style, services, milestones, collaborators |
+| Project CRUD mutations | **Built** | create, update, delete with input types |
+| Collaborator mutations | **Built** | invite, confirm, decline, remove |
+| Milestone mutations | **Built** | add_milestone, delete_milestone |
+| Invite token mutations | **Built** | generate_invite_link, redeem_invite_token |
+| New queries | **Built** | tag_suggestions, search_users, invite_token_info, my_pending_invitations |
+| Project service layer | **Built** | Full CRUD + collaborator + milestone + invite token operations |
+| User service search | **Built** | Collaborator typeahead search |
+| GitHub import service | **Built** | Repo listing + import |
+| Tag suggestion constants | **Built** | constants/tags.py with all predefined lists |
+| Backend tests | **Built** | 90+ tests: service layer + GraphQL integration |
+| Seed data (projects) | **Built** | 20+ demo projects with varied tech stacks |
+
+### Frontend (Remaining Work)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Project Card | **Built** | With status badge, tech stack tags, impact pills |
+| Project detail page (visitor) | **Built** | Status, title, description, tech stack, links, impact, collaborators |
+| Projects listing page | **Built** | Grid layout with pagination |
+| Frontend GraphQL queries | **Built** | GET_PROJECT, GET_PROJECTS |
+| Frontend GraphQL mutations | **Built** | CREATE/UPDATE/DELETE_PROJECT, INVITE/CONFIRM/DECLINE_COLLABORATION |
 | Project detail page (owner) | Not built | Edit affordances, "+ Add" sections, inline editing |
-| Projects listing page | Built | Grid layout with pagination |
-| Frontend GraphQL queries | Built | GET_PROJECT, GET_PROJECTS |
-| Frontend GraphQL mutations | Built | CREATE/UPDATE/DELETE_PROJECT, INVITE/CONFIRM/DECLINE_COLLABORATION |
-| Project creation form (/projects/new) | Not built | |
+| Project creation form (/projects/new) | Not built | Dedicated page with title, status, description, role, links |
 | Tag typeahead component | Not built | Shared by tech_stack, domains, ai_tools, build_style, services |
-| Build timeline component | Not built | |
-| Collaborator invite UI | Not built | Search typeahead + copy link |
-| Pending invitations (profile) | Not built | |
-| Pending invitations (nav badge) | Not built | |
-| /invite/[token] landing page | Not built | |
-| Edit project overlay | Not built | |
-| GitHub import | Not built | V2 feature |
+| Build timeline component | Not built | Milestones interleaved with burn sessions |
+| "Built With" section | Not built | AI tools, build style, services grouped |
+| Collaborator invite UI | Not built | Search typeahead + copy invite link |
+| Pending invitations (profile) | Not built | Cards with Accept/Decline on profile page |
+| Pending invitations (nav badge) | Not built | Dot indicator on avatar nav item |
+| /invite/[token] landing page | Not built | Signup context page for non-member invites |
+| Edit project overlay | Not built | Modal with pre-filled core fields + danger zone |
+| GitHub import flow | Not built | Repo selection list with import |
+| Frontend GraphQL queries (new) | Not built | TAG_SUGGESTIONS, SEARCH_USERS, INVITE_TOKEN_INFO, MY_PENDING_INVITATIONS |
+| Frontend GraphQL mutations (new) | Not built | ADD_MILESTONE, DELETE_MILESTONE, GENERATE_INVITE_LINK, REDEEM_INVITE_TOKEN |
 
 ## Out of Scope (V1)
 
