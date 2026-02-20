@@ -59,13 +59,7 @@ def upgrade() -> None:
         ),
     )
 
-    # 2. Create MilestoneType enum
-    milestone_type_enum = sa.Enum(
-        "start", "milestone", "deploy", "launch", name="milestonetype"
-    )
-    milestone_type_enum.create(op.get_bind(), checkfirst=True)
-
-    # 3. Create project_milestones table
+    # 2+3. Create project_milestones table (enum created inline by create_table)
     op.create_table(
         "project_milestones",
         sa.Column("id", sa.String(26), nullable=False),
@@ -80,7 +74,6 @@ def upgrade() -> None:
                 "deploy",
                 "launch",
                 name="milestonetype",
-                create_type=False,
             ),
             server_default="milestone",
             nullable=False,

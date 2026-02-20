@@ -1,10 +1,14 @@
 """Seed data for users."""
 
+import bcrypt
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
 from app.models.user import User, user_skills
+
+# Default password for all seed users: "password123"
+_SEED_PASSWORD_HASH = bcrypt.hashpw(b"password123", bcrypt.gensalt(rounds=12)).decode()
 
 
 async def seed_users(session: AsyncSession, skills_dict: dict[str, str]) -> dict[str, str]:
@@ -226,6 +230,7 @@ async def seed_users(session: AsyncSession, skills_dict: dict[str, str]) -> dict
             "username": user_data["username"],
             "display_name": user_data["display_name"],
             "email": user_data["email"],
+            "password_hash": _SEED_PASSWORD_HASH,
             "headline": user_data.get("headline"),
             "bio": user_data.get("bio"),
             "primary_role": user_data.get("primary_role"),
