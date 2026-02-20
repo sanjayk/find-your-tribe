@@ -1,14 +1,15 @@
-"""Tribe service — CRUD, membership, and open role management."""
+"""Tribe service — CRUD, membership, open role management, and search."""
 
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, distinct, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from ulid import ULID
 
 from app.models.enums import MemberRole, MemberStatus, TribeStatus
 from app.models.tribe import Tribe, TribeOpenRole, tribe_members
+from app.models.user import User
 
 
 async def create(
@@ -364,3 +365,113 @@ async def leave(
         .values(status=MemberStatus.LEFT)
     )
     await session.commit()
+
+
+async def search(
+    session: AsyncSession,
+    query: str,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[Tribe], int]:
+    """Search tribes by name, mission, open role titles/skills, member names, or timezones.
+
+    Uses full-text search on tribe and user search_vectors, plus ILIKE matching
+    on open role titles, skills_needed JSONB, and user timezones.
+
+    Returns:
+        Tuple of (matching tribes with eager-loaded relationships, total count).
+    """
+    q = query.strip()
+    if not q:
+        return [], 0
+
+    pattern = f"%{q}%"
+    ts_query = func.plainto_tsquery("english", q)
+
+    # Aliases for joined tables
+    member_assoc = tribe_members.alias("search_members")
+    member_user = User.__table__.alias("search_users")
+    role_table = TribeOpenRole.__table__.alias("search_roles")
+
+    # Build WHERE conditions across all searchable fields
+    where_clause = or_(
+        # Full-text search on tribe name/mission
+        Tribe.search_vector.op("@@")(ts_query),
+        # Full-text search on member names
+        member_user.c.search_vector.op("@@")(ts_query),
+        # ILIKE on open role titles
+        role_table.c.title.ilike(pattern),
+        # ILIKE on skills_needed JSONB array elements
+        text(
+            "EXISTS (SELECT 1 FROM jsonb_array_elements_text("
+            "search_roles.skills_needed) s WHERE s ILIKE :pattern)"
+        ).bindparams(pattern=pattern),
+        # ILIKE on member timezone
+        member_user.c.timezone.ilike(pattern),
+    )
+
+    # Count query
+    count_stmt = select(func.count(distinct(Tribe.id))).select_from(
+        Tribe.__table__
+        .outerjoin(role_table, role_table.c.tribe_id == Tribe.id)
+        .outerjoin(
+            member_assoc,
+            and_(
+                member_assoc.c.tribe_id == Tribe.id,
+                member_assoc.c.status == MemberStatus.ACTIVE,
+            ),
+        )
+        .outerjoin(member_user, member_user.c.id == member_assoc.c.user_id)
+    ).where(where_clause)
+
+    count_result = await session.execute(count_stmt)
+    total = count_result.scalar_one()
+
+    if total == 0:
+        return [], 0
+
+    # Fetch distinct tribe IDs, ordered by text search rank
+    ids_stmt = (
+        select(Tribe.id)
+        .outerjoin(role_table, role_table.c.tribe_id == Tribe.id)
+        .outerjoin(
+            member_assoc,
+            and_(
+                member_assoc.c.tribe_id == Tribe.id,
+                member_assoc.c.status == MemberStatus.ACTIVE,
+            ),
+        )
+        .outerjoin(member_user, member_user.c.id == member_assoc.c.user_id)
+        .where(where_clause)
+        .group_by(Tribe.id)
+        .order_by(
+            func.max(func.ts_rank(Tribe.search_vector, ts_query)).desc().nulls_last()
+        )
+        .limit(limit)
+        .offset(offset)
+    )
+
+    ids_result = await session.execute(ids_stmt)
+    tribe_ids = [row[0] for row in ids_result.fetchall()]
+
+    if not tribe_ids:
+        return [], total
+
+    # Load full tribe objects with eager-loaded relationships
+    tribes_stmt = (
+        select(Tribe)
+        .where(Tribe.id.in_(tribe_ids))
+        .options(
+            selectinload(Tribe.owner),
+            selectinload(Tribe.members),
+            selectinload(Tribe.open_roles),
+        )
+    )
+    tribes_result = await session.execute(tribes_stmt)
+    tribes = list(tribes_result.scalars().all())
+
+    # Preserve the ranked order from the IDs query
+    order_map = {tid: idx for idx, tid in enumerate(tribe_ids)}
+    tribes.sort(key=lambda t: order_map.get(t.id, 0))
+
+    return tribes, total

@@ -387,3 +387,18 @@ class Query:
             )
             for inv in invitations
         ]
+
+    @strawberry.field
+    async def search_tribes(
+        self,
+        info: Info[Context, None],
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[TribeType]:
+        """Search tribes by name, mission, open role titles/skills, member names, or timezones."""
+        session = info.context.session
+        tribes, _total = await tribe_service.search(
+            session, query, limit=limit, offset=offset
+        )
+        return [TribeType.from_model(t) for t in tribes]
