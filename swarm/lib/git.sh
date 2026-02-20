@@ -134,24 +134,27 @@ git_create_worktree() {
     fi
 
     # Create worktree on the task branch
-    local wt_stderr
-    wt_stderr=$(mktemp)
+    # git worktree add prints "HEAD is now at..." to stdout and
+    # "Preparing worktree..." to stderr — capture both to prevent
+    # polluting the return value (worktree_path on stdout).
+    local wt_log
+    wt_log=$(mktemp)
     local wt_rc=0
     if git_branch_exists "$branch"; then
-        _git worktree add "$worktree_path" "$branch" 2>"$wt_stderr" || wt_rc=$?
+        _git worktree add "$worktree_path" "$branch" >"$wt_log" 2>&1 || wt_rc=$?
     else
         # Create branch + worktree in one command, based on current HEAD
-        _git worktree add -b "$branch" "$worktree_path" 2>"$wt_stderr" || wt_rc=$?
+        _git worktree add -b "$branch" "$worktree_path" >"$wt_log" 2>&1 || wt_rc=$?
     fi
 
     if [[ $wt_rc -ne 0 ]]; then
         local wt_err
-        wt_err=$(cat "$wt_stderr" 2>/dev/null)
-        rm -f "$wt_stderr"
+        wt_err=$(cat "$wt_log" 2>/dev/null)
+        rm -f "$wt_log"
         log_error "Failed to create worktree for task-${task_id} (branch: ${branch}): ${wt_err}"
         return 1
     fi
-    rm -f "$wt_stderr"
+    rm -f "$wt_log"
 
     log_step "Created worktree: ${CYAN}${worktree_path}${RESET} (branch: ${branch})" >&2
     echo "$worktree_path"
