@@ -201,11 +201,19 @@ cmd_validate() {
     echo ""
 
     local validator_output
-    validator_output=$(claude_run \
+    if ! validator_output=$(claude_run \
         "${AGENTS_DIR}/validator.md" \
         "Cross-validate the following ${file_count} specification files for consistency, completeness, and missing relationships:${spec_files}" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_READONLY")
+        "$AGENT_TOOLS_READONLY"); then
+        log_error "Validator agent failed — check Claude CLI connection and authentication"
+        exit 1
+    fi
+
+    if [[ -z "$validator_output" ]]; then
+        log_error "Validator agent returned empty output — check Claude CLI connection and authentication"
+        exit 1
+    fi
 
     echo "$validator_output"
     echo ""
@@ -271,7 +279,13 @@ _save_spec_path() {
 _get_spec_path() {
     local dir="${FEATURE_DIR:-${TRIBE_DIR}}"
     if [[ -f "${dir}/spec_path" ]]; then
-        cat "${dir}/spec_path"
+        local saved_path
+        saved_path=$(cat "${dir}/spec_path")
+        if [[ -n "$saved_path" ]] && [[ -f "$saved_path" ]]; then
+            echo "$saved_path"
+        elif [[ -n "$saved_path" ]]; then
+            log_warn "Saved spec path '${saved_path}' no longer exists — was it moved or deleted?"
+        fi
     fi
 }
 
@@ -334,21 +348,22 @@ cmd_plan() {
     # ── Pre-Plan Guardian Gate ─────────────────────────────────────
     # Check: does this spec belong in the product?
     log_step "Running pre-plan vision check..."
-    _run_guardian "pre-plan" "$spec_content" "$spec_file" || {
-        local guardian_rc=$?
-        if [[ $guardian_rc -eq 1 ]]; then
-            log_error "Product Guardian REJECTED this spec — it conflicts with the product vision"
-            echo -e "Review the guardian report and either:"
-            echo -e "  1. Fix the spec to align with the vision"
-            echo -e "  2. Override with ${CYAN}SKIP_GUARDIAN=true tribe plan ...${RESET} (use with caution)"
-            if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
-                exit 1
-            else
-                log_warn "SKIP_GUARDIAN=true — proceeding despite rejection"
-            fi
+    local guardian_rc=0
+    _run_guardian "pre-plan" "$spec_content" "$spec_file" || guardian_rc=$?
+    if [[ $guardian_rc -eq 1 ]]; then
+        log_error "Product Guardian REJECTED this spec — it conflicts with the product vision"
+        echo -e "Review the guardian report and either:"
+        echo -e "  1. Fix the spec to align with the vision"
+        echo -e "  2. Override with ${CYAN}SKIP_GUARDIAN=true tribe plan ...${RESET} (use with caution)"
+        if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
+            exit 1
+        else
+            log_warn "SKIP_GUARDIAN=true — proceeding despite rejection"
         fi
-        # guardian_rc == 2 means flagged — warn but continue
-    }
+    elif [[ $guardian_rc -eq 3 ]]; then
+        log_warn "Guardian returned unparseable output — proceeding but review the log"
+    fi
+    # guardian_rc == 2 means flagged — warn but continue
     echo ""
 
     # ── Spec-Codebase Grounding ────────────────────────────────────
@@ -378,23 +393,43 @@ cmd_plan() {
         architect_message+="\n\n## Related Specs (cross-reference these for entity relationships)\n${related_specs}"
     fi
 
-    # Run architect agent
+    # Run architect agent (uses ARCHITECT_MAX_TURNS — large specs need many turns)
     local architect_output
+    local architect_rc=0
     architect_output=$(claude_run_json \
         "${AGENTS_DIR}/architect.md" \
         "$architect_message" \
         "${TEMPLATES_DIR}/task.json" \
-        "$MODEL_PLANNING")
+        "$MODEL_PLANNING" \
+        "$ARCHITECT_MAX_TURNS") || architect_rc=$?
 
     # Save raw output for debugging
     echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
+
+    # Check for architect failure
+    if [[ $architect_rc -ne 0 ]]; then
+        log_error "Architect agent failed (exit code ${architect_rc})"
+        if [[ $architect_rc -eq 2 ]]; then
+            # Exit code 2 = CLI error envelope (max turns, etc.) — already logged by claude_run_json
+            log_error "The architect likely needs more turns for this spec size."
+            log_error "Current limit: ARCHITECT_MAX_TURNS=${ARCHITECT_MAX_TURNS}"
+        fi
+        log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+        exit 1
+    fi
 
     # ── Extract tasks and contract from architect output ──────────
 
     local parsed_architect
     parsed_architect=$(parse_agent_json "$architect_output") || {
-        log_error "Could not extract JSON from architect output"
+        log_error "Could not extract valid task JSON from architect output"
+        log_error "This usually means the architect returned free text instead of JSON."
         log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+        # Show first 5 lines of output for quick diagnosis
+        echo -e "${DIM}First 5 lines of architect output:${RESET}" >&2
+        echo "$architect_output" | head -5 | while IFS= read -r line; do
+            echo -e "  ${DIM}${line}${RESET}" >&2
+        done
         exit 1
     }
 
@@ -430,6 +465,12 @@ cmd_plan() {
     # Parse and create task files
     local task_count
     task_count=$(echo "$architect_output" | jq 'length')
+
+    if [[ "$task_count" -eq 0 ]]; then
+        log_error "Architect produced 0 tasks — the spec may be too vague or the architect failed to decompose it."
+        log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+        exit 1
+    fi
 
     log_step "Creating ${task_count} tasks..."
     echo ""
@@ -548,11 +589,19 @@ Verify this plan against the product specification. Read the spec FIRST, form yo
     echo ""
 
     local verify_output
-    verify_output=$(claude_run \
+    if ! verify_output=$(claude_run \
         "${AGENTS_DIR}/plan-verifier.md" \
         "$verify_message" \
         "$MODEL_PLANNING" \
-        "$AGENT_TOOLS_READONLY")
+        "$AGENT_TOOLS_READONLY"); then
+        log_error "Plan Verifier agent failed — check Claude CLI connection"
+        exit 1
+    fi
+
+    if [[ -z "$verify_output" ]]; then
+        log_error "Plan Verifier agent returned empty output"
+        exit 1
+    fi
 
     echo "$verify_output"
     echo ""
@@ -706,6 +755,19 @@ cmd_run() {
                     task_set_failed "$task_id" "Agent process crashed (no completion marker)"
                     _record_failure "$task_id" "Agent process crashed"
                     rm -f "$pid_file"
+                    git_remove_worktree "$task_id"
+                    continue
+                fi
+
+                # ── Check for CLI error (auth failure, model not found, etc.) ──
+                local error_marker="${output_file}.error"
+                if [[ -f "$error_marker" ]]; then
+                    local cli_exit_code
+                    cli_exit_code=$(cat "$error_marker" 2>/dev/null || echo "?")
+                    log_error "Task ${task_id}: Claude CLI error (exit code ${cli_exit_code})"
+                    task_set_failed "$task_id" "Claude CLI error (exit code ${cli_exit_code})"
+                    _record_failure "$task_id" "Claude CLI error (exit code ${cli_exit_code})"
+                    rm -f "$pid_file" "$done_marker" "$error_marker"
                     git_remove_worktree "$task_id"
                     continue
                 fi
@@ -1132,11 +1194,19 @@ Diagnose why this task failed and provide a specific fix."
     log_step "Invoking Debugger for task ${task_id}..."
 
     local debugger_output
-    debugger_output=$(claude_run \
+    if ! debugger_output=$(claude_run \
         "${AGENTS_DIR}/debugger.md" \
         "$debugger_message" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_READONLY" 2>/dev/null || echo '{"error": "Debugger agent failed"}')
+        "$AGENT_TOOLS_READONLY"); then
+        log_warn "Debugger agent failed for task ${task_id}"
+        debugger_output='{"error": "Debugger agent failed — see swarm stderr for details"}'
+    fi
+
+    if [[ -z "$debugger_output" ]]; then
+        log_warn "Debugger returned empty output for task ${task_id}"
+        debugger_output='{"error": "Debugger returned empty output"}'
+    fi
 
     local parsed_debugger
     parsed_debugger=$(parse_agent_json "$debugger_output") || parsed_debugger="$debugger_output"
@@ -1197,11 +1267,19 @@ Diagnose the situation and recommend recovery actions."
     log_step "Invoking Supervisor (trigger: ${trigger_type})..."
 
     local supervisor_output
-    supervisor_output=$(claude_run \
+    if ! supervisor_output=$(claude_run \
         "${AGENTS_DIR}/supervisor.md" \
         "$supervisor_message" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_READONLY" 2>/dev/null || echo '{"error": "Supervisor agent failed"}')
+        "$AGENT_TOOLS_READONLY"); then
+        log_warn "Supervisor agent failed for task ${task_id}"
+        supervisor_output='{"error": "Supervisor agent failed — see swarm stderr for details"}'
+    fi
+
+    if [[ -z "$supervisor_output" ]]; then
+        log_warn "Supervisor returned empty output for task ${task_id}"
+        supervisor_output='{"error": "Supervisor returned empty output"}'
+    fi
 
     local parsed_supervisor
     parsed_supervisor=$(parse_agent_json "$supervisor_output") || parsed_supervisor="$supervisor_output"
@@ -1298,11 +1376,19 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
     log_step "Running Product Guardian (${check_type})..."
 
     local raw_guardian_output
-    raw_guardian_output=$(claude_run \
+    if ! raw_guardian_output=$(claude_run \
         "${AGENTS_DIR}/product-guardian.md" \
         "$guardian_message" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_READONLY")
+        "$AGENT_TOOLS_READONLY"); then
+        log_warn "Guardian agent failed (${check_type}) — check Claude CLI connection"
+        return 3
+    fi
+
+    if [[ -z "$raw_guardian_output" ]]; then
+        log_warn "Guardian agent returned empty output (${check_type})"
+        return 3
+    fi
 
     local guardian_output
     guardian_output=$(parse_agent_json "$raw_guardian_output") || guardian_output="$raw_guardian_output"
@@ -1366,9 +1452,14 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
             return 1
             ;;
         *)
-            log_warn "Guardian returned unparseable status. Review: ${log_file}"
+            log_warn "Guardian returned unparseable status '${status}'. Review: ${log_file}"
+            log_warn "This may indicate the guardian agent failed or returned non-JSON output."
+            # Show first 3 lines for quick diagnosis
+            echo "$guardian_output" | head -3 | while IFS= read -r line; do
+                echo -e "    ${DIM}${line}${RESET}" >&2
+            done
             echo "$guardian_output"
-            return 0
+            return 3  # Distinct code: 0=aligned, 1=rejected, 2=flagged, 3=unparseable
             ;;
     esac
 }
@@ -1497,7 +1588,7 @@ cmd_status() {
     else
         # Show first feature if only one exists
         local feat_count
-        feat_count=$(echo "$features" | grep -c . 2>/dev/null || echo "0")
+        feat_count=$(echo "$features" | wc -l | tr -d ' ')
         if [[ "$feat_count" -eq 1 ]]; then
             target_feature="$features"
         else
@@ -1698,11 +1789,19 @@ Check that all these task implementations compose correctly. Focus on interfaces
     echo ""
 
     local coherence_output
-    coherence_output=$(claude_run \
+    if ! coherence_output=$(claude_run \
         "${AGENTS_DIR}/coherence-checker.md" \
         "$coherence_message" \
         "$MODEL_PLANNING" \
-        "$AGENT_TOOLS_READONLY")
+        "$AGENT_TOOLS_READONLY"); then
+        log_error "Coherence Checker agent failed — check Claude CLI connection"
+        exit 1
+    fi
+
+    if [[ -z "$coherence_output" ]]; then
+        log_error "Coherence Checker agent returned empty output"
+        exit 1
+    fi
 
     echo "$coherence_output"
     echo ""
@@ -1816,11 +1915,19 @@ ${TRIBE_ROOT}
     log_step "Sending to Integrator agent..."
 
     local output
-    output=$(claude_run \
+    if ! output=$(claude_run \
         "${AGENTS_DIR}/integrator.md" \
         "$agent_message" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_FULL")
+        "$AGENT_TOOLS_FULL"); then
+        log_error "Integrator agent failed — check Claude CLI connection"
+        exit 1
+    fi
+
+    if [[ -z "$output" ]]; then
+        log_error "Integrator agent returned empty output"
+        exit 1
+    fi
 
     echo "$output"
     echo ""
@@ -1891,15 +1998,16 @@ ${spec_content}
 
 This is a post-integration check. Evaluate whether the integrated result, taken as a whole, is consistent with the product vision."
 
-        _run_guardian "post-integration" "$guardian_input" "integration" || {
-            local grc=$?
-            if [[ $grc -eq 1 ]]; then
-                echo ""
-                log_error "Guardian REJECTED the integrated result — vision violation detected"
-                log_error "Review the guardian report before shipping"
-                echo -e "Report: ${CYAN}${LOGS_DIR}/guardian-post-integration-*.json${RESET}"
-            fi
-        }
+        local grc=0
+        _run_guardian "post-integration" "$guardian_input" "integration" || grc=$?
+        if [[ $grc -eq 1 ]]; then
+            echo ""
+            log_error "Guardian REJECTED the integrated result — vision violation detected"
+            log_error "Review the guardian report before shipping"
+            echo -e "Report: ${CYAN}${LOGS_DIR}/guardian-post-integration-*.json${RESET}"
+        elif [[ $grc -eq 3 ]]; then
+            log_warn "Guardian returned unparseable output during post-integration check"
+        fi
     fi
 
     echo ""
@@ -1992,11 +2100,19 @@ ${spec_context}
 Respond with your review as JSON."
 
         local review_output
-        review_output=$(claude_run \
+        if ! review_output=$(claude_run \
             "${AGENTS_DIR}/reviewer.md" \
             "$agent_message" \
             "$MODEL_SUPPORT" \
-            "$AGENT_TOOLS_READONLY")
+            "$AGENT_TOOLS_READONLY"); then
+            log_error "Reviewer agent failed for task ${tid} — check Claude CLI connection"
+            continue
+        fi
+
+        if [[ -z "$review_output" ]]; then
+            log_error "Reviewer agent returned empty output for task ${tid}"
+            continue
+        fi
 
         echo ""
         echo "$review_output"
@@ -2030,18 +2146,19 @@ ${diff}
 ### Task Acceptance Criteria
 ${criteria}"
 
-                _run_guardian "post-review" "$guardian_input" "task-${tid}" || {
-                    local grc=$?
-                    if [[ $grc -eq 1 ]]; then
-                        log_error "Task ${tid}: Guardian REJECTED — vision violation in implementation"
-                        local guardian_log
-                        guardian_log=$(ls -t "${LOGS_DIR}"/guardian-post-review-*.json 2>/dev/null | head -1)
-                        # Atomic: status + review_feedback in one write
-                        task_request_changes "$tid" "GUARDIAN REJECTED: $(cat "$guardian_log" 2>/dev/null | jq -r '.summary' 2>/dev/null || echo 'See guardian log')"
-                        verdict="request_changes"
-                    fi
-                    # grc == 2 means flagged — warn but keep approved
-                }
+                local grc=0
+                _run_guardian "post-review" "$guardian_input" "task-${tid}" || grc=$?
+                if [[ $grc -eq 1 ]]; then
+                    log_error "Task ${tid}: Guardian REJECTED — vision violation in implementation"
+                    local guardian_log
+                    guardian_log=$(ls -t "${LOGS_DIR}"/guardian-post-review-*.json 2>/dev/null | head -1 || true)
+                    # Atomic: status + review_feedback in one write
+                    task_request_changes "$tid" "GUARDIAN REJECTED: $(cat "$guardian_log" 2>/dev/null | jq -r '.summary' 2>/dev/null || echo 'See guardian log')"
+                    verdict="request_changes"
+                elif [[ $grc -eq 3 ]]; then
+                    log_warn "Task ${tid}: Guardian returned unparseable output — keeping approved status"
+                fi
+                # grc == 2 means flagged — warn but keep approved
             fi
         fi
 

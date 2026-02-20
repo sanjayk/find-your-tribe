@@ -49,7 +49,8 @@ MODEL_SUPPORT="sonnet"
 
 # ── Agent Turns ──────────────────────────────────────────────────
 DEFAULT_MAX_TURNS=50           # max turns for developer/interactive agents
-DEFAULT_JSON_MAX_TURNS=3       # max turns for JSON-producing agents
+DEFAULT_JSON_MAX_TURNS=3       # max turns for simple JSON-producing agents
+ARCHITECT_MAX_TURNS=30         # architect needs many turns for large specs
 
 # ── Agent Tool Sets ──────────────────────────────────────────────
 AGENT_TOOLS_FULL="Bash Edit Read Write Glob Grep"

@@ -134,12 +134,24 @@ git_create_worktree() {
     fi
 
     # Create worktree on the task branch
+    local wt_stderr
+    wt_stderr=$(mktemp)
+    local wt_rc=0
     if git_branch_exists "$branch"; then
-        _git worktree add "$worktree_path" "$branch" 2>/dev/null
+        _git worktree add "$worktree_path" "$branch" 2>"$wt_stderr" || wt_rc=$?
     else
         # Create branch + worktree in one command, based on current HEAD
-        _git worktree add -b "$branch" "$worktree_path" 2>/dev/null
+        _git worktree add -b "$branch" "$worktree_path" 2>"$wt_stderr" || wt_rc=$?
     fi
+
+    if [[ $wt_rc -ne 0 ]]; then
+        local wt_err
+        wt_err=$(cat "$wt_stderr" 2>/dev/null)
+        rm -f "$wt_stderr"
+        log_error "Failed to create worktree for task-${task_id} (branch: ${branch}): ${wt_err}"
+        return 1
+    fi
+    rm -f "$wt_stderr"
 
     log_step "Created worktree: ${CYAN}${worktree_path}${RESET} (branch: ${branch})"
     echo "$worktree_path"
@@ -224,7 +236,10 @@ git_safe_merge() {
     local branch="$1"
     local target="${2:-main}"
 
-    _git checkout "$target" 2>/dev/null || _git checkout -b "$target"
+    if ! _git checkout "$target" 2>/dev/null; then
+        log_error "Cannot checkout '${target}' for merge — is HEAD detached or are there uncommitted changes?"
+        return 1
+    fi
 
     if _git merge --no-ff "$branch" -m "Merge ${branch} into ${target}" 2>/dev/null; then
         log_success "Merged ${branch} into ${target}"

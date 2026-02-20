@@ -119,8 +119,18 @@ gate_syntax_check() {
         fi
     fi
 
+    # Get the diff file list once, with error reporting
+    local diff_files=""
+    diff_files=$(eval "$diff_cmd" 2>&1) || {
+        local diff_err=$?
+        if [[ $diff_err -ne 0 ]]; then
+            log_warn "Syntax check: git diff command failed (exit ${diff_err}): ${diff_files}"
+            diff_files=""
+        fi
+    }
+
     # Check Python syntax (read files from worktree)
-    for f in $(eval "$diff_cmd" 2>/dev/null | grep '\.py$' || true); do
+    for f in $(echo "$diff_files" | grep '\.py$' || true); do
         local full_path="${worktree_path}/${f}"
         [[ -f "$full_path" ]] || continue
         if ! python3 -c "import ast; ast.parse(open('${full_path}').read())" 2>/dev/null; then
@@ -130,7 +140,7 @@ gate_syntax_check() {
     done
 
     # Check JSON syntax (read files from worktree)
-    for f in $(eval "$diff_cmd" 2>/dev/null | grep '\.json$' || true); do
+    for f in $(echo "$diff_files" | grep '\.json$' || true); do
         local full_path="${worktree_path}/${f}"
         [[ -f "$full_path" ]] || continue
         if ! jq empty "$full_path" 2>/dev/null; then
@@ -143,7 +153,7 @@ gate_syntax_check() {
     # Note: node --check only works on plain .js files.
     # TypeScript (.ts/.tsx) syntax is validated by the typecheck gate (tsc --noEmit) instead.
     # JSX (.jsx/.tsx) is also excluded because JSX is not valid plain JavaScript.
-    for f in $(eval "$diff_cmd" 2>/dev/null | grep -E '\.js$' || true); do
+    for f in $(echo "$diff_files" | grep -E '\.js$' || true); do
         local full_path="${worktree_path}/${f}"
         [[ -f "$full_path" ]] || continue
         if command -v node &>/dev/null; then

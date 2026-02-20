@@ -122,8 +122,9 @@ grounding_check_declared_files() {
                 # File existed on main but was removed on branch — intentional deletion, not missing
                 continue
             fi
-            # File never existed on main OR branch — spec error, warn but don't fail
-            log_warn "Declared file never existed: ${declared_file} (spec may be incorrect)"
+            # File never existed on main OR branch — it's genuinely missing
+            log_warn "Declared file missing: ${declared_file} (not on branch '${branch}' or main)"
+            missing=true
         fi
     done <<< "$files_touched"
 

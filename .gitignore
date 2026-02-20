@@ -44,3 +44,13 @@ CLAUDE.md
 # Local-only directories
 playground/
 src/prototype/
+
+# Tribe runtime state
+.tribe/logs/
+.tribe/features/*/logs/
+.tribe/features/*/state.json
+.tribe/features/*/failure_history.jsonl
+.tribe/active_feature
+.tribe/state.json
+.tribe/running/
+.tribe/worktrees/

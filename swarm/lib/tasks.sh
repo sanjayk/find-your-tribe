@@ -86,7 +86,12 @@ task_update() {
 
     local tmp
     tmp=$(mktemp)
-    jq --arg val "$value" ".${field} = \$val" "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+    if ! jq --arg val "$value" ".${field} = \$val" "$task_file" > "$tmp" 2>/dev/null; then
+        log_error "Task ${id}: failed to update field '${field}' (jq error)"
+        rm -f "$tmp"
+        return 1
+    fi
+    mv "$tmp" "$task_file"
 }
 
 # Update a field with a raw JSON value
@@ -105,7 +110,12 @@ task_update_raw() {
 
     local tmp
     tmp=$(mktemp)
-    jq --argjson val "$value" ".${field} = \$val" "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+    if ! jq --argjson val "$value" ".${field} = \$val" "$task_file" > "$tmp" 2>/dev/null; then
+        log_error "Task ${id}: failed to update field '${field}' with raw value (jq error)"
+        rm -f "$tmp"
+        return 1
+    fi
+    mv "$tmp" "$task_file"
 }
 
 # ── Atomic state transitions ─────────────────────────────────────

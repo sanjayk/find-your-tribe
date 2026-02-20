@@ -104,12 +104,15 @@ feature_resolve() {
 
     # 3. Auto-detect: exactly one feature → use it
     if [[ -d "$FEATURES_DIR" ]]; then
-        local features count
+        local features
         features=$(ls -1 "$FEATURES_DIR" 2>/dev/null || true)
-        count=$(echo "$features" | grep -c . 2>/dev/null || echo "0")
-        if [[ "$count" -eq 1 ]] && [[ -n "$features" ]]; then
-            echo "$features"
-            return 0
+        if [[ -n "$features" ]]; then
+            local count
+            count=$(echo "$features" | wc -l | tr -d ' ')
+            if [[ "$count" -eq 1 ]]; then
+                echo "$features"
+                return 0
+            fi
         fi
     fi
 
