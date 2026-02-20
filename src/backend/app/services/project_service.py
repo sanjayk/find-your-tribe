@@ -1,13 +1,15 @@
 """Project service — CRUD and collaborator management."""
 
-from datetime import UTC, datetime
+import secrets
+from datetime import UTC, datetime, timedelta
 from datetime import date as date_type
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 from ulid import ULID
 
+from app.models.collaborator_invite_token import CollaboratorInviteToken
 from app.models.enums import CollaboratorStatus, ProjectStatus
 from app.models.enums import MilestoneType as MilestoneTypeEnum
 from app.models.project import Project, project_collaborators
@@ -431,3 +433,152 @@ async def set_github_metadata(
     project.github_repo_full_name = repo_full_name
     project.github_stars = stars
     await session.commit()
+
+
+_INVITE_TOKEN_EXPIRY_DAYS = 30
+
+
+async def create_invite_token(
+    session: AsyncSession,
+    project_id: str,
+    inviter_id: str,
+    role: str | None = None,
+) -> str:
+    """Generate an invite token for a project and store it with a 30-day expiry."""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(days=_INVITE_TOKEN_EXPIRY_DAYS)
+    invite = CollaboratorInviteToken(
+        id=str(ULID()),
+        project_id=project_id,
+        invited_by=inviter_id,
+        token=token,
+        role=role,
+        expires_at=expires_at,
+    )
+    session.add(invite)
+    await session.commit()
+    return token
+
+
+async def redeem_invite_token(
+    session: AsyncSession,
+    token: str,
+    user_id: str,
+) -> dict:
+    """Redeem an invite token, creating a pending collaboration record."""
+    result = await session.execute(
+        select(CollaboratorInviteToken).where(CollaboratorInviteToken.token == token)
+    )
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        raise ValueError("Invite token not found")
+    if invite.expires_at < datetime.now(UTC):
+        raise ValueError("Invite token has expired")
+    if invite.redeemed_by is not None:
+        raise ValueError("Invite token has already been redeemed")
+
+    project = await session.get(Project, invite.project_id)
+    if project and project.owner_id == user_id:
+        raise ValueError("Project owner cannot redeem their own invite token")
+
+    existing = await session.execute(
+        select(project_collaborators.c.user_id).where(
+            and_(
+                project_collaborators.c.project_id == invite.project_id,
+                project_collaborators.c.user_id == user_id,
+            )
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise ValueError("User is already a collaborator on this project")
+
+    now = datetime.now(UTC)
+    invite.redeemed_by = user_id
+    invite.redeemed_at = now
+
+    await session.execute(
+        project_collaborators.insert().values(
+            project_id=invite.project_id,
+            user_id=user_id,
+            role=invite.role,
+            status=CollaboratorStatus.PENDING,
+            invited_at=now,
+        )
+    )
+    await session.commit()
+    return {
+        "project_id": invite.project_id,
+        "user_id": user_id,
+        "role": invite.role,
+        "status": CollaboratorStatus.PENDING,
+        "invited_at": now,
+    }
+
+
+async def get_invite_token_info(
+    session: AsyncSession,
+    token: str,
+) -> dict | None:
+    """Return public info about an invite token without requiring auth.
+
+    Returns None if the token does not exist.
+    """
+    result = await session.execute(
+        select(CollaboratorInviteToken)
+        .where(CollaboratorInviteToken.token == token)
+        .options(
+            selectinload(CollaboratorInviteToken.project),
+            selectinload(CollaboratorInviteToken.inviter),
+        )
+    )
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        return None
+    return {
+        "project_title": invite.project.title,
+        "project_id": invite.project_id,
+        "inviter_name": invite.inviter.display_name,
+        "inviter_avatar_url": invite.inviter.avatar_url,
+        "role": invite.role,
+        "expired": invite.expires_at < datetime.now(UTC),
+    }
+
+
+async def get_pending_invitations(
+    session: AsyncSession,
+    user_id: str,
+) -> list[dict]:
+    """Return pending collaboration invitations for a user.
+
+    Joins projects for title and users (project owner) for inviter info.
+    """
+    owner_alias = aliased(User)
+    stmt = (
+        select(
+            project_collaborators.c.project_id,
+            project_collaborators.c.role,
+            project_collaborators.c.invited_at,
+            Project.title.label("project_title"),
+            owner_alias,
+        )
+        .select_from(project_collaborators)
+        .join(Project, Project.id == project_collaborators.c.project_id)
+        .join(owner_alias, owner_alias.id == Project.owner_id)
+        .where(
+            and_(
+                project_collaborators.c.user_id == user_id,
+                project_collaborators.c.status == CollaboratorStatus.PENDING,
+            )
+        )
+    )
+    result = await session.execute(stmt)
+    return [
+        {
+            "project_id": project_id,
+            "project_title": project_title,
+            "role": role,
+            "inviter": inviter,
+            "invited_at": invited_at,
+        }
+        for project_id, role, invited_at, project_title, inviter in result
+    ]

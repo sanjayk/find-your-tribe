@@ -1,7 +1,11 @@
 """Tests for project_service — CRUD and collaborator management."""
 
-import pytest
+from datetime import UTC, datetime, timedelta
 
+import pytest
+from sqlalchemy import select, update
+
+from app.models.collaborator_invite_token import CollaboratorInviteToken
 from app.models.enums import CollaboratorStatus, ProjectStatus
 from app.models.project import Project
 from app.services import project_service
@@ -369,3 +373,312 @@ async def test_remove_collaborator_not_found(async_session, seed_test_data):
             collaborator_id=seed_test_data["users"]["testuser2"].id,
             owner_id=owner.id,
         )
+
+
+# ---------------------------------------------------------------------------
+# create_invite_token
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_invite_token_returns_string(async_session, seed_test_data):
+    """create_invite_token returns a non-empty token string."""
+    owner = seed_test_data["users"]["testuser1"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Token Project"
+    )
+    token = await project_service.create_invite_token(
+        async_session,
+        project_id=project.id,
+        inviter_id=owner.id,
+        role="engineer",
+    )
+    assert isinstance(token, str)
+    assert len(token) > 0
+
+
+@pytest.mark.asyncio
+async def test_create_invite_token_stored_with_expiry(async_session, seed_test_data):
+    """create_invite_token stores a record with 30-day expiry in the database."""
+    owner = seed_test_data["users"]["testuser1"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Expiry Check"
+    )
+    token = await project_service.create_invite_token(
+        async_session,
+        project_id=project.id,
+        inviter_id=owner.id,
+        role="designer",
+    )
+    result = await async_session.execute(
+        select(CollaboratorInviteToken).where(CollaboratorInviteToken.token == token)
+    )
+    invite = result.scalar_one_or_none()
+    assert invite is not None
+    assert invite.project_id == project.id
+    assert invite.invited_by == owner.id
+    assert invite.role == "designer"
+    assert invite.redeemed_by is None
+    # expiry should be ~30 days from now
+    now = datetime.now(UTC)
+    assert invite.expires_at > now + timedelta(days=29)
+    assert invite.expires_at < now + timedelta(days=31)
+
+
+@pytest.mark.asyncio
+async def test_create_invite_token_unique_per_call(async_session, seed_test_data):
+    """Two calls to create_invite_token produce different tokens."""
+    owner = seed_test_data["users"]["testuser1"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Two Tokens"
+    )
+    token_a = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id
+    )
+    token_b = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id
+    )
+    assert token_a != token_b
+
+
+# ---------------------------------------------------------------------------
+# redeem_invite_token
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_redeem_invite_token_happy_path(async_session, seed_test_data):
+    """Redeeming a valid token creates a pending collaboration."""
+    owner = seed_test_data["users"]["testuser1"]
+    redeemer = seed_test_data["users"]["testuser2"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Redeem Project"
+    )
+    token = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id, role="frontend"
+    )
+    result = await project_service.redeem_invite_token(
+        async_session, token=token, user_id=redeemer.id
+    )
+    assert result["project_id"] == project.id
+    assert result["user_id"] == redeemer.id
+    assert result["role"] == "frontend"
+    assert result["status"] == CollaboratorStatus.PENDING
+
+
+@pytest.mark.asyncio
+async def test_redeem_invite_token_not_found(async_session, seed_test_data):
+    """Redeeming a nonexistent token raises ValueError."""
+    redeemer = seed_test_data["users"]["testuser1"]
+    with pytest.raises(ValueError, match="Invite token not found"):
+        await project_service.redeem_invite_token(
+            async_session, token="no-such-token", user_id=redeemer.id
+        )
+
+
+@pytest.mark.asyncio
+async def test_redeem_invite_token_expired(async_session, seed_test_data):
+    """Redeeming an expired token raises ValueError."""
+    owner = seed_test_data["users"]["testuser1"]
+    redeemer = seed_test_data["users"]["testuser2"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Expired Token Project"
+    )
+    token = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id
+    )
+    # Force expiry to the past
+    await async_session.execute(
+        update(CollaboratorInviteToken)
+        .where(CollaboratorInviteToken.token == token)
+        .values(expires_at=datetime.now(UTC) - timedelta(days=1))
+    )
+    await async_session.commit()
+    with pytest.raises(ValueError, match="expired"):
+        await project_service.redeem_invite_token(
+            async_session, token=token, user_id=redeemer.id
+        )
+
+
+@pytest.mark.asyncio
+async def test_redeem_invite_token_already_redeemed(async_session, seed_test_data):
+    """Redeeming an already-redeemed token raises ValueError."""
+    owner = seed_test_data["users"]["testuser1"]
+    redeemer = seed_test_data["users"]["testuser2"]
+    third = seed_test_data["users"]["testuser3"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Already Redeemed"
+    )
+    token = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id
+    )
+    await project_service.redeem_invite_token(
+        async_session, token=token, user_id=redeemer.id
+    )
+    with pytest.raises(ValueError, match="already been redeemed"):
+        await project_service.redeem_invite_token(
+            async_session, token=token, user_id=third.id
+        )
+
+
+@pytest.mark.asyncio
+async def test_redeem_invite_token_owner_cannot_redeem(async_session, seed_test_data):
+    """Project owner cannot redeem their own invite token."""
+    owner = seed_test_data["users"]["testuser1"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Self Invite"
+    )
+    token = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id
+    )
+    with pytest.raises(ValueError, match="owner cannot redeem"):
+        await project_service.redeem_invite_token(
+            async_session, token=token, user_id=owner.id
+        )
+
+
+@pytest.mark.asyncio
+async def test_redeem_invite_token_duplicate_collaborator(async_session, seed_test_data):
+    """Redeeming a token when already a collaborator raises ValueError."""
+    owner = seed_test_data["users"]["testuser1"]
+    redeemer = seed_test_data["users"]["testuser2"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Already Collab"
+    )
+    # First invite via the direct invite path
+    await project_service.invite_collaborator(
+        async_session,
+        project_id=project.id,
+        user_id=redeemer.id,
+        inviter_id=owner.id,
+    )
+    token = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id
+    )
+    with pytest.raises(ValueError, match="already a collaborator"):
+        await project_service.redeem_invite_token(
+            async_session, token=token, user_id=redeemer.id
+        )
+
+
+# ---------------------------------------------------------------------------
+# get_invite_token_info
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_invite_token_info_happy_path(async_session, seed_test_data):
+    """get_invite_token_info returns project and inviter details."""
+    owner = seed_test_data["users"]["testuser1"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Info Project"
+    )
+    token = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id, role="backend"
+    )
+    info = await project_service.get_invite_token_info(async_session, token=token)
+    assert info is not None
+    assert info["project_title"] == "Info Project"
+    assert info["project_id"] == project.id
+    assert info["inviter_name"] == owner.display_name
+    assert info["role"] == "backend"
+    assert info["expired"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_invite_token_info_not_found(async_session):
+    """get_invite_token_info returns None for a missing token."""
+    result = await project_service.get_invite_token_info(
+        async_session, token="not-a-real-token"
+    )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_invite_token_info_expired_flag(async_session, seed_test_data):
+    """get_invite_token_info returns expired=True for an expired token."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.collaborator_invite_token import CollaboratorInviteToken
+
+    owner = seed_test_data["users"]["testuser1"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Expired Info"
+    )
+    token = await project_service.create_invite_token(
+        async_session, project_id=project.id, inviter_id=owner.id
+    )
+    await async_session.execute(
+        update(CollaboratorInviteToken)
+        .where(CollaboratorInviteToken.token == token)
+        .values(expires_at=datetime.now(UTC) - timedelta(days=1))
+    )
+    await async_session.commit()
+    info = await project_service.get_invite_token_info(async_session, token=token)
+    assert info is not None
+    assert info["expired"] is True
+
+
+# ---------------------------------------------------------------------------
+# get_pending_invitations
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_pending_invitations_empty(async_session, seed_test_data):
+    """get_pending_invitations returns empty list when user has no invitations."""
+    user = seed_test_data["users"]["testuser1"]
+    result = await project_service.get_pending_invitations(
+        async_session, user_id=user.id
+    )
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_pending_invitations_returns_pending(async_session, seed_test_data):
+    """get_pending_invitations returns correct invitation data."""
+    owner = seed_test_data["users"]["testuser1"]
+    invitee = seed_test_data["users"]["testuser2"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Pending Project"
+    )
+    await project_service.invite_collaborator(
+        async_session,
+        project_id=project.id,
+        user_id=invitee.id,
+        inviter_id=owner.id,
+        role="designer",
+    )
+    invitations = await project_service.get_pending_invitations(
+        async_session, user_id=invitee.id
+    )
+    assert len(invitations) == 1
+    inv = invitations[0]
+    assert inv["project_id"] == project.id
+    assert inv["project_title"] == "Pending Project"
+    assert inv["role"] == "designer"
+    assert inv["inviter"].id == owner.id
+    assert inv["invited_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_get_pending_invitations_excludes_confirmed(async_session, seed_test_data):
+    """get_pending_invitations does not include confirmed collaborations."""
+    owner = seed_test_data["users"]["testuser1"]
+    invitee = seed_test_data["users"]["testuser2"]
+    project = await project_service.create(
+        async_session, owner_id=owner.id, title="Confirmed Project"
+    )
+    await project_service.invite_collaborator(
+        async_session,
+        project_id=project.id,
+        user_id=invitee.id,
+        inviter_id=owner.id,
+    )
+    await project_service.confirm_collaboration(
+        async_session, project_id=project.id, user_id=invitee.id
+    )
+    invitations = await project_service.get_pending_invitations(
+        async_session, user_id=invitee.id
+    )
+    assert invitations == []
