@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, X, User, Settings, LogOut } from 'lucide-react';
+import { useQuery } from '@apollo/client/react';
 import { useAuth } from '@/hooks/use-auth';
+import { MY_PENDING_INVITATIONS } from '@/lib/graphql/queries/invitations';
+import type { GetPendingInvitationsData } from '@/lib/graphql/types';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -34,6 +37,12 @@ export default function Nav() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hasScrollShadow, setHasScrollShadow] = useState(false);
+
+  const { data: invitationsData } = useQuery<GetPendingInvitationsData>(MY_PENDING_INVITATIONS, {
+    skip: !isAuthenticated,
+    pollInterval: 60000,
+  });
+  const hasPendingInvitations = (invitationsData?.myPendingInvitations?.length ?? 0) > 0;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -89,12 +98,19 @@ export default function Nav() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
-                        className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-accent-subtle to-accent-muted cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+                        className="relative w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-accent-subtle to-accent-muted cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
                         aria-label="User menu"
                       >
                         <span className="font-serif text-[14px] text-accent">
                           {getFirstInitial(user.displayName)}
                         </span>
+                        {hasPendingInvitations && (
+                          <span
+                            className="absolute top-0 right-0 w-2 h-2 rounded-full bg-in-progress"
+                            data-testid="invitation-badge"
+                            aria-hidden="true"
+                          />
+                        )}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
@@ -198,9 +214,16 @@ export default function Nav() {
                     href={`/profile/${user.username}`}
                     onClick={closeMobileMenu}
                     data-testid="mobile-profile-link"
-                    className="text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors py-2"
+                    className="flex items-center gap-2 text-[15px] font-medium text-ink-secondary hover:text-ink transition-colors py-2"
                   >
                     Your Profile
+                    {hasPendingInvitations && (
+                      <span
+                        className="w-2 h-2 rounded-full bg-in-progress"
+                        data-testid="mobile-invitation-badge"
+                        aria-hidden="true"
+                      />
+                    )}
                   </Link>
                   <Link
                     href="/settings"

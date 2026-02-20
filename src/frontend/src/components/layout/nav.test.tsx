@@ -22,6 +22,17 @@ vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => mockAuthState,
 }));
 
+// Mock @apollo/client/react — preserve all real exports, override useQuery
+let mockUseQuery = vi.fn().mockReturnValue({ data: undefined, loading: false, error: undefined });
+
+vi.mock('@apollo/client/react', async (importActual) => {
+  const actual = await importActual<typeof import('@apollo/client/react')>();
+  return {
+    ...actual,
+    useQuery: (...args: unknown[]) => mockUseQuery(...args),
+  };
+});
+
 import Nav from './nav';
 
 describe('Nav', () => {
@@ -39,6 +50,8 @@ describe('Nav', () => {
       login: vi.fn(),
       logout: mockLogout,
     };
+    // Reset Apollo useQuery to return no data
+    mockUseQuery = vi.fn().mockReturnValue({ data: undefined, loading: false, error: undefined });
   });
 
   afterEach(() => {
@@ -188,5 +201,121 @@ describe('Nav', () => {
     fireEvent.scroll(window);
 
     expect(nav?.className).toContain('shadow-sm');
+  });
+
+  describe('pending invitations badge', () => {
+    const loggedInState = {
+      user: {
+        id: '1',
+        username: 'mayachen',
+        displayName: 'Maya Chen',
+        email: 'maya@example.com',
+        onboardingCompleted: true,
+      },
+      accessToken: 'token',
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      logout: mockLogout,
+    };
+
+    const mockInvitation = {
+      projectId: 'proj-1',
+      projectTitle: 'My Project',
+      role: 'MEMBER',
+      inviter: { id: 'u2', username: 'alice', displayName: 'Alice', avatarUrl: null, headline: null, primaryRole: null },
+      invitedAt: '2024-01-01T00:00:00Z',
+    };
+
+    beforeEach(() => {
+      mockAuthState = { ...loggedInState };
+    });
+
+    it('shows desktop badge dot when pending invitations exist', () => {
+      mockUseQuery = vi.fn().mockReturnValue({
+        data: { myPendingInvitations: [mockInvitation] },
+        loading: false,
+        error: undefined,
+      });
+      render(<Nav />);
+      expect(screen.getByTestId('invitation-badge')).toBeInTheDocument();
+    });
+
+    it('hides desktop badge dot when no pending invitations', () => {
+      mockUseQuery = vi.fn().mockReturnValue({
+        data: { myPendingInvitations: [] },
+        loading: false,
+        error: undefined,
+      });
+      render(<Nav />);
+      expect(screen.queryByTestId('invitation-badge')).not.toBeInTheDocument();
+    });
+
+    it('hides desktop badge dot when query returns no data', () => {
+      mockUseQuery = vi.fn().mockReturnValue({ data: undefined, loading: false, error: undefined });
+      render(<Nav />);
+      expect(screen.queryByTestId('invitation-badge')).not.toBeInTheDocument();
+    });
+
+    it('shows mobile badge dot when pending invitations exist', () => {
+      mockUseQuery = vi.fn().mockReturnValue({
+        data: { myPendingInvitations: [mockInvitation] },
+        loading: false,
+        error: undefined,
+      });
+      render(<Nav />);
+      fireEvent.click(screen.getByLabelText('Menu'));
+      expect(screen.getByTestId('mobile-invitation-badge')).toBeInTheDocument();
+    });
+
+    it('hides mobile badge dot when no pending invitations', () => {
+      mockUseQuery = vi.fn().mockReturnValue({
+        data: { myPendingInvitations: [] },
+        loading: false,
+        error: undefined,
+      });
+      render(<Nav />);
+      fireEvent.click(screen.getByLabelText('Menu'));
+      expect(screen.queryByTestId('mobile-invitation-badge')).not.toBeInTheDocument();
+    });
+
+    it('does not show badge when logged out', () => {
+      mockAuthState = {
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        login: vi.fn(),
+        logout: mockLogout,
+      };
+      // useQuery is skipped for logged-out users, returns no data
+      mockUseQuery = vi.fn().mockReturnValue({ data: undefined, loading: false, error: undefined });
+      render(<Nav />);
+      expect(screen.queryByTestId('invitation-badge')).not.toBeInTheDocument();
+    });
+
+    it('skips query when not authenticated', () => {
+      mockAuthState = {
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        login: vi.fn(),
+        logout: mockLogout,
+      };
+      render(<Nav />);
+      expect(mockUseQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ skip: true }),
+      );
+    });
+
+    it('polls every 60 seconds', () => {
+      render(<Nav />);
+      expect(mockUseQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ pollInterval: 60000 }),
+      );
+    });
   });
 });
