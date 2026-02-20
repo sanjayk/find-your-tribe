@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 import Link from 'next/link';
 import { GET_PROJECT } from '@/lib/graphql/queries/projects';
@@ -9,6 +10,8 @@ import type {
   Project,
   Collaborator,
 } from '@/lib/graphql/types';
+import { useAuth } from '@/hooks/use-auth';
+import { EditProjectDialog } from '@/components/features/edit-project-dialog';
 
 /* ─── Helpers ─── */
 
@@ -170,6 +173,11 @@ function PersonCard({
 
 function ProjectContent({ project }: { project: Project }) {
   const owner = project.owner;
+  const { user: authUser } = useAuth();
+  const router = useRouter();
+  const isOwner = Boolean(authUser && owner && authUser.id === owner.id);
+  const [editOpen, setEditOpen] = useState(false);
+
   const collaborators = (project.collaborators || []).filter(
     (c) => c.user.id !== owner?.id
   );
@@ -233,6 +241,18 @@ function ProjectContent({ project }: { project: Project }) {
           )}
         </div>
       </section>
+
+      {/* ─── OWNER ACTION BAR ─── */}
+      {isOwner && (
+        <div className="flex items-center gap-3 mb-8" data-testid="owner-action-bar">
+          <button
+            onClick={() => setEditOpen(true)}
+            className="text-[13px] font-medium text-ink-secondary hover:text-ink px-3 py-1.5 rounded-lg hover:bg-surface-secondary transition-colors"
+          >
+            Edit Project
+          </button>
+        </div>
+      )}
 
       {/* ─── OWNER ─── */}
       {owner && (
@@ -346,6 +366,21 @@ function ProjectContent({ project }: { project: Project }) {
             ))}
           </div>
         </section>
+      )}
+
+      {/* ─── EDIT DIALOG ─── */}
+      {isOwner && (
+        <EditProjectDialog
+          project={project}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onUpdated={() => {
+            setEditOpen(false);
+          }}
+          onDeleted={() => {
+            router.push(`/profile/${owner!.username}`);
+          }}
+        />
       )}
     </div>
   );
