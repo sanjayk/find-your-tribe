@@ -23,6 +23,17 @@ export const GET_PROJECT = gql`
         headline
         primaryRole
       }
+      domains
+      aiTools
+      buildStyle
+      services
+      milestones {
+        id
+        title
+        date
+        milestoneType
+        createdAt
+      }
       collaborators {
         user {
           id
@@ -34,6 +45,8 @@ export const GET_PROJECT = gql`
         }
         role
         status
+        invitedAt
+        confirmedAt
       }
     }
   }
