@@ -263,3 +263,93 @@ class TestRemoveSkill:
 
         # Should not raise
         await user_service.remove_skill(async_session, user.id, python_skill.id)
+
+
+# ---------------------------------------------------------------------------
+# search
+# ---------------------------------------------------------------------------
+
+
+class TestSearch:
+    """Tests for user_service.search."""
+
+    async def test_matches_display_name_substring(self, async_session, seed_test_data):
+        """Returns users whose display_name contains the query (case-insensitive)."""
+        results = await user_service.search(async_session, "Test User 1")
+        usernames = [u.username for u in results]
+        assert "testuser1" in usernames
+        assert "testuser2" not in usernames
+        assert "testuser3" not in usernames
+
+    async def test_matches_username_substring(self, async_session, seed_test_data):
+        """Returns users whose username contains the query."""
+        results = await user_service.search(async_session, "testuser2")
+        assert len(results) == 1
+        assert results[0].username == "testuser2"
+
+    async def test_case_insensitive_match(self, async_session, seed_test_data):
+        """Search is case-insensitive for both display_name and username."""
+        results = await user_service.search(async_session, "TESTUSER1")
+        usernames = [u.username for u in results]
+        assert "testuser1" in usernames
+
+    async def test_partial_match_returns_multiple(self, async_session, seed_test_data):
+        """A broad query matching all seed users returns all of them."""
+        results = await user_service.search(async_session, "test")
+        assert len(results) == 3
+
+    async def test_empty_query_returns_empty_list(self, async_session, seed_test_data):
+        """Empty string returns empty list without hitting the database."""
+        results = await user_service.search(async_session, "")
+        assert results == []
+
+    async def test_whitespace_query_returns_empty_list(self, async_session, seed_test_data):
+        """Whitespace-only query returns empty list."""
+        results = await user_service.search(async_session, "   ")
+        assert results == []
+
+    async def test_no_match_returns_empty_list(self, async_session, seed_test_data):
+        """Query with no matching users returns empty list."""
+        results = await user_service.search(async_session, "zzz_no_match_xyz")
+        assert results == []
+
+    async def test_excludes_specified_user(self, async_session, seed_test_data):
+        """exclude_user_id removes that user from results."""
+        user1 = seed_test_data["users"]["testuser1"]
+        results = await user_service.search(
+            async_session, "test", exclude_user_id=user1.id
+        )
+        usernames = [u.username for u in results]
+        assert "testuser1" not in usernames
+        assert "testuser2" in usernames
+        assert "testuser3" in usernames
+
+    async def test_no_exclude_returns_all_matches(self, async_session, seed_test_data):
+        """Without exclude_user_id, all matching users are returned."""
+        results = await user_service.search(async_session, "test")
+        assert len(results) == 3
+
+    async def test_limit_caps_results(self, async_session, seed_test_data):
+        """limit parameter restricts number of results returned."""
+        results = await user_service.search(async_session, "test", limit=2)
+        assert len(results) == 2
+
+    async def test_limit_ceiling_at_20(self, async_session, seed_test_data):
+        """Limit above 20 is capped to MAX_SEARCH_LIMIT (20)."""
+        # With only 3 seed users this just verifies the cap doesn't break anything
+        results = await user_service.search(async_session, "test", limit=100)
+        assert len(results) == 3  # only 3 users exist
+
+    async def test_results_ordered_alphabetically_by_display_name(
+        self, async_session, seed_test_data
+    ):
+        """Results are ordered by display_name ascending."""
+        results = await user_service.search(async_session, "test")
+        names = [u.display_name for u in results]
+        assert names == sorted(names)
+
+    async def test_returns_user_model_instances(self, async_session, seed_test_data):
+        """Returns list of User model instances."""
+        results = await user_service.search(async_session, "testuser1")
+        assert len(results) == 1
+        assert isinstance(results[0], User)

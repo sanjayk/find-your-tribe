@@ -1,6 +1,6 @@
 """User service — profile CRUD operations."""
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -128,3 +128,39 @@ async def remove_skill(session: AsyncSession, user_id: str, skill_id: str) -> No
     )
     await session.execute(stmt)
     await session.commit()
+
+
+MAX_SEARCH_LIMIT = 20
+
+
+async def search(
+    session: AsyncSession,
+    query: str,
+    exclude_user_id: str | None = None,
+    limit: int = 5,
+) -> list[User]:
+    """Search users by display_name or username for collaborator typeahead.
+
+    Returns users whose display_name or username contains the query string
+    (case-insensitive). Results are ordered alphabetically by display_name.
+    """
+    if not query or not query.strip():
+        return []
+
+    effective_limit = min(limit, MAX_SEARCH_LIMIT)
+    pattern = f"%{query.strip()}%"
+
+    stmt = select(User).where(
+        or_(
+            User.display_name.ilike(pattern),
+            User.username.ilike(pattern),
+        )
+    )
+
+    if exclude_user_id is not None:
+        stmt = stmt.where(User.id != exclude_user_id)
+
+    stmt = stmt.order_by(User.display_name).limit(effective_limit)
+
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
