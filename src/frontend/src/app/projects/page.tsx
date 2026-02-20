@@ -7,6 +7,7 @@ import { useQuery } from '@apollo/client/react';
 import { GET_PROJECTS } from '@/lib/graphql/queries/projects';
 import type { GetProjectsData, Project, ProjectStatus } from '@/lib/graphql/types';
 import { ProjectCard } from '@/components/features/project-card';
+import { useAuth } from '@/hooks/use-auth';
 
 const PAGE_SIZE = 12;
 
@@ -59,6 +60,7 @@ function ProjectGrid({ projects }: { projects: Project[] }) {
 /* ─── Page ─── */
 
 export default function ProjectsPage() {
+  const { isAuthenticated } = useAuth();
   const { data, loading, error, fetchMore } = useQuery<GetProjectsData>(
     GET_PROJECTS,
     { variables: { limit: PAGE_SIZE, offset: 0 } },
@@ -79,9 +81,19 @@ export default function ProjectsPage() {
   if (projects.length === 0) {
     return (
       <div className="mx-auto max-w-[1120px] px-6 py-16">
-        <h1 className="font-serif text-[40px] leading-tight text-ink mb-3">
-          Projects
-        </h1>
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="font-serif text-[40px] leading-tight text-ink">
+            Projects
+          </h1>
+          {isAuthenticated && (
+            <Link
+              href="/projects/new"
+              className="px-4 py-2 text-[13px] font-medium bg-ink text-ink-inverse rounded-lg hover:bg-ink/90 transition-colors"
+            >
+              New Project
+            </Link>
+          )}
+        </div>
         <p className="text-[15px] text-ink-secondary mb-12">
           Explore what builders in your tribe are shipping.
         </p>
@@ -104,9 +116,19 @@ export default function ProjectsPage() {
 
   return (
     <div className="mx-auto max-w-[1120px] px-6 py-16">
-      <h1 className="font-serif text-[40px] leading-tight text-ink mb-3">
-        Projects
-      </h1>
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="font-serif text-[40px] leading-tight text-ink">
+          Projects
+        </h1>
+        {isAuthenticated && (
+          <Link
+            href="/projects/new"
+            className="px-4 py-2 text-[13px] font-medium bg-ink text-ink-inverse rounded-lg hover:bg-ink/90 transition-colors"
+          >
+            New Project
+          </Link>
+        )}
+      </div>
       <p className="text-[15px] text-ink-secondary mb-12">
         Explore what builders in your tribe are shipping.
       </p>
