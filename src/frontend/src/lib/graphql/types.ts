@@ -287,6 +287,10 @@ export interface GetTribesData {
   tribes: Tribe[];
 }
 
+export interface SearchTribesData {
+  searchTribes: Tribe[];
+}
+
 export interface GetFeedData {
   feed: FeedEvent[];
 }

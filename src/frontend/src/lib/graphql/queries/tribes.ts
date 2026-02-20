@@ -68,3 +68,36 @@ export const GET_TRIBES = gql`
     }
   }
 `;
+
+export const SEARCH_TRIBES = gql`
+  query SearchTribes($query: String!, $limit: Int, $offset: Int) {
+    searchTribes(query: $query, limit: $limit, offset: $offset) {
+      id
+      name
+      mission
+      status
+      maxMembers
+      createdAt
+      owner {
+        id
+        displayName
+        avatarUrl
+      }
+      members {
+        user {
+          id
+          displayName
+          avatarUrl
+        }
+        role
+        status
+      }
+      openRoles {
+        id
+        title
+        skillsNeeded
+        filled
+      }
+    }
+  }
+`;
