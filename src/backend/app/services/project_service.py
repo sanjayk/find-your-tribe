@@ -1,6 +1,7 @@
 """Project service — CRUD and collaborator management."""
 
 from datetime import UTC, datetime
+from datetime import date as date_type
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,8 +9,56 @@ from sqlalchemy.orm import selectinload
 from ulid import ULID
 
 from app.models.enums import CollaboratorStatus, ProjectStatus
+from app.models.enums import MilestoneType as MilestoneTypeEnum
 from app.models.project import Project, project_collaborators
+from app.models.project_milestone import ProjectMilestone
 from app.models.user import User
+
+_VALID_LINK_KEYS = frozenset({"repo", "live_url", "product_hunt", "app_store", "play_store"})
+_VALID_METRIC_KEYS = frozenset({"users", "stars", "downloads", "revenue", "forks"})
+
+
+def _validate_tags(
+    field_name: str,
+    tags: list[str],
+    max_items: int = 20,
+    max_chars: int = 50,
+) -> None:
+    """Raise ValueError if tags list exceeds limits."""
+    if len(tags) > max_items:
+        raise ValueError(f"{field_name} cannot exceed {max_items} items")
+    for tag in tags:
+        if len(tag) > max_chars:
+            raise ValueError(f"{field_name} items cannot exceed {max_chars} characters")
+
+
+def _validate_links(links: dict) -> None:
+    """Raise ValueError if links dict has invalid keys or non-HTTPS values."""
+    for key, value in links.items():
+        if key not in _VALID_LINK_KEYS:
+            raise ValueError(
+                f"Invalid link key: {key!r}. Must be one of {sorted(_VALID_LINK_KEYS)}"
+            )
+        if not isinstance(value, str) or not value.startswith("https://"):
+            raise ValueError(f"Link value for {key!r} must be an HTTPS URL")
+
+
+def _validate_impact_metrics(metrics: dict) -> None:
+    """Raise ValueError if metrics dict has invalid keys or non-string/number values."""
+    for key, value in metrics.items():
+        if key not in _VALID_METRIC_KEYS:
+            raise ValueError(
+                f"Invalid metric key: {key!r}. Must be one of {sorted(_VALID_METRIC_KEYS)}"
+            )
+        if not isinstance(value, (str, int, float)):
+            raise ValueError(f"Metric value for {key!r} must be a string or number")
+
+
+def _validate_milestone_type(mt: str) -> None:
+    """Raise ValueError if milestone type is not a valid MilestoneType value."""
+    valid = {e.value for e in MilestoneTypeEnum}
+    if mt not in valid:
+        raise ValueError(f"Invalid milestone type: {mt!r}. Must be one of {sorted(valid)}")
 
 
 async def create(
@@ -28,6 +77,10 @@ async def create(
         raise ValueError("Title must be between 1 and 200 characters")
     if tech_stack is not None and len(tech_stack) > 20:
         raise ValueError("Tech stack cannot exceed 20 items")
+    if links is not None:
+        _validate_links(links)
+    if impact_metrics is not None:
+        _validate_impact_metrics(impact_metrics)
 
     resolved_status = ProjectStatus(status) if status else ProjectStatus.IN_PROGRESS
 
@@ -59,6 +112,10 @@ async def update(
     links: dict | None = None,
     tech_stack: list[str] | None = None,
     impact_metrics: dict | None = None,
+    domains: list[str] | None = None,
+    ai_tools: list[str] | None = None,
+    build_style: list[str] | None = None,
+    services: list[str] | None = None,
 ) -> tuple[Project, bool]:
     """Update a project. Only the owner may update.
 
@@ -90,7 +147,20 @@ async def update(
             raise ValueError("Tech stack cannot exceed 20 items")
         project.tech_stack = tech_stack
     if impact_metrics is not None:
+        _validate_impact_metrics(impact_metrics)
         project.impact_metrics = impact_metrics
+    if domains is not None:
+        _validate_tags("domains", domains)
+        project.domains = domains
+    if ai_tools is not None:
+        _validate_tags("ai_tools", ai_tools)
+        project.ai_tools = ai_tools
+    if build_style is not None:
+        _validate_tags("build_style", build_style)
+        project.build_style = build_style
+    if services is not None:
+        _validate_tags("services", services)
+        project.services = services
 
     status_changed_to_shipped = (
         status is not None
@@ -277,4 +347,87 @@ async def remove_collaborator(
     )
     if result.rowcount == 0:
         raise ValueError("Collaborator not found on this project")
+    await session.commit()
+
+
+async def add_milestone(
+    session: AsyncSession,
+    project_id: str,
+    user_id: str,
+    title: str,
+    date_: date_type,
+    milestone_type: str = "milestone",
+) -> ProjectMilestone:
+    """Add a milestone to a project. Only the owner may add milestones."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise ValueError("Project not found")
+    if project.owner_id != user_id:
+        raise PermissionError("Only the project owner can add milestones")
+
+    if not title or len(title) > 200:
+        raise ValueError("Milestone title must be between 1 and 200 characters")
+    if date_ > date_type.today():
+        raise ValueError("Milestone date cannot be in the future")
+    _validate_milestone_type(milestone_type)
+
+    milestone = ProjectMilestone(
+        id=str(ULID()),
+        project_id=project_id,
+        title=title,
+        date=date_,
+        milestone_type=MilestoneTypeEnum(milestone_type),
+    )
+    session.add(milestone)
+    await session.commit()
+    await session.refresh(milestone)
+    return milestone
+
+
+async def delete_milestone(
+    session: AsyncSession,
+    milestone_id: str,
+    user_id: str,
+) -> None:
+    """Delete a project milestone. Only the project owner may delete."""
+    stmt = (
+        select(ProjectMilestone)
+        .where(ProjectMilestone.id == milestone_id)
+        .options(selectinload(ProjectMilestone.project))
+    )
+    result = await session.execute(stmt)
+    milestone = result.scalar_one_or_none()
+    if not milestone:
+        raise ValueError("Milestone not found")
+    if milestone.project.owner_id != user_id:
+        raise PermissionError("Only the project owner can delete milestones")
+
+    await session.delete(milestone)
+    await session.commit()
+
+
+async def get_imported_repo_names(session: AsyncSession, user_id: str) -> set[str]:
+    """Return the set of github_repo_full_name values for all projects owned by user_id."""
+    stmt = select(Project.github_repo_full_name).where(
+        and_(
+            Project.owner_id == user_id,
+            Project.github_repo_full_name.isnot(None),
+        )
+    )
+    result = await session.execute(stmt)
+    return {row[0] for row in result.fetchall()}
+
+
+async def set_github_metadata(
+    session: AsyncSession,
+    project_id: str,
+    repo_full_name: str,
+    stars: int,
+) -> None:
+    """Update a project's GitHub repo name and star count."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise ValueError("Project not found")
+    project.github_repo_full_name = repo_full_name
+    project.github_stars = stars
     await session.commit()
