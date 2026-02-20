@@ -110,7 +110,7 @@ git_create_task_branch() {
         _git checkout "$branch"
     else
         _git checkout -b "$branch" "$base"
-        log_step "Created branch: ${CYAN}${branch}${RESET}"
+        log_step "Created branch: ${CYAN}${branch}${RESET}" >&2
     fi
 
     echo "$branch"
@@ -153,7 +153,7 @@ git_create_worktree() {
     fi
     rm -f "$wt_stderr"
 
-    log_step "Created worktree: ${CYAN}${worktree_path}${RESET} (branch: ${branch})"
+    log_step "Created worktree: ${CYAN}${worktree_path}${RESET} (branch: ${branch})" >&2
     echo "$worktree_path"
 }
 
