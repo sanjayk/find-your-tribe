@@ -18,6 +18,10 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     githubStars: null,
     createdAt: '2025-06-01T00:00:00Z',
     updatedAt: '2025-12-01T00:00:00Z',
+    domains: [],
+    aiTools: [],
+    buildStyle: [],
+    services: [],
     ...overrides,
   };
 }

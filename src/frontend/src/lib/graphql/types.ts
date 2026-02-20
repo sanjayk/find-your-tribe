@@ -52,6 +52,16 @@ export interface Skill {
   category: SkillCategory;
 }
 
+export type CollaboratorStatus = 'pending' | 'confirmed' | 'declined';
+
+export interface ProjectMilestone {
+  id: string;
+  title: string;
+  date: string;
+  milestoneType: 'start' | 'milestone' | 'deploy' | 'launch';
+  createdAt: string;
+}
+
 export interface Collaborator {
   user: {
     id: string;
@@ -63,6 +73,8 @@ export interface Collaborator {
   };
   role: string | null;
   status: string;
+  invitedAt?: string;
+  confirmedAt?: string | null;
 }
 
 export interface ProjectOwner {
@@ -72,6 +84,23 @@ export interface ProjectOwner {
   avatarUrl: string | null;
   headline: string | null;
   primaryRole: string | null;
+}
+
+export interface PendingInvitation {
+  projectId: string;
+  projectTitle: string;
+  role: string | null;
+  inviter: ProjectOwner;
+  invitedAt: string;
+}
+
+export interface InviteTokenInfo {
+  projectTitle: string;
+  projectId: string;
+  inviterName: string;
+  inviterAvatarUrl: string | null;
+  role: string | null;
+  expired: boolean;
 }
 
 export interface Project {
@@ -87,6 +116,12 @@ export interface Project {
   githubStars: number | null;
   createdAt: string;
   updatedAt: string;
+  domains: string[];
+  aiTools: string[];
+  buildStyle: string[];
+  services: string[];
+  milestones?: ProjectMilestone[];
+  thumbnailUrl?: string | null;
   owner?: ProjectOwner;
   collaborators?: Collaborator[];
 }
@@ -285,6 +320,22 @@ export interface RevokeApiTokenData {
   apiTokens: {
     revokeApiToken: boolean;
   };
+}
+
+export interface GetPendingInvitationsData {
+  myPendingInvitations: PendingInvitation[];
+}
+
+export interface GetInviteTokenInfoData {
+  inviteTokenInfo: InviteTokenInfo | null;
+}
+
+export interface GetTagSuggestionsData {
+  tagSuggestions: string[];
+}
+
+export interface SearchUsersData {
+  searchUsers: ProjectOwner[];
 }
 
 // Mutation response types (namespaced)

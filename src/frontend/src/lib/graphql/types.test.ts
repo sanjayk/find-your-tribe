@@ -11,8 +11,12 @@ import type {
   EventType,
   Skill,
   Collaborator,
+  CollaboratorStatus,
   ProjectOwner,
   Project,
+  ProjectMilestone,
+  PendingInvitation,
+  InviteTokenInfo,
   TribeMember,
   OpenRole,
   Tribe,
@@ -26,6 +30,10 @@ import type {
   GetTribeData,
   GetTribesData,
   GetFeedData,
+  GetPendingInvitationsData,
+  GetInviteTokenInfoData,
+  GetTagSuggestionsData,
+  SearchUsersData,
   SignupData,
   LoginData,
   RefreshTokenData,
@@ -178,6 +186,12 @@ describe('GraphQL types', () => {
         githubStars: 42,
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-06-01T00:00:00Z',
+        domains: ['web', 'mobile'],
+        aiTools: ['Claude', 'Cursor'],
+        buildStyle: ['async', 'pair'],
+        services: ['vercel', 'supabase'],
+        milestones: [],
+        thumbnailUrl: null,
         owner: {
           id: '01OWN',
           username: 'owner',
@@ -190,6 +204,8 @@ describe('GraphQL types', () => {
       };
       expect(project.title).toBe('My Project');
       expect(project.techStack).toHaveLength(2);
+      expect(project.domains).toHaveLength(2);
+      expect(project.aiTools).toHaveLength(2);
     });
 
     it('Project can be constructed with nullable fields as null', () => {
@@ -206,9 +222,14 @@ describe('GraphQL types', () => {
         githubStars: null,
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
+        domains: [],
+        aiTools: [],
+        buildStyle: [],
+        services: [],
       };
       expect(project.description).toBeNull();
       expect(project.githubStars).toBeNull();
+      expect(project.domains).toHaveLength(0);
     });
 
     it('TribeMember can be constructed', () => {
@@ -305,6 +326,110 @@ describe('GraphQL types', () => {
       };
       expect(payload.user.onboardingCompleted).toBe(false);
     });
+
+    it('ProjectMilestone can be constructed', () => {
+      const milestone: ProjectMilestone = {
+        id: '01MILE',
+        title: 'MVP Launch',
+        date: '2024-06-01',
+        milestoneType: 'launch',
+        createdAt: '2024-05-01T00:00:00Z',
+      };
+      expect(milestone.milestoneType).toBe('launch');
+      expect(milestone.title).toBe('MVP Launch');
+    });
+
+    it('ProjectMilestone milestoneType accepts all valid values', () => {
+      const types: ProjectMilestone['milestoneType'][] = ['start', 'milestone', 'deploy', 'launch'];
+      expect(types).toHaveLength(4);
+    });
+
+    it('CollaboratorStatus accepts valid values', () => {
+      const statuses: CollaboratorStatus[] = ['pending', 'confirmed', 'declined'];
+      expect(statuses).toHaveLength(3);
+    });
+
+    it('Collaborator can be constructed with optional invite fields', () => {
+      const collaborator: Collaborator = {
+        user: {
+          id: '01COL',
+          username: 'collab',
+          displayName: 'Collaborator',
+          avatarUrl: null,
+          headline: null,
+          primaryRole: null,
+        },
+        role: 'CONTRIBUTOR',
+        status: 'pending',
+        invitedAt: '2024-05-01T00:00:00Z',
+        confirmedAt: null,
+      };
+      expect(collaborator.invitedAt).toBe('2024-05-01T00:00:00Z');
+      expect(collaborator.confirmedAt).toBeNull();
+    });
+
+    it('PendingInvitation can be constructed', () => {
+      const invitation: PendingInvitation = {
+        projectId: '01PROJ',
+        projectTitle: 'My Project',
+        role: 'CONTRIBUTOR',
+        inviter: {
+          id: '01INV',
+          username: 'inviter',
+          displayName: 'Inviter',
+          avatarUrl: 'https://example.com/avatar.png',
+          headline: 'Builder',
+          primaryRole: 'ENGINEER',
+        },
+        invitedAt: '2024-05-01T00:00:00Z',
+      };
+      expect(invitation.projectTitle).toBe('My Project');
+      expect(invitation.inviter.username).toBe('inviter');
+    });
+
+    it('PendingInvitation role can be null', () => {
+      const invitation: PendingInvitation = {
+        projectId: '01PROJ',
+        projectTitle: 'Open Project',
+        role: null,
+        inviter: {
+          id: '01INV',
+          username: 'inviter',
+          displayName: 'Inviter',
+          avatarUrl: null,
+          headline: null,
+          primaryRole: null,
+        },
+        invitedAt: '2024-05-01T00:00:00Z',
+      };
+      expect(invitation.role).toBeNull();
+    });
+
+    it('InviteTokenInfo can be constructed', () => {
+      const info: InviteTokenInfo = {
+        projectTitle: 'My Project',
+        projectId: '01PROJ',
+        inviterName: 'Alice',
+        inviterAvatarUrl: 'https://example.com/avatar.png',
+        role: 'CONTRIBUTOR',
+        expired: false,
+      };
+      expect(info.expired).toBe(false);
+      expect(info.inviterName).toBe('Alice');
+    });
+
+    it('InviteTokenInfo can represent an expired token', () => {
+      const info: InviteTokenInfo = {
+        projectTitle: 'Old Project',
+        projectId: '01OLD',
+        inviterName: 'Bob',
+        inviterAvatarUrl: null,
+        role: null,
+        expired: true,
+      };
+      expect(info.expired).toBe(true);
+      expect(info.inviterAvatarUrl).toBeNull();
+    });
   });
 
   describe('query response types', () => {
@@ -365,6 +490,37 @@ describe('GraphQL types', () => {
     it('GetFeedData holds an array of feed events', () => {
       const data: GetFeedData = { feed: [] };
       expect(data.feed).toHaveLength(0);
+    });
+
+    it('GetPendingInvitationsData holds an array of pending invitations', () => {
+      const data: GetPendingInvitationsData = { myPendingInvitations: [] };
+      expect(data.myPendingInvitations).toHaveLength(0);
+    });
+
+    it('GetInviteTokenInfoData can hold info or null', () => {
+      const withInfo: GetInviteTokenInfoData = {
+        inviteTokenInfo: {
+          projectTitle: 'Test',
+          projectId: '01P',
+          inviterName: 'Alice',
+          inviterAvatarUrl: null,
+          role: null,
+          expired: false,
+        },
+      };
+      const withNull: GetInviteTokenInfoData = { inviteTokenInfo: null };
+      expect(withInfo.inviteTokenInfo).not.toBeNull();
+      expect(withNull.inviteTokenInfo).toBeNull();
+    });
+
+    it('GetTagSuggestionsData holds an array of strings', () => {
+      const data: GetTagSuggestionsData = { tagSuggestions: ['react', 'typescript'] };
+      expect(data.tagSuggestions).toHaveLength(2);
+    });
+
+    it('SearchUsersData holds an array of project owners', () => {
+      const data: SearchUsersData = { searchUsers: [] };
+      expect(data.searchUsers).toHaveLength(0);
     });
   });
 
