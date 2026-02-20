@@ -1,9 +1,21 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useMutation } from '@apollo/client/react';
 import Link from 'next/link';
 import { GET_TRIBE } from '@/lib/graphql/queries/tribes';
+import { REQUEST_TO_JOIN, LEAVE_TRIBE } from '@/lib/graphql/mutations/tribes';
+import { useAuth } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import type {
   GetTribeData,
   Tribe,
@@ -11,6 +23,10 @@ import type {
   OpenRole,
   TribeStatus,
 } from '@/lib/graphql/types';
+
+/* ─── Types ─── */
+
+type ViewerRole = 'visitor' | 'pending' | 'member' | 'owner';
 
 /* ─── Helpers ─── */
 
@@ -39,6 +55,16 @@ function formatDate(iso: string): string {
     month: 'long',
     year: 'numeric',
   });
+}
+
+function computeViewerRole(userId: string | undefined, tribe: Tribe): ViewerRole {
+  if (!userId) return 'visitor';
+  const membership = tribe.members.find((m) => m.user.id === userId);
+  if (!membership) return 'visitor';
+  if (membership.status === 'PENDING') return 'pending';
+  if (membership.status !== 'ACTIVE') return 'visitor';
+  if (membership.role === 'OWNER') return 'owner';
+  return 'member';
 }
 
 const STATUS_CONFIG: Record<TribeStatus, { label: string; className: string }> = {
@@ -141,36 +167,159 @@ function MemberCard({ member, isOwner }: { member: TribeMember; isOwner: boolean
   );
 }
 
+/* ─── Member Action Bar ─── */
+
+function MemberActionBar({
+  tribeId,
+  onLeaveComplete,
+}: {
+  tribeId: string;
+  onLeaveComplete: () => void;
+}) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [leaveTribe, { loading }] = useMutation(LEAVE_TRIBE, {
+    variables: { tribeId },
+    onCompleted: () => {
+      setShowConfirm(false);
+      onLeaveComplete();
+    },
+  });
+
+  return (
+    <>
+      <div className="flex items-center justify-between py-3 mb-8" data-testid="member-action-bar">
+        <span className="text-[13px] text-ink-tertiary">
+          You&apos;re a member of this tribe.
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={() => setShowConfirm(true)}
+        >
+          Leave Tribe
+        </Button>
+      </div>
+
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent showCloseButton={false} data-testid="leave-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>Leave this tribe?</DialogTitle>
+            <DialogDescription>
+              You&apos;ll need to request to join again if you change your mind.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfirm(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => leaveTribe()}
+              disabled={loading}
+            >
+              {loading ? 'Leaving...' : 'Leave Tribe'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /* ─── Open Role Card ─── */
 
-function OpenRoleCard({ openRole }: { openRole: OpenRole }) {
+function OpenRoleCard({
+  openRole,
+  tribeId,
+  viewerRole,
+  tribeOpen,
+  onJoinRequested,
+}: {
+  openRole: OpenRole;
+  tribeId: string;
+  viewerRole: ViewerRole;
+  tribeOpen: boolean;
+  onJoinRequested: () => void;
+}) {
+  const [requestToJoin, { loading }] = useMutation(REQUEST_TO_JOIN, {
+    variables: { tribeId, roleId: openRole.id },
+    onCompleted: onJoinRequested,
+  });
+
+  const showJoinButton = tribeOpen && viewerRole === 'visitor';
+  const showPending = viewerRole === 'pending';
+
   return (
     <div className="bg-surface-secondary rounded-xl p-5">
-      <h3 className="font-medium text-[15px] text-ink mb-2">
-        {openRole.title}
-      </h3>
-      {openRole.skillsNeeded.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {openRole.skillsNeeded.map((skill) => (
-            <span
-              key={skill}
-              className="font-mono text-[11px] bg-accent-subtle text-accent px-2.5 py-0.5 rounded-md"
-            >
-              {skill}
-            </span>
-          ))}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-medium text-[15px] text-ink mb-2">
+            {openRole.title}
+          </h3>
+          {openRole.skillsNeeded.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {openRole.skillsNeeded.map((skill) => (
+                <span
+                  key={skill}
+                  className="font-mono text-[11px] bg-accent-subtle text-accent px-2.5 py-0.5 rounded-md"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          )}
+          {openRole.filled && (
+            <p className="text-[13px] text-ink-tertiary mt-2">Role Filled</p>
+          )}
         </div>
-      )}
+
+        {!openRole.filled && (
+          <div className="shrink-0">
+            {showJoinButton && (
+              <Button
+                size="sm"
+                onClick={() => requestToJoin()}
+                disabled={loading}
+              >
+                {loading ? 'Requesting...' : 'Request to Join'}
+              </Button>
+            )}
+            {showPending && (
+              <Button size="sm" variant="secondary" disabled>
+                Request Pending
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 /* ─── Tribe Content ─── */
 
-function TribeContent({ tribe }: { tribe: Tribe }) {
+function TribeContent({
+  tribe,
+  viewerRole,
+  onRefetch,
+}: {
+  tribe: Tribe;
+  viewerRole: ViewerRole;
+  onRefetch: () => void;
+}) {
   const statusConfig = STATUS_CONFIG[tribe.status];
   const activeMembers = tribe.members.filter((m) => m.status === 'ACTIVE');
-  const unfilledRoles = tribe.openRoles.filter((r) => !r.filled);
+  const tribeOpen = tribe.status === 'OPEN';
+
+  const showRoles = tribe.openRoles.length > 0;
+  const showMemberBar = viewerRole === 'member';
 
   return (
     <div className="mx-auto max-w-[1080px] px-5 md:px-6 pb-12 md:pb-16">
@@ -218,6 +367,11 @@ function TribeContent({ tribe }: { tribe: Tribe }) {
         )}
       </section>
 
+      {/* ─── MEMBER ACTION BAR ─── */}
+      {showMemberBar && (
+        <MemberActionBar tribeId={tribe.id} onLeaveComplete={onRefetch} />
+      )}
+
       {/* ─── MEMBERS ─── */}
       <section className="mb-12">
         <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
@@ -241,14 +395,21 @@ function TribeContent({ tribe }: { tribe: Tribe }) {
       </section>
 
       {/* ─── OPEN ROLES ─── */}
-      {unfilledRoles.length > 0 && (
+      {showRoles && (
         <section className="mb-12">
           <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
             Open Roles
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {unfilledRoles.map((role: OpenRole) => (
-              <OpenRoleCard key={role.id} openRole={role} />
+            {tribe.openRoles.map((role: OpenRole) => (
+              <OpenRoleCard
+                key={role.id}
+                openRole={role}
+                tribeId={tribe.id}
+                viewerRole={viewerRole}
+                tribeOpen={tribeOpen}
+                onJoinRequested={onRefetch}
+              />
             ))}
           </div>
         </section>
@@ -262,8 +423,9 @@ function TribeContent({ tribe }: { tribe: Tribe }) {
 export default function TribePageContent() {
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const { user } = useAuth();
 
-  const { data, loading, error } = useQuery<GetTribeData>(GET_TRIBE, {
+  const { data, loading, error, refetch } = useQuery<GetTribeData>(GET_TRIBE, {
     variables: { id },
     skip: !id,
   });
@@ -271,5 +433,14 @@ export default function TribePageContent() {
   if (loading) return <TribeSkeleton />;
   if (error || !data?.tribe) return <TribeNotFound />;
 
-  return <TribeContent tribe={data.tribe} />;
+  const tribe = data.tribe;
+  const viewerRole = computeViewerRole(user?.id, tribe);
+
+  return (
+    <TribeContent
+      tribe={tribe}
+      viewerRole={viewerRole}
+      onRefetch={() => refetch()}
+    />
+  );
 }

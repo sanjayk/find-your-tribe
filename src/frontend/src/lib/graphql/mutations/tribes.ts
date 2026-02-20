@@ -50,9 +50,9 @@ export const REMOVE_OPEN_ROLE = gql`
 `;
 
 export const REQUEST_TO_JOIN = gql`
-  mutation RequestToJoin($tribeId: ID!) {
+  mutation RequestToJoin($tribeId: ID!, $roleId: ID!) {
     tribes {
-      requestToJoin(tribeId: $tribeId)
+      requestToJoin(tribeId: $tribeId, roleId: $roleId)
     }
   }
 `;
