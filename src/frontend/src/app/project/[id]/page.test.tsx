@@ -6,6 +6,7 @@ import { GET_PROJECT } from '@/lib/graphql/queries/projects';
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'proj-1' }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
 }));
 
 const mockProject = {

@@ -52,7 +52,7 @@ export interface Skill {
   category: SkillCategory;
 }
 
-export type CollaboratorStatus = 'pending' | 'confirmed' | 'declined';
+export type CollaboratorStatus = 'PENDING' | 'CONFIRMED' | 'DECLINED';
 
 export interface ProjectMilestone {
   id: string;

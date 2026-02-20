@@ -501,8 +501,11 @@ async def test_request_to_join_already_member(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
         # Owner is already a member
-        body = await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        body = await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
         assert body.get("errors")
         assert "already" in body["errors"][0]["message"].lower()
     finally:
@@ -518,6 +521,7 @@ async def test_request_to_join_tribe_not_found(
     try:
         body = await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
             "tribeId": "00000000000000000000000000",
+            "roleId": "00000000000000000000000000",
         })
         assert body.get("errors")
         assert "not found" in body["errors"][0]["message"].lower()
@@ -527,7 +531,9 @@ async def test_request_to_join_tribe_not_found(
 
 async def test_request_to_join_unauthenticated(async_client: AsyncClient):
     """requestToJoin without auth returns an error."""
-    body = await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": "fake"})
+    body = await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+        "tribeId": "fake", "roleId": "fake",
+    })
     assert body.get("errors")
     assert "Authentication required" in body["errors"][0]["message"]
 
@@ -547,12 +553,15 @@ async def test_approve_member_happy_path(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     _set_auth(async_session, joiner_id)
     try:
-        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
     finally:
         _clear_auth()
 
@@ -579,12 +588,15 @@ async def test_approve_member_not_owner(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     _set_auth(async_session, joiner_id)
     try:
-        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
     finally:
         _clear_auth()
 
@@ -646,12 +658,15 @@ async def test_reject_member_happy_path(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     _set_auth(async_session, joiner_id)
     try:
-        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
     finally:
         _clear_auth()
 
@@ -678,12 +693,15 @@ async def test_reject_member_not_owner(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     _set_auth(async_session, joiner_id)
     try:
-        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
     finally:
         _clear_auth()
 
@@ -744,13 +762,16 @@ async def test_remove_member_happy_path(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     # Join and get approved
     _set_auth(async_session, joiner_id)
     try:
-        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
     finally:
         _clear_auth()
 
@@ -783,12 +804,15 @@ async def test_remove_member_not_owner(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     _set_auth(async_session, joiner_id)
     try:
-        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
     finally:
         _clear_auth()
 
@@ -857,12 +881,15 @@ async def test_leave_tribe_happy_path(
     _set_auth(async_session, owner_id)
     try:
         tribe = await _create_tribe_via_gql(async_client)
+        role_id = await _add_open_role_via_gql(async_client, tribe["id"])
     finally:
         _clear_auth()
 
     _set_auth(async_session, joiner_id)
     try:
-        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {"tribeId": tribe["id"]})
+        await _gql(async_client, REQUEST_TO_JOIN_MUTATION, {
+            "tribeId": tribe["id"], "roleId": role_id,
+        })
     finally:
         _clear_auth()
 

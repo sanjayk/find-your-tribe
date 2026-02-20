@@ -345,7 +345,7 @@ describe('GraphQL types', () => {
     });
 
     it('CollaboratorStatus accepts valid values', () => {
-      const statuses: CollaboratorStatus[] = ['pending', 'confirmed', 'declined'];
+      const statuses: CollaboratorStatus[] = ['PENDING', 'CONFIRMED', 'DECLINED'];
       expect(statuses).toHaveLength(3);
     });
 

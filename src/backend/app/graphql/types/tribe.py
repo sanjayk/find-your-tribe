@@ -45,18 +45,7 @@ class TribeType:
         if tribe.owner is not None:
             owner_type = UserType.from_model(tribe.owner)
 
-        member_types = []
-        for member in (tribe.members or []):
-            member_user = UserType.from_model(member)
-            member_types.append(
-                TribeMemberType(
-                    user=member_user,
-                    role=MemberRole.MEMBER,
-                    status=MemberStatus.ACTIVE,
-                    joined_at=None,
-                )
-            )
-
+        # Build open roles first so we can look up requested roles for members
         open_role_types = [
             OpenRoleType(
                 id=r.id,
@@ -66,6 +55,43 @@ class TribeType:
             )
             for r in (tribe.open_roles or [])
         ]
+        role_lookup = {r.id: r for r in (tribe.open_roles or [])}
+
+        # Use real membership data if attached by attach_membership_data()
+        membership_data: dict = getattr(tribe, "_membership_data", {})
+
+        member_types = []
+        for member in (tribe.members or []):
+            member_user = UserType.from_model(member)
+            row = membership_data.get(member.id)
+            if row is not None:
+                # Real data from association table
+                requested_role = None
+                if row.requested_role_id and row.requested_role_id in role_lookup:
+                    r = role_lookup[row.requested_role_id]
+                    requested_role = OpenRoleType(
+                        id=r.id, title=r.title,
+                        skills_needed=r.skills_needed, filled=r.filled,
+                    )
+                member_types.append(
+                    TribeMemberType(
+                        user=member_user,
+                        role=MemberRole(row.role),
+                        status=MemberStatus(row.status),
+                        joined_at=row.joined_at,
+                        requested_role=requested_role,
+                    )
+                )
+            else:
+                # Fallback when membership data not loaded
+                member_types.append(
+                    TribeMemberType(
+                        user=member_user,
+                        role=MemberRole.MEMBER,
+                        status=MemberStatus.ACTIVE,
+                        joined_at=None,
+                    )
+                )
 
         return cls(
             id=tribe.id,

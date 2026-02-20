@@ -106,6 +106,10 @@ class Query:
                     "status": row.status,
                 }
 
+        # Attach membership data to user's tribes for from_model()
+        if user.tribes:
+            await tribe_service.attach_membership_data(session, user.tribes)
+
         return UserType.from_model(
             user,
             skills=user.skills,
@@ -192,6 +196,7 @@ class Query:
             owner=proj.owner,
             collaborators=proj.collaborators,
             collab_details=collab_details,
+            milestones=proj.milestones,
         )
 
     @strawberry.field
@@ -285,7 +290,8 @@ class Query:
             stmt = stmt.where(Tribe.status == TribeStatus(status))
 
         result = await session.execute(stmt)
-        tribe_list = result.scalars().all()
+        tribe_list = list(result.scalars().all())
+        await tribe_service.attach_membership_data(session, tribe_list)
         return [TribeType.from_model(t) for t in tribe_list]
 
     @strawberry.field

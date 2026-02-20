@@ -195,6 +195,7 @@ async def get_with_details(session: AsyncSession, project_id: str) -> Project | 
         .options(
             selectinload(Project.owner),
             selectinload(Project.collaborators),
+            selectinload(Project.milestones),
         )
     )
     result = await session.execute(stmt)

@@ -88,6 +88,38 @@ async def update(
     return tribe
 
 
+async def attach_membership_data(
+    session: AsyncSession, tribes: list[Tribe],
+) -> None:
+    """Load association table rows and attach as _membership_data on each tribe.
+
+    This gives from_model() access to the real role, status, joined_at,
+    and requested_role_id instead of hardcoded values.
+    """
+    if not tribes:
+        return
+    tribe_ids = [t.id for t in tribes]
+    result = await session.execute(
+        select(
+            tribe_members.c.tribe_id,
+            tribe_members.c.user_id,
+            tribe_members.c.role,
+            tribe_members.c.status,
+            tribe_members.c.joined_at,
+            tribe_members.c.requested_role_id,
+        ).where(tribe_members.c.tribe_id.in_(tribe_ids))
+    )
+    rows = result.fetchall()
+
+    # Build per-tribe lookup: { tribe_id: { user_id: row } }
+    lookup: dict[str, dict[str, object]] = {}
+    for row in rows:
+        lookup.setdefault(row.tribe_id, {})[row.user_id] = row
+
+    for tribe in tribes:
+        tribe._membership_data = lookup.get(tribe.id, {})  # type: ignore[attr-defined]
+
+
 async def get_with_details(session: AsyncSession, tribe_id: str) -> Tribe | None:
     """Fetch a tribe with owner, members, and open roles."""
     stmt = (
@@ -100,7 +132,10 @@ async def get_with_details(session: AsyncSession, tribe_id: str) -> Tribe | None
         )
     )
     result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    tribe = result.scalar_one_or_none()
+    if tribe is not None:
+        await attach_membership_data(session, [tribe])
+    return tribe
 
 
 async def add_open_role(
@@ -473,5 +508,7 @@ async def search(
     # Preserve the ranked order from the IDs query
     order_map = {tid: idx for idx, tid in enumerate(tribe_ids)}
     tribes.sort(key=lambda t: order_map.get(t.id, 0))
+
+    await attach_membership_data(session, tribes)
 
     return tribes, total
