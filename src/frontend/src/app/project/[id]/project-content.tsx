@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { EditProjectDialog } from '@/components/features/edit-project-dialog';
 import { BuiltWithSection } from '@/components/features/built-with-section';
 import { BuildTimeline } from '@/components/features/build-timeline';
+import { CollaboratorInvite } from '@/components/features/collaborator-invite';
 
 /* ─── Helpers ─── */
 
@@ -183,6 +184,8 @@ function ProjectContent({ project }: { project: Project }) {
   const collaborators = (project.collaborators || []).filter(
     (c) => c.user.id !== owner?.id
   );
+  const confirmedCollaborators = collaborators.filter((c) => c.status !== 'PENDING');
+  const pendingCollaborators = collaborators.filter((c) => c.status === 'PENDING');
   const techStack = project.techStack || [];
   const links = project.links || {};
   const linkEntries = Object.entries(links).filter(([, url]) => url);
@@ -382,22 +385,49 @@ function ProjectContent({ project }: { project: Project }) {
       )}
 
       {/* ─── COLLABORATORS ─── */}
-      {collaborators.length > 0 && (
+      {(isOwner || confirmedCollaborators.length > 0) && (
         <section className="mb-12">
           <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
             Collaborators
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {collaborators.map((collab: Collaborator) => (
-              <PersonCard
-                key={collab.user.id}
-                displayName={collab.user.displayName}
-                username={collab.user.username}
-                role={collab.role}
-                headline={collab.user.headline}
+          {confirmedCollaborators.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {confirmedCollaborators.map((collab: Collaborator) => (
+                <PersonCard
+                  key={collab.user.id}
+                  displayName={collab.user.displayName}
+                  username={collab.user.username}
+                  role={collab.role}
+                  headline={collab.user.headline}
+                />
+              ))}
+            </div>
+          )}
+          {isOwner && pendingCollaborators.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-[13px] font-medium text-ink-tertiary mb-3">Pending</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pendingCollaborators.map((collab: Collaborator) => (
+                  <PersonCard
+                    key={collab.user.id}
+                    displayName={collab.user.displayName}
+                    username={collab.user.username}
+                    role={collab.role}
+                    headline={collab.user.headline}
+                    badge="Pending"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          {isOwner && (
+            <div className="mt-6">
+              <CollaboratorInvite
+                projectId={project.id}
+                existingCollaborators={project.collaborators || []}
               />
-            ))}
-          </div>
+            </div>
+          )}
         </section>
       )}
 
