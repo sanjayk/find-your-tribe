@@ -400,11 +400,6 @@ async def test_create_invite_token_returns_string(async_session, seed_test_data)
 @pytest.mark.asyncio
 async def test_create_invite_token_stored_with_expiry(async_session, seed_test_data):
     """create_invite_token stores a record with 30-day expiry in the database."""
-    from datetime import UTC, datetime, timedelta
-
-    from app.models.collaborator_invite_token import CollaboratorInviteToken
-    from sqlalchemy import select
-
     owner = seed_test_data["users"]["testuser1"]
     project = await project_service.create(
         async_session, owner_id=owner.id, title="Expiry Check"
@@ -484,11 +479,6 @@ async def test_redeem_invite_token_not_found(async_session, seed_test_data):
 @pytest.mark.asyncio
 async def test_redeem_invite_token_expired(async_session, seed_test_data):
     """Redeeming an expired token raises ValueError."""
-    from datetime import UTC, datetime, timedelta
-
-    from app.models.collaborator_invite_token import CollaboratorInviteToken
-    from sqlalchemy import select, update
-
     owner = seed_test_data["users"]["testuser1"]
     redeemer = seed_test_data["users"]["testuser2"]
     project = await project_service.create(
@@ -610,7 +600,6 @@ async def test_get_invite_token_info_expired_flag(async_session, seed_test_data)
     from datetime import UTC, datetime, timedelta
 
     from app.models.collaborator_invite_token import CollaboratorInviteToken
-    from sqlalchemy import update
 
     owner = seed_test_data["users"]["testuser1"]
     project = await project_service.create(
