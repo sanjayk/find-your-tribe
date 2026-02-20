@@ -291,6 +291,14 @@ claude_spawn_bg() {
 
     local agent_timeout="${DEFAULT_AGENT_TIMEOUT:-600}"
     local kill_grace="${AGENT_KILL_GRACE:-10}"
+
+    # IMPORTANT: The subshell must not inherit the caller's stdout pipe.
+    # When called via pid=$(claude_spawn_bg ...), bash creates a pipe and
+    # the ( ... ) & subshell inherits the write end. Even though we redirect
+    # stdout to $output_file inside the subshell, the pipe fd stays open
+    # and $() blocks until the subshell exits (could be 10+ minutes).
+    # Fix: redirect the subshell's stdout/stderr to /dev/null at the ( ) level,
+    # and use explicit file redirects for all output inside.
     ( cd "$agent_cwd" && "$_TIMEOUT_CMD" --kill-after="$kill_grace" "$agent_timeout" \
         "$CLAUDE_BIN" -p \
         --model "$model" \
@@ -300,16 +308,14 @@ claude_spawn_bg() {
         > "$output_file" 2>&1
       local rc=$?
       if [[ $rc -eq 124 || $rc -eq 137 ]]; then
-          # 124 = SIGTERM from timeout, 137 = SIGKILL (128+9)
           touch "$timeout_marker"
           echo '{"status":"timeout","reason":"Agent timed out after '"$agent_timeout"'s"}' >> "$output_file"
       elif [[ $rc -ne 0 ]]; then
-          # CLI error (auth failure, model not found, network error, etc.)
           echo "$rc" > "$error_marker"
           echo '{"status":"error","reason":"Claude CLI exited with code '"$rc"'"}' >> "$output_file"
       fi
       touch "$done_marker"
-    ) &
+    ) >/dev/null 2>&1 &
 
     echo $!
 }
