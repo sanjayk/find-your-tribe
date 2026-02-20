@@ -12,6 +12,8 @@ import type {
 } from '@/lib/graphql/types';
 import { useAuth } from '@/hooks/use-auth';
 import { EditProjectDialog } from '@/components/features/edit-project-dialog';
+import { BuiltWithSection } from '@/components/features/built-with-section';
+import { BuildTimeline } from '@/components/features/build-timeline';
 
 /* ─── Helpers ─── */
 
@@ -345,6 +347,37 @@ function ProjectContent({ project }: { project: Project }) {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* ─── BUILT WITH ─── */}
+      {(isOwner || (project.domains?.length || project.aiTools?.length || project.buildStyle?.length || project.services?.length)) && (
+        <section className="mb-12">
+          <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
+            Built With
+          </div>
+          <BuiltWithSection
+            domains={project.domains || []}
+            aiTools={project.aiTools || []}
+            buildStyle={project.buildStyle || []}
+            services={project.services || []}
+            editable={isOwner}
+            projectId={project.id}
+          />
+        </section>
+      )}
+
+      {/* ─── BUILD TIMELINE ─── */}
+      {(isOwner || (project.milestones && project.milestones.length > 0)) && (
+        <section className="mb-12">
+          <div className="accent-line text-[12px] font-medium uppercase tracking-[0.06em] text-ink-tertiary mb-6">
+            Build Timeline
+          </div>
+          <BuildTimeline
+            milestones={project.milestones || []}
+            editable={isOwner}
+            projectId={project.id}
+          />
         </section>
       )}
 
