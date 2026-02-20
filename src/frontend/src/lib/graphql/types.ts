@@ -138,6 +138,7 @@ export interface TribeMember {
   role: MemberRole;
   status: MemberStatus;
   joinedAt?: string;
+  requestedRole?: OpenRole;
 }
 
 export interface OpenRole {

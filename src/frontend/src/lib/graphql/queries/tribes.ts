@@ -30,6 +30,11 @@ export const GET_TRIBE = gql`
         role
         status
         joinedAt
+        requestedRole {
+          id
+          title
+          skillsNeeded
+        }
       }
       openRoles {
         id

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MockedProvider } from '@apollo/client/testing/react';
@@ -12,6 +12,11 @@ vi.mock('next/navigation', () => ({
 const mockUseAuth = vi.fn();
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => mockUseAuth(),
+}));
+
+vi.mock('@/components/features/edit-tribe-modal', () => ({
+  EditTribeModal: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div data-testid="edit-tribe-modal">Edit Tribe Modal</div> : null,
 }));
 
 const baseTribe = {
@@ -43,6 +48,7 @@ const baseTribe = {
       role: 'OWNER',
       status: 'ACTIVE',
       joinedAt: '2025-06-01T00:00:00Z' as string | null,
+      requestedRole: null as { id: string; title: string; skillsNeeded: string[] } | null,
     },
     {
       user: {
@@ -56,6 +62,7 @@ const baseTribe = {
       role: 'MEMBER',
       status: 'ACTIVE',
       joinedAt: '2025-07-15T00:00:00Z' as string | null,
+      requestedRole: null as { id: string; title: string; skillsNeeded: string[] } | null,
     },
   ],
   openRoles: [
@@ -198,6 +205,7 @@ describe('TribePage — open roles join buttons', () => {
           role: 'MEMBER',
           status: 'PENDING',
           joinedAt: null,
+          requestedRole: null as { id: string; title: string; skillsNeeded: string[] } | null,
         },
       ],
     };
@@ -325,5 +333,293 @@ describe('TribePage — member action bar', () => {
     expect(await screen.findByText('Leave this tribe?')).toBeInTheDocument();
     expect(screen.getByText(/need to request to join again/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+});
+
+/* ─── Owner helpers ─── */
+
+const ownerAuth = {
+  user: { id: 'u1', username: 'mayachen', displayName: 'Maya Chen', email: 'm@test.com', onboardingCompleted: true },
+  accessToken: 'token',
+  isAuthenticated: true,
+  isLoading: false,
+};
+
+const memberAuth = {
+  user: { id: 'u2', username: 'jamesokafor', displayName: 'James Okafor', email: 'j@test.com', onboardingCompleted: true },
+  accessToken: 'token',
+  isAuthenticated: true,
+  isLoading: false,
+};
+
+const pendingMember = {
+  user: {
+    id: 'u4',
+    username: 'sarahkim',
+    displayName: 'Sarah Kim',
+    avatarUrl: null as string | null,
+    headline: 'Frontend dev' as string | null,
+    primaryRole: 'ENGINEER' as string | null,
+  },
+  role: 'MEMBER' as const,
+  status: 'PENDING' as const,
+  joinedAt: null as string | null,
+  requestedRole: {
+    id: 'r1',
+    title: 'Backend Engineer',
+    skillsNeeded: ['Python', 'PostgreSQL'],
+  },
+};
+
+describe('TribePage — owner controls: hero', () => {
+  it('shows Edit button in hero for owner', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    // Hero Edit is the first Edit button (before open roles section)
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' });
+    expect(editButtons.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows "You created this" instead of owner name for owner', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.getByText(/You created this/)).toBeInTheDocument();
+  });
+
+  it('does not show Edit button for non-owner', async () => {
+    mockUseAuth.mockReturnValue(memberAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+
+  it('opens Edit Tribe Modal on Edit click', async () => {
+    const user = userEvent.setup();
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+
+    // Click the first Edit button (hero)
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' });
+    await user.click(editButtons[0]);
+    expect(screen.getByTestId('edit-tribe-modal')).toBeInTheDocument();
+  });
+});
+
+describe('TribePage — owner controls: members', () => {
+  it('shows Remove button per non-owner member for owner', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+
+    // Check that non-owner member card has a Remove button
+    const memberCards = screen.getAllByTestId('member-card');
+    const nonOwnerCard = memberCards.find((card) =>
+      within(card).queryByText('James Okafor'),
+    );
+    expect(nonOwnerCard).toBeTruthy();
+    expect(within(nonOwnerCard!).getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+  });
+
+  it('does not show Remove on owner own row', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+
+    // Find the owner member card — it has "(you)" label
+    expect(screen.getByText('(you)')).toBeInTheDocument();
+
+    // The owner card should not have a Remove button
+    const ownerCard = screen.getByText('(you)').closest('[data-testid="member-card"]') as HTMLElement;
+    expect(ownerCard).toBeTruthy();
+    expect(within(ownerCard).queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+  });
+
+  it('shows confirmation dialog on Remove member click', async () => {
+    const user = userEvent.setup();
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+
+    // Click Remove on the non-owner member card
+    const memberCards = screen.getAllByTestId('member-card');
+    const nonOwnerCard = memberCards.find((card) =>
+      within(card).queryByText('James Okafor'),
+    )!;
+    await user.click(within(nonOwnerCard).getByRole('button', { name: 'Remove' }));
+    expect(await screen.findByText('Remove this member?')).toBeInTheDocument();
+  });
+
+  it('does not show Remove buttons for non-owner viewer', async () => {
+    mockUseAuth.mockReturnValue(memberAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    // No Remove buttons in member cards
+    const memberCards = screen.getAllByTestId('member-card');
+    memberCards.forEach((card) => {
+      expect(within(card).queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe('TribePage — owner controls: open roles', () => {
+  it('shows Edit and Remove per open role for owner', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+
+    // 2 open roles = 2 Edit buttons (role edit, not the hero edit) and 2 Remove buttons
+    // Hero has 1 Edit button, each open role has 1 Edit button = 3 total
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' });
+    // 1 hero Edit + 2 role Edits
+    expect(editButtons.length).toBeGreaterThanOrEqual(3);
+
+    // 1 Remove for member + 2 Remove for roles = 3 total
+    const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
+    expect(removeButtons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows + Add a role button for owner', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.getByRole('button', { name: '+ Add a role' })).toBeInTheDocument();
+  });
+
+  it('does not show role management buttons for non-owner', async () => {
+    mockUseAuth.mockReturnValue(memberAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.queryByRole('button', { name: '+ Add a role' })).not.toBeInTheDocument();
+  });
+});
+
+describe('TribePage — owner controls: pending requests', () => {
+  const tribeWithPending = {
+    members: [
+      ...baseTribe.members,
+      pendingMember,
+    ],
+  };
+
+  it('shows pending requests section for owner when pending members exist', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks(tribeWithPending)}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.getByText('Pending Requests')).toBeInTheDocument();
+    expect(screen.getByText('1 pending')).toBeInTheDocument();
+  });
+
+  it('shows pending member name and requested role', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks(tribeWithPending)}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.getByText('Sarah Kim')).toBeInTheDocument();
+    // The requested role text appears in the pending request card as "Requested: Backend Engineer"
+    expect(screen.getByText(/Requested: Backend Engineer/)).toBeInTheDocument();
+  });
+
+  it('shows Approve and Deny buttons per pending request', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks(tribeWithPending)}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+  });
+
+  it('hides pending requests section when no pending members', async () => {
+    mockUseAuth.mockReturnValue(ownerAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks()}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.queryByText('Pending Requests')).not.toBeInTheDocument();
+  });
+
+  it('hides pending requests for non-owner', async () => {
+    mockUseAuth.mockReturnValue(memberAuth);
+
+    render(
+      <MockedProvider mocks={makeMocks(tribeWithPending)}>
+        <TribePage />
+      </MockedProvider>,
+    );
+    await screen.findByText('Buildspace Alumni');
+    expect(screen.queryByText('Pending Requests')).not.toBeInTheDocument();
   });
 });
