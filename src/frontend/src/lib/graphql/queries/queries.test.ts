@@ -4,6 +4,12 @@ import { type DocumentNode, print } from 'graphql';
 import { GET_BUILDER, GET_BUILDERS } from './builders';
 import { GET_BURN_SUMMARY, GET_BURN_RECEIPT } from './burn';
 import { GET_FEED } from './feed';
+import {
+  TAG_SUGGESTIONS,
+  SEARCH_USERS,
+  INVITE_TOKEN_INFO,
+  MY_PENDING_INVITATIONS,
+} from './invitations';
 import { GET_PROJECT, GET_PROJECTS } from './projects';
 import { GET_TRIBE, GET_TRIBES } from './tribes';
 
@@ -148,6 +154,26 @@ describe('GraphQL query documents', () => {
       expect(printed).toContain('owner');
       expect(printed).toContain('collaborators');
     });
+
+    it('requests F3 project fields', () => {
+      const printed = print(GET_PROJECT);
+      expect(printed).toContain('domains');
+      expect(printed).toContain('aiTools');
+      expect(printed).toContain('buildStyle');
+      expect(printed).toContain('services');
+    });
+
+    it('requests milestones with all fields', () => {
+      const printed = print(GET_PROJECT);
+      expect(printed).toContain('milestones');
+      expect(printed).toContain('milestoneType');
+    });
+
+    it('requests collaborator invitation fields', () => {
+      const printed = print(GET_PROJECT);
+      expect(printed).toContain('invitedAt');
+      expect(printed).toContain('confirmedAt');
+    });
   });
 
   describe('GET_PROJECTS', () => {
@@ -215,6 +241,81 @@ describe('GraphQL query documents', () => {
     });
   });
 
+  describe('TAG_SUGGESTIONS', () => {
+    it('is a valid GraphQL document', () => {
+      expect(() => print(TAG_SUGGESTIONS)).not.toThrow();
+    });
+
+    it('has correct operation name', () => {
+      expect(getOperationName(TAG_SUGGESTIONS)).toBe('TagSuggestions');
+    });
+
+    it('queries tagSuggestions with field param', () => {
+      const printed = print(TAG_SUGGESTIONS);
+      expect(printed).toContain('tagSuggestions(');
+      expect(printed).toContain('field:');
+    });
+  });
+
+  describe('SEARCH_USERS', () => {
+    it('is a valid GraphQL document', () => {
+      expect(() => print(SEARCH_USERS)).not.toThrow();
+    });
+
+    it('has correct operation name', () => {
+      expect(getOperationName(SEARCH_USERS)).toBe('SearchUsers');
+    });
+
+    it('queries searchUsers and returns user fields', () => {
+      const printed = print(SEARCH_USERS);
+      expect(printed).toContain('searchUsers(');
+      expect(printed).toContain('username');
+      expect(printed).toContain('displayName');
+      expect(printed).toContain('avatarUrl');
+      expect(printed).toContain('primaryRole');
+    });
+  });
+
+  describe('INVITE_TOKEN_INFO', () => {
+    it('is a valid GraphQL document', () => {
+      expect(() => print(INVITE_TOKEN_INFO)).not.toThrow();
+    });
+
+    it('has correct operation name', () => {
+      expect(getOperationName(INVITE_TOKEN_INFO)).toBe('InviteTokenInfo');
+    });
+
+    it('queries inviteTokenInfo with token param and returns key fields', () => {
+      const printed = print(INVITE_TOKEN_INFO);
+      expect(printed).toContain('inviteTokenInfo(');
+      expect(printed).toContain('projectTitle');
+      expect(printed).toContain('projectId');
+      expect(printed).toContain('inviterName');
+      expect(printed).toContain('role');
+      expect(printed).toContain('expired');
+    });
+  });
+
+  describe('MY_PENDING_INVITATIONS', () => {
+    it('is a valid GraphQL document', () => {
+      expect(() => print(MY_PENDING_INVITATIONS)).not.toThrow();
+    });
+
+    it('has correct operation name', () => {
+      expect(getOperationName(MY_PENDING_INVITATIONS)).toBe('MyPendingInvitations');
+    });
+
+    it('queries myPendingInvitations and returns key fields', () => {
+      const printed = print(MY_PENDING_INVITATIONS);
+      expect(printed).toContain('myPendingInvitations');
+      expect(printed).toContain('projectId');
+      expect(printed).toContain('projectTitle');
+      expect(printed).toContain('role');
+      expect(printed).toContain('inviter');
+      expect(printed).toContain('invitedAt');
+    });
+  });
+
   describe('all queries export valid DocumentNodes', () => {
     const allQueries = [
       { name: 'GET_BUILDER', doc: GET_BUILDER },
@@ -226,6 +327,10 @@ describe('GraphQL query documents', () => {
       { name: 'GET_PROJECTS', doc: GET_PROJECTS },
       { name: 'GET_TRIBE', doc: GET_TRIBE },
       { name: 'GET_TRIBES', doc: GET_TRIBES },
+      { name: 'TAG_SUGGESTIONS', doc: TAG_SUGGESTIONS },
+      { name: 'SEARCH_USERS', doc: SEARCH_USERS },
+      { name: 'INVITE_TOKEN_INFO', doc: INVITE_TOKEN_INFO },
+      { name: 'MY_PENDING_INVITATIONS', doc: MY_PENDING_INVITATIONS },
     ];
 
     it.each(allQueries)('$name has a definitions array', ({ doc }) => {
