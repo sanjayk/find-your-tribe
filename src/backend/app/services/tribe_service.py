@@ -150,13 +150,21 @@ async def request_to_join(
     session: AsyncSession,
     tribe_id: str,
     user_id: str,
+    role_id: str,
 ) -> dict:
-    """Request to join a tribe. Creates a pending membership."""
+    """Request to join a tribe for a specific open role. Creates a pending membership."""
     tribe = await session.get(Tribe, tribe_id)
     if not tribe:
         raise ValueError("Tribe not found")
     if tribe.status != TribeStatus.OPEN:
         raise ValueError("Tribe is not accepting new members")
+
+    # Validate the requested role exists, belongs to this tribe, and is not filled
+    role = await session.get(TribeOpenRole, role_id)
+    if not role or role.tribe_id != tribe_id:
+        raise ValueError("Role not found on this tribe")
+    if role.filled:
+        raise ValueError("Role is already filled")
 
     # Check if already a member
     existing = await session.execute(
@@ -190,6 +198,7 @@ async def request_to_join(
             role=MemberRole.MEMBER,
             status=MemberStatus.PENDING,
             requested_at=now,
+            requested_role_id=role_id,
         )
     )
     await session.commit()
@@ -232,6 +241,24 @@ async def approve_member(
         )
         .values(status=MemberStatus.ACTIVE, joined_at=now)
     )
+
+    # Auto-fill the open role if the member requested one
+    member_row = await session.execute(
+        select(tribe_members.c.requested_role_id).where(
+            and_(
+                tribe_members.c.tribe_id == tribe_id,
+                tribe_members.c.user_id == member_id,
+            )
+        )
+    )
+    requested_role_id = member_row.scalar_one_or_none()
+    if requested_role_id:
+        role = await session.get(TribeOpenRole, requested_role_id)
+        if role:
+            role.filled = True
+            role.filled_by = member_id
+            await session.flush()
+
     await session.commit()
     return {"tribe_id": tribe_id, "user_id": member_id, "status": MemberStatus.ACTIVE}
 

@@ -87,11 +87,14 @@ class TribeMutations:
         self,
         info: Info[Context, None],
         tribe_id: strawberry.ID,
+        role_id: strawberry.ID,
     ) -> bool:
-        """Request to join a tribe."""
+        """Request to join a tribe for a specific open role."""
         user_id = require_auth(info)
         session = info.context.session
-        await tribe_service.request_to_join(session, tribe_id=str(tribe_id), user_id=user_id)
+        await tribe_service.request_to_join(
+            session, tribe_id=str(tribe_id), user_id=user_id, role_id=str(role_id),
+        )
         return True
 
     @strawberry.mutation

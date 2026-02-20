@@ -89,6 +89,7 @@ class TribeMemberType:
     role: MemberRole
     status: MemberStatus
     joined_at: datetime | None
+    requested_role: "OpenRoleType | None" = None
 
 
 @strawberry.type
