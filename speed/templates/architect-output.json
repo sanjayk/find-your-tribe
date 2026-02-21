@@ -89,7 +89,7 @@
             "required": ["description", "traversal", "answers"],
             "properties": {
               "description": { "type": "string", "description": "Human-readable query description" },
-              "traversal": { "type": "string", "description": "Join path (e.g. users -> tribe_members -> tribes)" },
+              "traversal": { "type": "string", "description": "Join path (e.g. users -> team_members -> teams)" },
               "answers": { "type": "string", "description": "What question this query answers" }
             }
           }

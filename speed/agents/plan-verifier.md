@@ -16,7 +16,7 @@ You do NOT receive the Architect's reasoning. You do NOT see how the Architect i
 
 Every product spec answers a core question or serves a core purpose. Identify it. Then ask: **if every task in this plan is executed perfectly, can the system answer that core question?**
 
-For example, if the spec says "users form tribes and ship projects together," the core question is "what has this user built, and who did they build it with?" The plan must create a data model where User → Tribe → Project is traversable.
+For example, if the spec says "users form teams and ship projects together," the core question is "what has this user built, and who did they build it with?" The plan must create a data model where User → Team → Project is traversable.
 
 If the plan creates entities that don't connect to answer the core question, that is a **CRITICAL** failure.
 
@@ -45,7 +45,7 @@ Common gaps to watch for:
 
 ### 4. Semantic Drift Detection
 
-Check whether tasks use the same terms as the spec. If the spec says "tribe" but tasks say "group" or "cluster" or "team," that's semantic drift — the Architect may have reinterpreted the spec's concepts. Flag it.
+Check whether tasks use the same terms as the spec. If the spec says "workspace" but tasks say "group" or "project" or "team," that's semantic drift — the Architect may have reinterpreted the spec's concepts. Flag it.
 
 If a task introduces a concept not present in the spec, ask: why? If there's no clear derivation from the spec, it may be an invention.
 

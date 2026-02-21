@@ -8,26 +8,26 @@
 #   .speed/
 #     active_feature        ← name of the last-planned feature
 #     features/
-#       f3-projects/
+#       auth/
 #         tasks/            ← task DAG files
 #         logs/             ← agent output, gate logs, debugger, etc.
 #         contract.json     ← schema contract from architect
 #         spec_path         ← path to the source spec file
 #         state.json        ← runtime state (idle/running)
 #         failure_history.jsonl
-#       f4-tribes/
+#       billing/
 #         ...
 #     worktrees/
-#       f3-projects/        ← git worktrees for f3 tasks
-#       f4-tribes/          ← git worktrees for f4 tasks
+#       auth/               ← git worktrees for auth tasks
+#       billing/            ← git worktrees for billing tasks
 #
 # Branch naming: speed/{feature}/task-{id}-{slug}
 #
 # Requires config.sh and log.sh to be sourced first
 
 # ── Derive feature name from a spec file path ────────────────────
-# specs/tech/f3-projects.md → f3-projects
-# specs/product/f4-tribes.md → f4-tribes
+# specs/tech/auth.md → auth
+# specs/product/billing.md → billing
 # /absolute/path/to/my-feature.md → my-feature
 
 feature_name_from_spec() {
@@ -152,9 +152,9 @@ _require_feature() {
         while IFS= read -r f; do
             local marker=""
             if [[ "$f" == "$active" ]]; then
-                marker=" ${GREEN}(active)${RESET}"
+                marker=" ${COLOR_SUCCESS}(active)${RESET}"
             fi
-            echo -e "  - ${CYAN}${f}${RESET}${marker}"
+            echo -e "  - ${COLOR_STEP}${f}${RESET}${marker}"
         done <<< "$features"
     else
         echo "No features found. Run: ./speed/speed plan <spec-file>"

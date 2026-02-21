@@ -135,6 +135,19 @@ def emit(data: dict) -> None:
                 var_name = f"TOML_SPECS_{key.upper()}"
                 print(f"{var_name}='{shell_escape(str(val))}'")
 
+    # [ui] section
+    ui = data.get("ui", {})
+    if isinstance(ui, dict):
+        for key in ("theme", "ascii", "verbosity"):
+            val = ui.get(key)
+            if val is not None:
+                var_name = f"TOML_UI_{key.upper()}"
+                # Normalize verbosity names to numeric values
+                if key == "verbosity":
+                    verbosity_map = {"quiet": "0", "normal": "1", "verbose": "2", "debug": "3"}
+                    val = verbosity_map.get(str(val).lower(), str(val))
+                print(f"{var_name}='{shell_escape(str(val))}'")
+
 
 def main() -> None:
     if len(sys.argv) != 2:

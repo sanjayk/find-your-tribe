@@ -313,7 +313,7 @@ task_print_summary() {
     running=$(task_count_by_status "running")
     failed=$(task_count_by_status "failed")
 
-    echo -e "${BOLD}Tasks:${RESET} ${total} total | ${GREEN}${done} done${RESET} | ${YELLOW}${running} running${RESET} | ${DIM}${pending} pending${RESET} | ${RED}${failed} failed${RESET}"
+    echo -e "${BOLD}Tasks:${RESET} ${total} total | ${COLOR_SUCCESS}${done} done${RESET} | ${COLOR_WARN}${running} running${RESET} | ${COLOR_DIM}${pending} pending${RESET} | ${COLOR_ERROR}${failed} failed${RESET}"
 }
 
 # Print task graph
@@ -335,24 +335,24 @@ task_print_graph() {
         retry_count=$(jq -r '.retry_count // 0' "$f")
 
         case "$status" in
-            pending) status_icon="$SYM_PENDING"; status_color="$DIM" ;;
-            running) status_icon="$SYM_RUNNING"; status_color="$YELLOW" ;;
-            done)    status_icon="$SYM_CHECK";   status_color="$GREEN" ;;
-            failed)  status_icon="$SYM_CROSS";   status_color="$RED" ;;
-            *)       status_icon="?";            status_color="$DIM" ;;
+            pending) status_icon="$SYM_PENDING"; status_color="$COLOR_DIM" ;;
+            running) status_icon="$SYM_RUNNING"; status_color="$COLOR_WARN" ;;
+            done)    status_icon="$SYM_CHECK";   status_color="$COLOR_SUCCESS" ;;
+            failed)  status_icon="$SYM_CROSS";   status_color="$COLOR_ERROR" ;;
+            *)       status_icon="?";            status_color="$COLOR_DIM" ;;
         esac
 
         local dep_str=""
         if [[ -n "$deps" ]]; then
-            dep_str=" ${DIM}(depends on: ${deps})${RESET}"
+            dep_str=" ${COLOR_DIM}(depends on: ${deps})${RESET}"
         fi
 
         local history_str=""
         if [[ "$timeout_count" -gt 0 ]]; then
-            history_str+=" ${YELLOW}[timed out x${timeout_count}]${RESET}"
+            history_str+=" ${COLOR_WARN}[timed out x${timeout_count}]${RESET}"
         fi
         if [[ "$retry_count" -gt 0 ]]; then
-            history_str+=" ${MAGENTA}[retry x${retry_count}]${RESET}"
+            history_str+=" ${COLOR_ACCENT}[retry x${retry_count}]${RESET}"
         fi
 
         printf "  %b%s%b  %-4s %s%s%s\n" "$status_color" "$status_icon" "$RESET" "$id" "$title" "$dep_str" "$history_str"

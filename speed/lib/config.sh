@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# config.sh — Shared constants, paths, colors, defaults
+# config.sh — Shared constants, paths, defaults, exit codes
 
 set -euo pipefail
 
@@ -78,27 +78,19 @@ VISION_FILE="${TOML_SPECS_VISION_FILE:-specs/product/overview.md}"
 # ── Log Retention ───────────────────────────────────────────────
 LOG_RETAIN_PER_CATEGORY=3      # keep last N logs per category (gate, supervisor, etc.)
 
-# ── Colors ───────────────────────────────────────────────────────
-if [[ -t 1 ]]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
-    BLUE='\033[0;34m'
-    MAGENTA='\033[0;35m'
-    CYAN='\033[0;36m'
-    WHITE='\033[1;37m'
-    DIM='\033[0;90m'
-    BOLD='\033[1m'
-    RESET='\033[0m'
-else
-    RED='' GREEN='' YELLOW='' BLUE='' MAGENTA='' CYAN='' WHITE='' DIM='' BOLD='' RESET=''
-fi
+# ── Verbosity ──────────────────────────────────────────────────
+# Resolved later by flag parsing (--quiet/--verbose/--debug).
+# Set default here; flags override in speed/speed main().
+VERBOSITY="${SPEED_VERBOSITY:-${TOML_UI_VERBOSITY:-1}}"
 
-# ── Symbols ──────────────────────────────────────────────────────
-SYM_CHECK="✓"
-SYM_CROSS="✗"
-SYM_ARROW="→"
-SYM_DOT="●"
-SYM_PENDING="○"
-SYM_RUNNING="◉"
-SYM_WARN="⚠"
+# ── Exit Codes ─────────────────────────────────────────────────
+EXIT_OK=0
+EXIT_TASK_FAILURE=1       # one or more tasks failed
+EXIT_GATE_FAILURE=2       # quality gates failed
+EXIT_CONFIG_ERROR=3       # bad config, missing binary, missing file
+EXIT_MERGE_CONFLICT=4     # integration merge conflict
+EXIT_HALTED=5             # >30% tasks failed, supervisor halted
+EXIT_USER_ABORT=130       # Ctrl+C (convention: 128 + SIGINT)
+
+# ── Colors & Symbols (delegated to colors.sh) ─────────────────
+source "${LIB_DIR}/colors.sh"

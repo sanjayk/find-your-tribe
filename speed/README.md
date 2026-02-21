@@ -96,11 +96,18 @@ max_turns = 50                 # max turns for developer agents
 
 [specs]
 vision_file = "specs/product/overview.md"
+
+[ui]
+# theme = "default"        # "default" or "colorblind"
+# ascii = false             # true = ASCII-only symbols (no Unicode)
+# verbosity = "normal"      # "quiet", "normal", "verbose", "debug"
 ```
 
 ### Configuration precedence
 
-Environment variable > `speed.toml` > built-in default
+Environment variable > CLI flag > `speed.toml` > built-in default
+
+For verbosity: `--quiet`/`--verbose`/`--debug` flag > `SPEED_VERBOSITY` env > `ui.verbosity` TOML > `1` (normal)
 
 | Setting | Env var | TOML key | Default |
 |---------|---------|----------|---------|
@@ -110,6 +117,9 @@ Environment variable > `speed.toml` > built-in default
 | Timeout | `SPEED_TIMEOUT` | `agent.timeout` | `600` |
 | Max turns | `SPEED_MAX_TURNS` | `agent.max_turns` | `50` |
 | Vision file | — | `specs.vision_file` | `specs/product/overview.md` |
+| Theme | `SPEED_THEME` | `ui.theme` | `default` |
+| ASCII symbols | `SPEED_ASCII` | `ui.ascii` | `false` |
+| Verbosity | `SPEED_VERBOSITY` | `ui.verbosity` | `1` (normal) |
 
 ## Agents
 
@@ -192,7 +202,40 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 | `--task-id ID` | — | Target a specific task (retry, review) |
 | `--escalate` | — | Upgrade model on retry |
 | `--specs-dir DIR` | — | Directory with related specs for cross-referencing |
+| `--quiet` | — | Errors and final result only |
+| `--verbose` | — | Show extra detail (gate output, agent commands) |
+| `--debug` | — | Show internal state, timing, PID tracking |
+| `--json` | — | Output structured JSON to stdout (logs to stderr) |
 | `SKIP_GUARDIAN=true` | — | Skip Product Guardian gates |
+| `NO_COLOR=1` | — | Disable all ANSI color output ([no-color.org](https://no-color.org/)) |
+
+### Exit codes
+
+| Code | Constant | Meaning |
+|------|----------|---------|
+| 0 | `EXIT_OK` | Success |
+| 1 | `EXIT_TASK_FAILURE` | One or more tasks failed |
+| 2 | `EXIT_GATE_FAILURE` | Quality gates failed |
+| 3 | `EXIT_CONFIG_ERROR` | Bad config, missing binary, missing file |
+| 4 | `EXIT_MERGE_CONFLICT` | Integration merge conflict |
+| 5 | `EXIT_HALTED` | >30% tasks failed, supervisor halted |
+| 130 | `EXIT_USER_ABORT` | Ctrl+C (128 + SIGINT) |
+
+### Themes and accessibility
+
+**Colorblind theme**: Uses blue for success and orange for warnings instead of green/yellow.
+
+```bash
+SPEED_THEME=colorblind ./speed/speed status
+```
+
+**ASCII mode**: Replaces Unicode symbols (✓, ✗, →) with ASCII equivalents ([ok], [FAIL], ->).
+
+```bash
+SPEED_ASCII=true ./speed/speed status
+```
+
+Both can be configured permanently in `speed.toml` under `[ui]`.
 
 ## Project structure
 
@@ -214,8 +257,9 @@ speed/
     claude-code.sh      # Claude Code CLI provider (default)
     codex-cli.sh        # OpenAI Codex CLI provider
   lib/                  # Shell libraries
-    config.sh           # Paths, defaults, colors, TOML config
-    log.sh              # Logging with timestamps
+    colors.sh           # Color/theme system, NO_COLOR, semantic layer, ASCII fallback
+    config.sh           # Paths, defaults, exit codes, TOML config
+    log.sh              # Logging with verbosity levels
     provider.sh         # Provider abstraction (interface + loader)
     toml.py             # TOML parser (Python helper)
     tasks.sh            # Task CRUD, dependency resolution, topological sort

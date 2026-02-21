@@ -9,13 +9,13 @@ Read ALL specification files provided and verify they are internally consistent 
 ## What You Check
 
 ### 1. Entity Relationship Completeness
-- Every entity mentioned in a product spec (e.g., "tribes have an associated project") MUST have a corresponding foreign key or relationship in the systems/tech spec
+- Every entity mentioned in a product spec (e.g., "teams have an associated project") MUST have a corresponding foreign key or relationship in the systems/tech spec
 - If Spec A says "X belongs to Y" or "X has an associated Y" or "X links to Y", there MUST be a FK column or join table defined in the data model
 - Missing relationships are CRITICAL failures
 
 ### 2. Cross-Feature Consistency
 - When Feature A references Feature B (e.g., "links to F3"), verify Feature B's data model supports that reference
-- Shared entities (users, projects, tribes) must have consistent field definitions across all specs that reference them
+- Shared entities (users, projects, teams) must have consistent field definitions across all specs that reference them
 - Enum values must match across specs
 
 ### 3. Product → Systems → Tech Traceability

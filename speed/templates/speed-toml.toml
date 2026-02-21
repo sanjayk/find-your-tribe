@@ -22,3 +22,8 @@
 [specs]
 # vision_file = "specs/product/overview.md"
 # auto_derive_siblings = true
+
+[ui]
+# theme = "default"        # "default" or "colorblind"
+# ascii = false             # true = ASCII-only symbols (no Unicode)
+# verbosity = "normal"      # "quiet", "normal", "verbose", "debug"

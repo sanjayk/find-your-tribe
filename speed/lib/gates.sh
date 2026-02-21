@@ -47,9 +47,9 @@ gates_run() {
 
     # Gate 1: Syntax check — look for common syntax errors
     if gate_syntax_check "$task_id" "$worktree_path"; then
-        results+=("${GREEN}${SYM_CHECK} Syntax check${RESET}")
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Syntax check${RESET}")
     else
-        results+=("${RED}${SYM_CROSS} Syntax check${RESET}")
+        results+=("${COLOR_ERROR}${SYM_CROSS} Syntax check${RESET}")
         quality_passed=false
     fi
 
@@ -69,9 +69,9 @@ gates_run() {
             while IFS= read -r cmd; do
                 [[ -z "$cmd" ]] && continue
                 if gate_run_command "${gate_label}" "$cmd" "$worktree_path"; then
-                    results+=("${GREEN}${SYM_CHECK} ${gate_label}: ${DIM}${cmd}${RESET}")
+                    results+=("${COLOR_SUCCESS}${SYM_CHECK} ${gate_label}: ${COLOR_DIM}${cmd}${RESET}")
                 else
-                    results+=("${RED}${SYM_CROSS} ${gate_label}: ${DIM}${cmd}${RESET}")
+                    results+=("${COLOR_ERROR}${SYM_CROSS} ${gate_label}: ${COLOR_DIM}${cmd}${RESET}")
                     all_ok=false
                 fi
             done <<< "$cmds"
@@ -79,7 +79,7 @@ gates_run() {
                 quality_passed=false
             fi
         else
-            results+=("${DIM}○ ${gate_label} (not configured for ${subsystem})${RESET}")
+            results+=("${COLOR_DIM}${SYM_PENDING} ${gate_label} (not configured for ${subsystem})${RESET}")
         fi
     done
 
@@ -178,7 +178,7 @@ gate_run_command() {
     timestamp=$(date +%s)
     local log_file="${LOGS_DIR}/gate-${name}-${timestamp}.log"
 
-    log_step "Running ${name}: ${DIM}${cmd}${RESET}"
+    log_step "Running ${name}: ${COLOR_DIM}${cmd}${RESET}"
 
     mkdir -p "$LOGS_DIR"
 
@@ -204,7 +204,7 @@ gate_run_command() {
     else
         log_error "${name} failed. Last 20 lines:"
         tail -20 "$log_file" | while IFS= read -r line; do
-            echo -e "    ${DIM}${line}${RESET}" >&2
+            echo -e "    ${COLOR_DIM}${line}${RESET}" >&2
         done
         _prune_logs "gate-${name}-" ".log"
         return 1

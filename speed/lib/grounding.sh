@@ -18,17 +18,17 @@ grounding_run() {
 
     # Check 1: Diff is non-empty
     if grounding_check_diff_nonempty "$task_id"; then
-        results+=("${GREEN}${SYM_CHECK} Non-empty diff${RESET}")
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Non-empty diff${RESET}")
     else
-        results+=("${RED}${SYM_CROSS} Empty diff — agent produced no code changes${RESET}")
+        results+=("${COLOR_ERROR}${SYM_CROSS} Empty diff — agent produced no code changes${RESET}")
         all_passed=false
     fi
 
     # Check 2: Declared files exist
     if grounding_check_declared_files "$task_id"; then
-        results+=("${GREEN}${SYM_CHECK} Declared files exist${RESET}")
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Declared files exist${RESET}")
     else
-        results+=("${RED}${SYM_CROSS} Missing declared files${RESET}")
+        results+=("${COLOR_ERROR}${SYM_CROSS} Missing declared files${RESET}")
         all_passed=false
     fi
 
@@ -37,28 +37,28 @@ grounding_run() {
     scope_result=$(grounding_check_scope "$task_id")
     local scope_exit=$?
     if [[ $scope_exit -eq 0 ]]; then
-        results+=("${GREEN}${SYM_CHECK} Scope check${RESET}")
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Scope check${RESET}")
     elif [[ $scope_exit -eq 2 ]]; then
-        results+=("${YELLOW}${SYM_WARN} Scope: undeclared files modified: ${scope_result}${RESET}")
+        results+=("${COLOR_WARN}${SYM_WARN} Scope: undeclared files modified: ${scope_result}${RESET}")
         # Warning, not failure — log it but don't block
     else
-        results+=("${RED}${SYM_CROSS} Scope check failed${RESET}")
+        results+=("${COLOR_ERROR}${SYM_CROSS} Scope check failed${RESET}")
         all_passed=false
     fi
 
     # Check 4: Python import verification
     if grounding_check_python_imports "$task_id" "$worktree_path"; then
-        results+=("${GREEN}${SYM_CHECK} Python imports resolve${RESET}")
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Python imports resolve${RESET}")
     else
-        results+=("${YELLOW}${SYM_WARN} Unresolved Python imports detected${RESET}")
+        results+=("${COLOR_WARN}${SYM_WARN} Unresolved Python imports detected${RESET}")
         # Warning — imports might resolve at runtime with installed packages
     fi
 
     # Check 5: Check for blocked status in agent output
     if grounding_check_not_blocked "$task_id"; then
-        results+=("${GREEN}${SYM_CHECK} Agent completed (not blocked)${RESET}")
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Agent completed (not blocked)${RESET}")
     else
-        results+=("${RED}${SYM_CROSS} Agent reported blocked status${RESET}")
+        results+=("${COLOR_ERROR}${SYM_CROSS} Agent reported blocked status${RESET}")
         all_passed=false
     fi
 
@@ -329,9 +329,9 @@ contract_check() {
         detail=$(echo "$results_json" | jq -r ".results[$i].detail")
 
         if [[ "$passed" == "true" ]]; then
-            echo -e "    ${GREEN}${SYM_CHECK} ${check_name}${RESET} ${DIM}${detail}${RESET}"
+            echo -e "    ${COLOR_SUCCESS}${SYM_CHECK} ${check_name}${RESET} ${COLOR_DIM}${detail}${RESET}"
         else
-            echo -e "    ${RED}${SYM_CROSS} ${check_name}${RESET} — ${detail}"
+            echo -e "    ${COLOR_ERROR}${SYM_CROSS} ${check_name}${RESET} — ${detail}"
         fi
         ((i++))
     done
@@ -341,8 +341,8 @@ contract_check() {
     model_tables=$(echo "$results_json" | jq -r '.schema_summary.model_tables | join(", ")')
     migration_tables=$(echo "$results_json" | jq -r '.schema_summary.migration_tables | join(", ")')
     echo ""
-    echo -e "  ${DIM}Models: ${model_tables:-none}${RESET}"
-    echo -e "  ${DIM}Migrations: ${migration_tables:-none}${RESET}"
+    echo -e "  ${COLOR_DIM}Models: ${model_tables:-none}${RESET}"
+    echo -e "  ${COLOR_DIM}Migrations: ${migration_tables:-none}${RESET}"
     echo ""
 
     if [[ "$all_passed" == "true" ]]; then
@@ -377,14 +377,14 @@ regression_run() {
             while IFS= read -r cmd; do
                 [[ -z "$cmd" ]] && continue
                 if gate_run_command "Regression ${gate_label}" "$cmd"; then
-                    results+=("${GREEN}${SYM_CHECK} ${gate_label}: ${DIM}${cmd}${RESET}")
+                    results+=("${COLOR_SUCCESS}${SYM_CHECK} ${gate_label}: ${COLOR_DIM}${cmd}${RESET}")
                 else
-                    results+=("${RED}${SYM_CROSS} ${gate_label} FAILED: ${DIM}${cmd}${RESET}")
+                    results+=("${COLOR_ERROR}${SYM_CROSS} ${gate_label} FAILED: ${COLOR_DIM}${cmd}${RESET}")
                     all_passed=false
                 fi
             done <<< "$cmds"
         else
-            results+=("${DIM}○ ${gate_label} (not configured)${RESET}")
+            results+=("${COLOR_DIM}○ ${gate_label} (not configured)${RESET}")
         fi
     done
 
@@ -513,14 +513,14 @@ spec_grounding_check() {
             msg=$(echo "$warnings_json" | jq -r ".[$i].message")
 
             case "$severity" in
-                error) echo -e "    ${RED}${SYM_CROSS} ${msg}${RESET}" ;;
-                warn)  echo -e "    ${YELLOW}${SYM_WARN} ${msg}${RESET}" ;;
-                info)  echo -e "    ${DIM}${SYM_CHECK} ${msg}${RESET}" ;;
+                error) echo -e "    ${COLOR_ERROR}${SYM_CROSS} ${msg}${RESET}" ;;
+                warn)  echo -e "    ${COLOR_WARN}${SYM_WARN} ${msg}${RESET}" ;;
+                info)  echo -e "    ${COLOR_DIM}${SYM_CHECK} ${msg}${RESET}" ;;
             esac
             ((i++))
         done
     else
-        echo -e "    ${GREEN}${SYM_CHECK} No discrepancies found${RESET}"
+        echo -e "    ${COLOR_SUCCESS}${SYM_CHECK} No discrepancies found${RESET}"
     fi
     echo ""
 

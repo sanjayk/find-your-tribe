@@ -44,33 +44,37 @@ speed_help() {
     echo "    ./speed/speed <command> [options]"
     echo ""
     echo -e "${BOLD}WORKFLOW${RESET}"
-    echo -e "    ${DIM}1.${RESET} ${CYAN}init${RESET}       → ${DIM}Initialize project${RESET}"
-    echo -e "    ${DIM}2.${RESET} ${CYAN}validate${RESET}   → ${DIM}Cross-validate specs${RESET}"
-    echo -e "    ${DIM}3.${RESET} ${CYAN}plan${RESET}       → ${DIM}Guardian gate → Decompose spec into task DAG + contract${RESET}"
-    echo -e "    ${DIM}4.${RESET} ${CYAN}verify${RESET}     → ${DIM}Blind-check plan against spec${RESET}"
-    echo -e "    ${DIM}5.${RESET} ${CYAN}run${RESET}        → ${DIM}Execute tasks with parallel agents${RESET}"
-    echo -e "    ${DIM}6.${RESET} ${CYAN}review${RESET}     → ${DIM}Code review + Guardian gate on completed tasks${RESET}"
-    echo -e "    ${DIM}7.${RESET} ${CYAN}coherence${RESET}  → ${DIM}Cross-task consistency check${RESET}"
-    echo -e "    ${DIM}8.${RESET} ${CYAN}integrate${RESET}  → ${DIM}Merge + regression + contract + Guardian gate${RESET}"
+    echo -e "    ${COLOR_DIM}1.${RESET} ${COLOR_STEP}init${RESET}       → ${COLOR_DIM}Initialize project${RESET}"
+    echo -e "    ${COLOR_DIM}2.${RESET} ${COLOR_STEP}validate${RESET}   → ${COLOR_DIM}Cross-validate specs${RESET}"
+    echo -e "    ${COLOR_DIM}3.${RESET} ${COLOR_STEP}plan${RESET}       → ${COLOR_DIM}Guardian gate → Decompose spec into task DAG + contract${RESET}"
+    echo -e "    ${COLOR_DIM}4.${RESET} ${COLOR_STEP}verify${RESET}     → ${COLOR_DIM}Blind-check plan against spec${RESET}"
+    echo -e "    ${COLOR_DIM}5.${RESET} ${COLOR_STEP}run${RESET}        → ${COLOR_DIM}Execute tasks with parallel agents${RESET}"
+    echo -e "    ${COLOR_DIM}6.${RESET} ${COLOR_STEP}review${RESET}     → ${COLOR_DIM}Code review + Guardian gate on completed tasks${RESET}"
+    echo -e "    ${COLOR_DIM}7.${RESET} ${COLOR_STEP}coherence${RESET}  → ${COLOR_DIM}Cross-task consistency check${RESET}"
+    echo -e "    ${COLOR_DIM}8.${RESET} ${COLOR_STEP}integrate${RESET}  → ${COLOR_DIM}Merge + regression + contract + Guardian gate${RESET}"
     echo ""
     echo -e "${BOLD}COMMANDS${RESET}"
-    echo -e "    ${CYAN}init${RESET}                        Initialize project for SPEED development"
-    echo -e "    ${CYAN}validate${RESET} <specs-dir>         Cross-validate all specs for consistency"
-    echo -e "    ${CYAN}plan${RESET} <spec-file> [opts]      Decompose a product spec into task DAG + contract"
-    echo -e "    ${CYAN}verify${RESET}                       Blind-verify plan against product spec"
-    echo -e "    ${CYAN}run${RESET}  [options]               Execute pending tasks with parallel agents"
-    echo -e "    ${CYAN}status${RESET}                       Show SPEED state and progress"
-    echo -e "    ${CYAN}coherence${RESET}                    Cross-task consistency check pre-integration"
-    echo -e "    ${CYAN}integrate${RESET}                    Merge completed branches + regression + contract"
-    echo -e "    ${CYAN}review${RESET} [--task-id ID]        Run code review on completed tasks"
-    echo -e "    ${CYAN}retry${RESET}  --task-id ID --context Retry a failed task with human guidance"
-    echo -e "    ${CYAN}recover${RESET}                      Recover from crashed/stale SPEED state"
-    echo -e "    ${CYAN}clean${RESET}   [logs|all]            Remove logs or entire .speed/ state"
-    echo -e "    ${CYAN}guardian${RESET} [spec-file]           Run Product Guardian vision check"
-    echo -e "    ${CYAN}help${RESET}                         Show this help message"
+    echo -e "    ${COLOR_STEP}init${RESET}                        Initialize project for SPEED development"
+    echo -e "    ${COLOR_STEP}validate${RESET} <specs-dir>         Cross-validate all specs for consistency"
+    echo -e "    ${COLOR_STEP}plan${RESET} <spec-file> [opts]      Decompose a product spec into task DAG + contract"
+    echo -e "    ${COLOR_STEP}verify${RESET}                       Blind-verify plan against product spec"
+    echo -e "    ${COLOR_STEP}run${RESET}  [options]               Execute pending tasks with parallel agents"
+    echo -e "    ${COLOR_STEP}status${RESET}                       Show SPEED state and progress"
+    echo -e "    ${COLOR_STEP}coherence${RESET}                    Cross-task consistency check pre-integration"
+    echo -e "    ${COLOR_STEP}integrate${RESET}                    Merge completed branches + regression + contract"
+    echo -e "    ${COLOR_STEP}review${RESET} [--task-id ID]        Run code review on completed tasks"
+    echo -e "    ${COLOR_STEP}retry${RESET}  --task-id ID --context Retry a failed task with human guidance"
+    echo -e "    ${COLOR_STEP}recover${RESET}                      Recover from crashed/stale SPEED state"
+    echo -e "    ${COLOR_STEP}clean${RESET}   [logs|all]            Remove logs or entire .speed/ state"
+    echo -e "    ${COLOR_STEP}guardian${RESET} [spec-file]           Run Product Guardian vision check"
+    echo -e "    ${COLOR_STEP}help${RESET}                         Show this help message"
     echo ""
     echo -e "${BOLD}GLOBAL OPTIONS${RESET}"
     echo -e "    --feature NAME              Target a specific feature (auto-detected if omitted)"
+    echo -e "    --quiet                     Errors and final result only"
+    echo -e "    --verbose                   Show extra detail (gate output, agent commands)"
+    echo -e "    --debug                     Show internal state, timing, PID tracking"
+    echo -e "    --json                      Output structured JSON to stdout (logs to stderr)"
     echo ""
     echo -e "${BOLD}PLAN OPTIONS${RESET}"
     echo -e "    --specs-dir DIR             Directory with related specs for cross-referencing"
@@ -88,23 +92,23 @@ speed_help() {
     echo -e "    SKIP_GUARDIAN=true             Skip guardian gates in plan/review/integrate"
     echo ""
     echo -e "${BOLD}PARALLEL FEATURES${RESET}"
-    echo -e "    Each ${CYAN}speed plan${RESET} creates an isolated feature namespace."
+    echo -e "    Each ${COLOR_STEP}speed plan${RESET} creates an isolated feature namespace."
     echo -e "    Run multiple features in parallel across separate sessions:"
-    echo -e "    ${DIM}Session 1:${RESET} ./speed/speed plan specs/tech/f3-projects.md && ./speed/speed run"
-    echo -e "    ${DIM}Session 2:${RESET} ./speed/speed plan specs/tech/f4-tribes.md && ./speed/speed run"
-    echo -e "    Use ${CYAN}--feature${RESET} to target a specific feature, or omit to auto-detect."
+    echo -e "    ${COLOR_DIM}Session 1:${RESET} ./speed/speed plan specs/tech/auth.md && ./speed/speed run"
+    echo -e "    ${COLOR_DIM}Session 2:${RESET} ./speed/speed plan specs/tech/billing.md && ./speed/speed run"
+    echo -e "    Use ${COLOR_STEP}--feature${RESET} to target a specific feature, or omit to auto-detect."
     echo ""
     echo -e "${BOLD}EXAMPLES${RESET}"
     echo "    ./speed/speed init"
     echo "    ./speed/speed validate specs/"
-    echo "    ./speed/speed plan specs/product/f3-projects.md --specs-dir specs/"
+    echo "    ./speed/speed plan specs/tech/auth.md --specs-dir specs/"
     echo "    ./speed/speed run"
-    echo "    ./speed/speed run --feature f4-tribes --max-parallel 3"
+    echo "    ./speed/speed run --feature billing --max-parallel 3"
     echo "    ./speed/speed status"
-    echo "    ./speed/speed review --feature f3-projects"
+    echo "    ./speed/speed review --feature auth"
     echo "    ./speed/speed coherence"
     echo "    ./speed/speed integrate"
-    echo "    ./speed/speed clean feature f3-projects"
+    echo "    ./speed/speed clean feature auth"
     echo ""
 }
 
@@ -147,7 +151,7 @@ EOF
         local project_name
         project_name=$(basename "$PROJECT_ROOT")
         sed "s/{{PROJECT_NAME}}/${project_name}/g" "${TEMPLATES_DIR}/claude-md.md" > "$CLAUDE_MD"
-        log_success "Created CLAUDE.md — ${DIM}customize this file!${RESET}"
+        log_success "Created CLAUDE.md — ${COLOR_DIM}customize this file!${RESET}"
     else
         log_info "CLAUDE.md already exists, skipping"
     fi
@@ -156,7 +160,7 @@ EOF
     local speed_toml="${PROJECT_ROOT}/speed.toml"
     if [[ ! -f "$speed_toml" ]]; then
         cp "${TEMPLATES_DIR}/speed-toml.toml" "$speed_toml"
-        log_success "Created speed.toml — ${DIM}configure providers and settings${RESET}"
+        log_success "Created speed.toml — ${COLOR_DIM}configure providers and settings${RESET}"
     else
         log_info "speed.toml already exists, skipping"
     fi
@@ -168,7 +172,7 @@ EOF
     if [[ ! -f "$vision_path" ]]; then
         mkdir -p "$vision_dir"
         cp "${TEMPLATES_DIR}/overview.md" "$vision_path"
-        log_success "Created ${VISION_FILE} — ${DIM}define your product vision${RESET}"
+        log_success "Created ${VISION_FILE} — ${COLOR_DIM}define your product vision${RESET}"
     else
         log_info "${VISION_FILE} already exists, skipping"
     fi
@@ -178,11 +182,11 @@ EOF
 
     echo ""
     log_success "SPEED initialized! Next steps:"
-    echo -e "  1. Edit ${CYAN}CLAUDE.md${RESET} with your project conventions"
-    echo -e "  2. Edit ${CYAN}speed.toml${RESET} to configure your provider and settings"
-    echo -e "  3. Edit ${CYAN}${VISION_FILE}${RESET} with your product vision"
-    echo -e "  4. Create a product spec: ${CYAN}cp speed/templates/spec.md my-spec.md${RESET}"
-    echo -e "  5. Plan your tasks: ${CYAN}./speed/speed plan my-spec.md${RESET}"
+    echo -e "  1. Edit ${COLOR_STEP}CLAUDE.md${RESET} with your project conventions"
+    echo -e "  2. Edit ${COLOR_STEP}speed.toml${RESET} to configure your provider and settings"
+    echo -e "  3. Edit ${COLOR_STEP}${VISION_FILE}${RESET} with your product vision"
+    echo -e "  4. Create a product spec: ${COLOR_STEP}cp speed/templates/spec.md my-spec.md${RESET}"
+    echo -e "  5. Plan your tasks: ${COLOR_STEP}./speed/speed plan my-spec.md${RESET}"
     echo ""
 }
 
@@ -346,8 +350,11 @@ cmd_plan() {
         if [[ -f "${PROJECT_ROOT}/${spec_file}" ]]; then
             spec_file="${PROJECT_ROOT}/${spec_file}"
         else
-            log_error "Spec file not found: $spec_file"
-            exit 1
+            log_error_block \
+                "Spec file not found: ${spec_file}" \
+                "The plan command requires a spec file" \
+                "Create the spec or check the path"
+            exit $EXIT_CONFIG_ERROR
         fi
     fi
 
@@ -362,8 +369,8 @@ cmd_plan() {
     fi
 
     # ── Auto-derive sibling specs ──────────────────────────────────
-    # Convention: specs/tech/f4-tribes.md → specs/product/f4-tribes.md
-    #                                     → specs/design/f4-tribes.md
+    # Convention: specs/tech/<name>.md → specs/product/<name>.md
+    #                                  → specs/design/<name>.md
     local product_spec_file=""
     local design_spec_file=""
     local derived_product="${spec_file/\/tech\//\/product\/}"
@@ -383,20 +390,20 @@ cmd_plan() {
     fi
     feature_activate "$feature_name"
     feature_set_active "$feature_name"
-    log_info "Feature: ${CYAN}${feature_name}${RESET}"
+    log_info "Feature: ${COLOR_STEP}${feature_name}${RESET}"
 
     # Save spec path for verify and review commands
     _save_spec_path "$spec_file"
 
     log_header "Planning Task DAG"
-    log_step "Tech spec:    ${CYAN}${spec_file}${RESET}"
+    log_step "Tech spec:    ${COLOR_STEP}${spec_file}${RESET}"
     if [[ -n "$product_spec_file" ]]; then
-        log_step "Product spec: ${CYAN}${product_spec_file}${RESET}"
+        log_step "Product spec: ${COLOR_STEP}${product_spec_file}${RESET}"
     else
         log_warn "No product spec found (expected: ${derived_product})"
     fi
     if [[ -n "$design_spec_file" ]]; then
-        log_step "Design spec:  ${CYAN}${design_spec_file}${RESET}"
+        log_step "Design spec:  ${COLOR_STEP}${design_spec_file}${RESET}"
     else
         log_warn "No design spec found (expected: ${derived_design})"
     fi
@@ -424,7 +431,7 @@ cmd_plan() {
         log_error "Product Guardian REJECTED this spec — it conflicts with the product vision"
         echo -e "Review the guardian report and either:"
         echo -e "  1. Fix the spec to align with the vision"
-        echo -e "  2. Override with ${CYAN}SKIP_GUARDIAN=true speed plan ...${RESET} (use with caution)"
+        echo -e "  2. Override with ${COLOR_STEP}SKIP_GUARDIAN=true speed plan ...${RESET} (use with caution)"
         if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
             exit 1
         else
@@ -444,7 +451,7 @@ cmd_plan() {
     # Gather related specs for cross-referencing
     local related_specs=""
     if [[ -n "$specs_dir" ]]; then
-        log_step "Gathering related specs from: ${CYAN}${specs_dir}${RESET}"
+        log_step "Gathering related specs from: ${COLOR_STEP}${specs_dir}${RESET}"
         related_specs=$(_gather_related_specs "$specs_dir" "$spec_file" "$product_spec_file" "$design_spec_file")
         if [[ -n "$related_specs" ]]; then
             log_step "Cross-referencing with related specs"
@@ -507,9 +514,9 @@ cmd_plan() {
     parsed_architect=$(parse_agent_json "$architect_output") || {
         log_error "Could not extract valid JSON from architect output"
         log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
-        echo -e "${DIM}First 5 lines of output:${RESET}" >&2
+        echo -e "${COLOR_DIM}First 5 lines of output:${RESET}" >&2
         echo "$architect_output" | head -5 | while IFS= read -r line; do
-            echo -e "  ${DIM}${line}${RESET}" >&2
+            echo -e "  ${COLOR_DIM}${line}${RESET}" >&2
         done
         exit 1
     }
@@ -536,19 +543,19 @@ cmd_plan() {
 
             case "$severity" in
                 critical)
-                    echo -e "  ${RED}${SYM_CROSS} CRITICAL:${RESET} ${issue}"
-                    echo -e "    ${DIM}Requirement:${RESET} ${product_req}"
-                    echo -e "    ${DIM}Fix:${RESET} ${recommendation}"
+                    echo -e "  ${COLOR_ERROR}${SYM_CROSS} CRITICAL:${RESET} ${issue}"
+                    echo -e "    ${COLOR_DIM}Requirement:${RESET} ${product_req}"
+                    echo -e "    ${COLOR_DIM}Fix:${RESET} ${recommendation}"
                     has_critical=true
                     ;;
                 warning)
-                    echo -e "  ${YELLOW}${SYM_WARN} WARNING:${RESET} ${issue}"
-                    echo -e "    ${DIM}Requirement:${RESET} ${product_req}"
-                    echo -e "    ${DIM}Suggestion:${RESET} ${recommendation}"
+                    echo -e "  ${COLOR_WARN}${SYM_WARN} WARNING:${RESET} ${issue}"
+                    echo -e "    ${COLOR_DIM}Requirement:${RESET} ${product_req}"
+                    echo -e "    ${COLOR_DIM}Suggestion:${RESET} ${recommendation}"
                     ;;
                 note)
-                    echo -e "  ${CYAN}${SYM_DOT} NOTE:${RESET} ${issue}"
-                    echo -e "    ${DIM}${recommendation}${RESET}"
+                    echo -e "  ${COLOR_STEP}${SYM_DOT} NOTE:${RESET} ${issue}"
+                    echo -e "    ${COLOR_DIM}${recommendation}${RESET}"
                     ;;
             esac
             echo ""
@@ -562,7 +569,7 @@ cmd_plan() {
         # Hard gate: critical issues block task creation
         if [[ "$has_critical" == "true" ]]; then
             log_error "Architect found CRITICAL validation issues — cannot create tasks"
-            echo -e "Fix the spec issues above and re-run ${CYAN}speed plan${RESET}"
+            echo -e "Fix the spec issues above and re-run ${COLOR_STEP}speed plan${RESET}"
             exit 1
         fi
     else
@@ -641,8 +648,8 @@ cmd_plan() {
     task_print_summary
     echo ""
 
-    echo -e "${DIM}Review tasks in ${TASKS_DIR}/${RESET}"
-    echo -e "${DIM}Next: ${CYAN}./speed/speed verify${RESET} to validate the plan against the spec${RESET}"
+    echo -e "${COLOR_DIM}Review tasks in ${TASKS_DIR}/${RESET}"
+    echo -e "${COLOR_DIM}Next: ${COLOR_STEP}./speed/speed verify${RESET} to validate the plan against the spec${RESET}"
     echo ""
 }
 
@@ -667,7 +674,7 @@ cmd_verify() {
         exit 1
     fi
 
-    log_step "Reading product spec: ${CYAN}${spec_file}${RESET}"
+    log_step "Reading product spec: ${COLOR_STEP}${spec_file}${RESET}"
     local spec_content
     spec_content=$(cat "$spec_file")
 
@@ -751,14 +758,14 @@ Verify this plan against the product specification. Read the spec FIRST, form yo
         log_error "${failure_count} critical failure(s) found"
         echo ""
         echo -e "Options:"
-        echo -e "  1. Fix the spec or re-run ${CYAN}speed plan${RESET} with adjustments"
+        echo -e "  1. Fix the spec or re-run ${COLOR_STEP}speed plan${RESET} with adjustments"
         echo -e "  2. Review the failures and proceed if they're false positives"
         echo ""
         exit 1
     elif [[ "$status" == "pass" ]]; then
         echo ""
         log_success "Plan verification PASSED"
-        echo -e "Next: ${CYAN}./speed/speed run${RESET} to execute tasks"
+        echo -e "Next: ${COLOR_STEP}./speed/speed run${RESET} to execute tasks"
     else
         log_warn "Could not parse verification status. Review the report manually."
     fi
@@ -771,6 +778,7 @@ cmd_run() {
 
     local max_parallel=$DEFAULT_MAX_PARALLEL
     local model=$MODEL_SUPPORT
+    local run_start=$SECONDS
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -785,7 +793,7 @@ cmd_run() {
     speed_acquire_lock "run" || exit 1
 
     # ── Hard gate: timeout command is required ────────────────────
-    require_timeout_cmd || exit 1
+    require_timeout_cmd || exit $EXIT_CONFIG_ERROR
 
     log_header "Running SPEED"
     log_info "Max parallel: ${max_parallel} | Model: ${model}"
@@ -920,7 +928,7 @@ cmd_run() {
 
         echo "$pid" > "${support_dir}/${agent_type}-${for_task_id}.pid"
         echo "$for_task_id" > "${support_dir}/${agent_type}-${for_task_id}.task"
-        log_step "Spawned ${agent_type} in background for task ${for_task_id} (PID: ${pid})"
+        log_verbose "Spawned ${agent_type} in background for task ${for_task_id} (PID: ${pid})"
     }
 
     # ── Merge-conflict tracking (bash 3 compatible, file-based) ──
@@ -1007,8 +1015,10 @@ cmd_run() {
                         task_reset_pending "$task_id"
                     else
                         # Already on opus or second timeout → human problem
-                        log_error "Task ${task_id}: timed out on ${current_model} (attempt $((timeout_count + 1))) — needs human intervention"
-                        log_error "  Consider decomposing this task into smaller subtasks"
+                        log_error_block \
+                            "Task ${task_id} timed out after ${DEFAULT_AGENT_TIMEOUT}s" \
+                            "Agent exceeded time limit on ${current_model} (attempt $((timeout_count + 1)))" \
+                            "speed retry --task-id ${task_id} --escalate"
                         _record_failure "$task_id" "Timeout after model escalation"
                     fi
                     continue
@@ -1045,7 +1055,7 @@ cmd_run() {
                     if gates_run "$task_id" "$task_worktree"; then
                         # Atomic: status + completed_at + agent_pid in one write
                         task_set_done "$task_id"
-                        log_success "Task ${task_id}: ${GREEN}DONE${RESET}"
+                        log_success "Task ${task_id}: ${COLOR_SUCCESS}DONE${RESET}"
 
                         # Extract decisions and concerns from agent output
                         # so downstream dependent tasks can see what this agent learned
@@ -1071,7 +1081,10 @@ cmd_run() {
                     else
                         # Atomic: status + error + agent_pid in one write
                         task_set_failed "$task_id" "Quality gates failed"
-                        log_error "Task ${task_id}: quality gates failed"
+                        log_error_block \
+                            "Quality gates failed for task ${task_id}" \
+                            "One or more quality checks did not pass" \
+                            "Fix the issues and run: speed retry --task-id ${task_id}"
                         _record_failure "$task_id" "Quality gates failed"
 
                         # Keep worktree for debugger analysis
@@ -1159,7 +1172,7 @@ cmd_run() {
             blocked_count=$(task_count_by_status "blocked")
             if [[ "$blocked_count" -gt 0 ]]; then
                 log_warn "${blocked_count} task(s) blocked — awaiting human input"
-                log_warn "Run ${CYAN}speed status${RESET} for supervisor analysis"
+                log_warn "Run ${COLOR_STEP}speed status${RESET} for supervisor analysis"
                 break
             fi
             # Otherwise we're done
@@ -1277,9 +1290,10 @@ cmd_run() {
                             local attempts
                             attempts=$(_get_merge_attempts "$task_id")
                             if [[ "$attempts" -ge "$MERGE_CONFLICT_MAX_RETRIES" ]]; then
-                                log_error "Task ${task_id}: merge conflict persisted after ${attempts} attempts — blocking"
-                                log_error "  Conflicting branch: ${dep_branch} → ${main_branch}"
-                                log_error "  Resolve manually, then: speed retry --task-id ${task_id} --context \"resolved merge conflict\""
+                                log_error_block \
+                                    "Cannot merge ${dep_branch} into ${main_branch}" \
+                                    "Conflicting changes persisted after ${attempts} attempts" \
+                                    "Resolve manually, then: speed integrate --continue"
                                 task_set_blocked "$task_id" "Merge conflict: ${dep_branch} into ${main_branch} (failed ${attempts}x)"
                                 _record_failure "$task_id" "Persistent merge conflict: ${dep_branch}"
                             else
@@ -1344,7 +1358,8 @@ ${worktree_path}"
                 task_set_running "$task_id" "$pid"
                 ((running_count++))
 
-                log_step "Spawned agent for task ${task_id}: ${CYAN}${title}${RESET} (PID: ${pid}, model: ${task_model})"
+                log_step "Spawned agent for task ${task_id}: ${COLOR_STEP}${title}${RESET}"
+                log_verbose "  PID: ${pid} | model: ${task_model} | branch: ${branch}"
 
                 # Update state file
                 jq --arg tid "$task_id" --arg pid "$pid" \
@@ -1361,7 +1376,12 @@ ${worktree_path}"
         pending_count=$(task_count_by_status "pending")
         failed_count=$(task_count_by_status "failed")
         blocked_count=$(task_count_by_status "blocked")
-        echo -ne "\r${DIM}[${done_count}/${total} done | ${running_count} running | ${pending_count} pending | ${failed_count} failed | ${blocked_count} blocked]${RESET}  "
+        local elapsed=$((SECONDS - run_start))
+        local elapsed_fmt
+        elapsed_fmt=$(format_duration "$elapsed")
+        if [[ "${VERBOSITY:-1}" -ge 1 ]]; then
+            echo -ne "\r${COLOR_DIM}[$(_log_timestamp)]${RESET} ${COLOR_STEP}${SYM_ARROW}${RESET} Running: ${running_count} of ${total} tasks  |  ${COLOR_SUCCESS}${SYM_CHECK}${RESET} ${done_count} done  ${SYM_PENDING} ${pending_count} pending  ${COLOR_ERROR}${SYM_CROSS}${RESET} ${failed_count} failed  ${COLOR_DIM}[${elapsed_fmt}]${RESET}  "
+        fi
 
         # Check halt threshold
         local fail_pct=0
@@ -1370,8 +1390,10 @@ ${worktree_path}"
         fi
         if [[ "$fail_pct" -ge "$HALT_FAILURE_PCT" ]]; then
             echo ""
-            log_error "Over 30% of tasks have failed (${failed_count}/${total}). Halting SPEED."
-            log_error "Review failures with: speed status"
+            log_error_block \
+                "Over ${HALT_FAILURE_PCT}% of tasks failed (${failed_count}/${total}) — halting SPEED" \
+                "Too many tasks are failing, indicating a systemic issue" \
+                "Run: speed status  — then fix the root cause and: speed retry"
             break
         fi
 
@@ -1388,31 +1410,121 @@ ${worktree_path}"
     # Final state update
     jq '.status = "idle" | .agents = []' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 
-    # Print final summary
-    log_header "Run Complete"
+    # ── Compute final stats ──────────────────────────────────────
+    local final_done final_failed final_blocked final_pending
+    final_done=$(task_count_by_status "done")
+    final_failed=$(task_count_by_status "failed")
+    final_blocked=$(task_count_by_status "blocked")
+    final_pending=$(task_count_by_status "pending")
+    local elapsed=$((SECONDS - run_start))
+    local elapsed_fmt
+    elapsed_fmt=$(format_duration "$elapsed")
+
+    # ── Determine exit code ──────────────────────────────────────
+    local run_exit=$EXIT_OK
+    if [[ "$final_failed" -gt 0 ]]; then
+        local fail_pct_final=0
+        if [[ "$total" -gt 0 ]]; then
+            fail_pct_final=$(( (final_failed * 100) / total ))
+        fi
+        if [[ "$fail_pct_final" -ge "$HALT_FAILURE_PCT" ]]; then
+            run_exit=$EXIT_HALTED
+        else
+            run_exit=$EXIT_TASK_FAILURE
+        fi
+    fi
+
+    # ── JSON output mode ─────────────────────────────────────────
+    if [[ "$JSON_OUTPUT" == "true" ]]; then
+        local status_str="completed"
+        [[ $run_exit -ne 0 ]] && status_str="failed"
+
+        # Build failures array
+        local failures_json="[]"
+        if [[ "$final_failed" -gt 0 ]]; then
+            failures_json=$(
+                for f in "${TASKS_DIR}"/*.json; do
+                    [[ -f "$f" ]] || continue
+                    local s
+                    s=$(jq -r '.status' "$f")
+                    [[ "$s" == "failed" ]] && jq -c '{task_id: .id, title: .title, error: (.error // "unknown")}' "$f"
+                done | jq -sc '.'
+            )
+        fi
+
+        jq -nc \
+            --arg status "$status_str" \
+            --argjson tasks_total "$total" \
+            --argjson tasks_passed "$final_done" \
+            --argjson tasks_failed "$final_failed" \
+            --argjson duration_seconds "$elapsed" \
+            --argjson exit_code "$run_exit" \
+            --argjson failures "$failures_json" \
+            '{status: $status, tasks_total: $tasks_total, tasks_passed: $tasks_passed, tasks_failed: $tasks_failed, duration_seconds: $duration_seconds, exit_code: $exit_code, failures: $failures}'
+        exit "$run_exit"
+    fi
+
+    # ── Print run summary ────────────────────────────────────────
+    log_header "Run Summary"
+    echo ""
+    echo -e "  Total tasks:  ${total}"
+    echo -e "  Passed:       ${final_done}   ${COLOR_SUCCESS}${SYM_CHECK}${RESET}"
+    if [[ "$final_failed" -gt 0 ]]; then
+        echo -e "  Failed:       ${final_failed}   ${COLOR_ERROR}${SYM_CROSS}${RESET}"
+    else
+        echo -e "  Failed:       0"
+    fi
+    if [[ "$final_blocked" -gt 0 ]]; then
+        echo -e "  Blocked:      ${final_blocked}   ${COLOR_WARN}${SYM_WARN}${RESET}"
+    fi
+    if [[ "$final_pending" -gt 0 ]]; then
+        echo -e "  Pending:      ${final_pending}   ${SYM_PENDING}"
+    fi
+    echo -e "  Duration:     ${elapsed_fmt}"
+    echo ""
+
+    # Show failed task details
+    if [[ "$final_failed" -gt 0 ]]; then
+        echo -e "  ${COLOR_ERROR}Failed tasks:${RESET}"
+        for f in "${TASKS_DIR}"/*.json; do
+            [[ -f "$f" ]] || continue
+            local s tid ttitle terror
+            s=$(jq -r '.status' "$f")
+            [[ "$s" == "failed" ]] || continue
+            tid=$(jq -r '.id' "$f")
+            ttitle=$(jq -r '.title' "$f")
+            terror=$(jq -r '.error // "unknown"' "$f")
+            echo -e "    Task ${tid}: ${COLOR_DIM}\"${ttitle}\"${RESET}"
+            echo -e "      Error: ${terror}"
+            echo -e "      Fix:   ${COLOR_STEP}speed retry --task-id ${tid}${RESET}"
+        done
+        echo ""
+    fi
+
+    echo -e "${COLOR_DIM}$(printf '─%.0s' $(seq 1 50))${RESET}"
+    echo ""
+
+    # Task graph and summary
     task_print_graph
     echo ""
     task_print_summary
     echo ""
 
-    local failed_count
-    failed_count=$(task_count_by_status "failed")
-    if [[ "$failed_count" -gt 0 ]]; then
-        log_warn "${failed_count} task(s) failed. Diagnose with ${CYAN}speed retry --task-id ID${RESET} then provide guidance with ${CYAN}--context${RESET}."
+    if [[ "$final_failed" -gt 0 ]]; then
+        log_warn "${final_failed} task(s) failed. Diagnose with ${COLOR_STEP}speed retry --task-id ID${RESET} then provide guidance with ${COLOR_STEP}--context${RESET}."
     fi
 
-    local blocked_count
-    blocked_count=$(task_count_by_status "blocked")
-    if [[ "$blocked_count" -gt 0 ]]; then
-        log_warn "${blocked_count} task(s) blocked. Run ${CYAN}speed status${RESET} for details and supervisor analysis."
+    if [[ "$final_blocked" -gt 0 ]]; then
+        log_warn "${final_blocked} task(s) blocked. Run ${COLOR_STEP}speed status${RESET} for details and supervisor analysis."
     fi
 
-    local done_count
-    done_count=$(task_count_by_status "done")
-    if [[ "$done_count" -gt 0 ]]; then
-        echo -e "Next: ${CYAN}./speed/speed review${RESET} then ${CYAN}./speed/speed coherence${RESET} then ${CYAN}./speed/speed integrate${RESET}"
+    if [[ "$final_done" -gt 0 ]]; then
+        echo -e "Next: ${COLOR_STEP}./speed/speed review${RESET} then ${COLOR_STEP}./speed/speed coherence${RESET} then ${COLOR_STEP}./speed/speed integrate${RESET}"
     fi
     echo ""
+    log_result "Completed in ${elapsed_fmt}"
+
+    exit "$run_exit"
 }
 
 # ── Get ready tasks: pending + deps met + not blocked ────────
@@ -1584,7 +1696,7 @@ _handle_support_completion() {
             root_cause=$(echo "$parsed" | jq -r '.pattern_detected.root_cause // "Unknown"' 2>/dev/null)
             affected=$(echo "$parsed" | jq -r '.pattern_detected.affected_tasks // [] | join(", ")' 2>/dev/null)
             echo ""
-            echo -e "${RED}${BOLD}PATTERN DETECTED:${RESET} ${pattern_desc}"
+            echo -e "${COLOR_ERROR}${BOLD}PATTERN DETECTED:${RESET} ${pattern_desc}"
             echo -e "  ${BOLD}Root cause:${RESET} ${root_cause}"
             echo -e "  ${BOLD}Affected tasks:${RESET} ${affected}"
         fi
@@ -1688,12 +1800,12 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
 
     case "$status" in
         aligned)
-            log_success "Guardian: ${GREEN}ALIGNED${RESET} — ${summary}"
+            log_success "Guardian: ${COLOR_SUCCESS}ALIGNED${RESET} — ${summary}"
             echo "$guardian_output"
             return 0
             ;;
         flagged)
-            log_warn "Guardian: ${YELLOW}FLAGGED${RESET} — ${summary}"
+            log_warn "Guardian: ${COLOR_WARN}FLAGGED${RESET} — ${summary}"
             echo "$guardian_output"
 
             # Print flags
@@ -1708,7 +1820,7 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
             return 2
             ;;
         rejected)
-            log_error "Guardian: ${RED}REJECTED${RESET} — ${summary}"
+            log_error "Guardian: ${COLOR_ERROR}REJECTED${RESET} — ${summary}"
             echo "$guardian_output"
 
             # Print critical flags
@@ -1736,7 +1848,7 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
             log_warn "This may indicate the guardian agent failed or returned non-JSON output."
             # Show first 3 lines for quick diagnosis
             echo "$guardian_output" | head -3 | while IFS= read -r line; do
-                echo -e "    ${DIM}${line}${RESET}" >&2
+                echo -e "    ${COLOR_DIM}${line}${RESET}" >&2
             done
             echo "$guardian_output"
             return 3  # Distinct code: 0=aligned, 1=rejected, 2=flagged, 3=unparseable
@@ -1764,7 +1876,7 @@ cmd_guardian() {
         # Use feature context for log output if available, else default LOGS_DIR
         feature_resolve "$GLOBAL_FEATURE" &>/dev/null && _require_feature "$GLOBAL_FEATURE" || mkdir -p "$LOGS_DIR"
 
-        log_step "Evaluating: ${CYAN}${input_file}${RESET}"
+        log_step "Evaluating: ${COLOR_STEP}${input_file}${RESET}"
         local content
         content=$(cat "$input_file")
 
@@ -1772,7 +1884,7 @@ cmd_guardian() {
         local rc=$?
 
         echo ""
-        echo -e "Report saved to ${CYAN}${LOGS_DIR}/guardian-ad-hoc-*.json${RESET}"
+        echo -e "Report saved to ${COLOR_STEP}${LOGS_DIR}/guardian-ad-hoc-*.json${RESET}"
         echo ""
         return $rc
     fi
@@ -1788,7 +1900,7 @@ cmd_guardian() {
         exit 1
     fi
 
-    log_step "Evaluating current spec: ${CYAN}${spec_file}${RESET}"
+    log_step "Evaluating current spec: ${COLOR_STEP}${spec_file}${RESET}"
     local content
     content=$(cat "$spec_file")
 
@@ -1811,7 +1923,7 @@ cmd_guardian() {
     local rc=$?
 
     echo ""
-    echo -e "Report saved to ${CYAN}${LOGS_DIR}/guardian-ad-hoc-*.json${RESET}"
+    echo -e "Report saved to ${COLOR_STEP}${LOGS_DIR}/guardian-ad-hoc-*.json${RESET}"
     echo ""
     return $rc
 }
@@ -1848,13 +1960,13 @@ cmd_status() {
         done
         local marker=""
         if [[ "$feat" == "$active_feature" ]]; then
-            marker=" ${GREEN}(active)${RESET}"
+            marker=" ${COLOR_SUCCESS}(active)${RESET}"
         fi
         local progress="${feat_done}/${feat_total}"
         local detail=""
-        if [[ $feat_running -gt 0 ]]; then detail+=", ${YELLOW}${feat_running} running${RESET}"; fi
-        if [[ $feat_failed -gt 0 ]]; then detail+=", ${RED}${feat_failed} failed${RESET}"; fi
-        echo -e "  ${CYAN}${feat}${RESET}${marker} — ${progress} done${detail}"
+        if [[ $feat_running -gt 0 ]]; then detail+=", ${COLOR_WARN}${feat_running} running${RESET}"; fi
+        if [[ $feat_failed -gt 0 ]]; then detail+=", ${COLOR_ERROR}${feat_failed} failed${RESET}"; fi
+        echo -e "  ${COLOR_STEP}${feat}${RESET}${marker} — ${progress} done${detail}"
     done <<< "$features"
     echo ""
 
@@ -1872,14 +1984,14 @@ cmd_status() {
         if [[ "$feat_count" -eq 1 ]]; then
             target_feature="$features"
         else
-            echo -e "Use ${CYAN}--feature <name>${RESET} to see details for a specific feature."
+            echo -e "Use ${COLOR_STEP}--feature <name>${RESET} to see details for a specific feature."
             echo ""
             return
         fi
     fi
 
     feature_activate "$target_feature"
-    echo -e "${BOLD}Showing: ${CYAN}${target_feature}${RESET}"
+    echo -e "${BOLD}Showing: ${COLOR_STEP}${target_feature}${RESET}"
     echo ""
 
     # Check if initialized
@@ -1919,9 +2031,9 @@ cmd_status() {
 
     # Contract info
     if [[ -f "${CONTRACT_FILE}" ]]; then
-        echo -e "${BOLD}Contract:${RESET} ${GREEN}present${RESET}"
+        echo -e "${BOLD}Contract:${RESET} ${COLOR_SUCCESS}present${RESET}"
     else
-        echo -e "${BOLD}Contract:${RESET} ${YELLOW}missing${RESET}"
+        echo -e "${BOLD}Contract:${RESET} ${COLOR_WARN}missing${RESET}"
     fi
 
     # Blocked tasks
@@ -1939,8 +2051,8 @@ cmd_status() {
                 id=$(jq -r '.id' "$f")
                 title=$(jq -r '.title' "$f")
                 error=$(jq -r '.error // "No details"' "$f")
-                echo -e "  ${YELLOW}${SYM_WARN}${RESET} Task ${id}: ${title}"
-                echo -e "    ${DIM}${error}${RESET}"
+                echo -e "  ${COLOR_WARN}${SYM_WARN}${RESET} Task ${id}: ${title}"
+                echo -e "    ${COLOR_DIM}${error}${RESET}"
             fi
         done
     fi
@@ -1963,7 +2075,7 @@ cmd_status() {
             model=$(jq -r --arg def "$MODEL_SUPPORT" '.agent_model // $def' "$f")
             tc_val=$(jq -r '.timeout_count' "$f")
             status=$(jq -r '.status' "$f")
-            echo -e "  ${YELLOW}${SYM_WARN}${RESET} Task ${id}: ${title} ${DIM}(${tc_val}x timeout, model: ${model}, status: ${status})${RESET}"
+            echo -e "  ${COLOR_WARN}${SYM_WARN}${RESET} Task ${id}: ${title} ${COLOR_DIM}(${tc_val}x timeout, model: ${model}, status: ${status})${RESET}"
         fi
     done
 
@@ -1980,19 +2092,19 @@ cmd_status() {
             echo ""
             echo -e "${BOLD}Latest Supervisor Analysis:${RESET}"
             if [[ -n "$sup_diagnosis" ]]; then
-                echo -e "  ${DIM}Diagnosis:${RESET} ${sup_diagnosis}"
+                echo -e "  ${COLOR_DIM}Diagnosis:${RESET} ${sup_diagnosis}"
             fi
             if [[ -n "$sup_pattern" ]]; then
                 local sup_root_cause
                 sup_root_cause=$(jq -r '.pattern_detected.root_cause // "Unknown"' "$latest_supervisor" 2>/dev/null)
-                echo -e "  ${RED}Pattern:${RESET} ${sup_pattern}"
-                echo -e "  ${RED}Root cause:${RESET} ${sup_root_cause}"
+                echo -e "  ${COLOR_ERROR}Pattern:${RESET} ${sup_pattern}"
+                echo -e "  ${COLOR_ERROR}Root cause:${RESET} ${sup_root_cause}"
             fi
             if [[ "$sup_recommendations" -gt 0 ]]; then
-                echo -e "  ${DIM}Suggestions:${RESET}"
+                echo -e "  ${COLOR_DIM}Suggestions:${RESET}"
                 jq -r '.recommendations[]? | "    • \(.)"' "$latest_supervisor" 2>/dev/null
             fi
-            echo -e "  ${DIM}Full log: ${latest_supervisor}${RESET}"
+            echo -e "  ${COLOR_DIM}Full log: ${latest_supervisor}${RESET}"
         fi
     fi
 
@@ -2103,13 +2215,13 @@ Check that all these task implementations compose correctly. Focus on interfaces
         log_error "${issue_count} critical issue(s) found"
         echo ""
         echo -e "Fix issues before integrating. Options:"
-        echo -e "  1. ${CYAN}speed retry --task-id ID --context \"...\"${RESET} to fix specific tasks"
+        echo -e "  1. ${COLOR_STEP}speed retry --task-id ID --context \"...\"${RESET} to fix specific tasks"
         echo -e "  2. Review the coherence report and fix manually"
         exit 1
     elif [[ "$status" == "pass" ]]; then
         echo ""
         log_success "Coherence check PASSED — tasks are compatible"
-        echo -e "Next: ${CYAN}./speed/speed integrate${RESET}"
+        echo -e "Next: ${COLOR_STEP}./speed/speed integrate${RESET}"
     else
         log_warn "Could not parse coherence status. Review the report manually."
     fi
@@ -2227,9 +2339,9 @@ ${PROJECT_ROOT}
         log_error "The merge may have introduced incompatibilities"
         echo ""
         echo -e "Options:"
-        echo -e "  1. Check ${CYAN}${LOGS_DIR}/integration.log${RESET} for details"
-        echo -e "  2. Use ${CYAN}git log --oneline${RESET} to review merge commits"
-        echo -e "  3. Use ${CYAN}git reset --hard HEAD~N${RESET} to rollback (destructive)"
+        echo -e "  1. Check ${COLOR_STEP}${LOGS_DIR}/integration.log${RESET} for details"
+        echo -e "  2. Use ${COLOR_STEP}git log --oneline${RESET} to review merge commits"
+        echo -e "  3. Use ${COLOR_STEP}git reset --hard HEAD~N${RESET} to rollback (destructive)"
         echo ""
     fi
 
@@ -2284,7 +2396,7 @@ This is a post-integration check. Evaluate whether the integrated result, taken 
             echo ""
             log_error "Guardian REJECTED the integrated result — vision violation detected"
             log_error "Review the guardian report before shipping"
-            echo -e "Report: ${CYAN}${LOGS_DIR}/guardian-post-integration-*.json${RESET}"
+            echo -e "Report: ${COLOR_STEP}${LOGS_DIR}/guardian-post-integration-*.json${RESET}"
         elif [[ $grc -eq 3 ]]; then
             log_warn "Guardian returned unparseable output during post-integration check"
         fi
@@ -2327,7 +2439,7 @@ cmd_review() {
         branch=$(echo "$task_json" | jq -r '.branch')
         criteria=$(echo "$task_json" | jq -r '.acceptance_criteria')
 
-        log_step "Reviewing task ${tid}: ${CYAN}${title}${RESET}"
+        log_step "Reviewing task ${tid}: ${COLOR_STEP}${title}${RESET}"
 
         # Get the diff
         local diff=""
@@ -2464,7 +2576,7 @@ cmd_retry() {
 
     if [[ -z "$task_id" ]]; then
         log_error "Required: --task-id ID"
-        log_error "Retry requires targeting a specific task. Use ${CYAN}speed status${RESET} to see failed tasks."
+        log_error "Retry requires targeting a specific task. Use ${COLOR_STEP}speed status${RESET} to see failed tasks."
         exit 1
     fi
 
@@ -2489,12 +2601,12 @@ cmd_retry() {
         if [[ -f "$debugger_log" ]]; then
             echo ""
             echo -e "${BOLD}Debugger analysis:${RESET}"
-            echo -e "  ${DIM}$(cat "$debugger_log" | jq -r '.root_cause // .diagnosis // "See full log"' 2>/dev/null)${RESET}"
+            echo -e "  ${COLOR_DIM}$(cat "$debugger_log" | jq -r '.root_cause // .diagnosis // "See full log"' 2>/dev/null)${RESET}"
         fi
 
         echo ""
         log_error "Blind retries are not allowed. Diagnose the failure and provide guidance:"
-        echo -e "  ${CYAN}speed retry --task-id ${task_id} --context \"what to do differently\"${RESET}"
+        echo -e "  ${COLOR_STEP}speed retry --task-id ${task_id} --context \"what to do differently\"${RESET}"
         echo ""
         exit 1
     fi
@@ -2512,7 +2624,7 @@ cmd_retry() {
         exit 1
     fi
 
-    log_step "Retrying task ${task_id}: ${CYAN}${title}${RESET}"
+    log_step "Retrying task ${task_id}: ${COLOR_STEP}${title}${RESET}"
 
     # Accumulate attempt history — append, never overwrite
     local prev_feedback
@@ -2551,7 +2663,7 @@ cmd_retry() {
     log_success "Task ${task_id} reset to pending (attempt $((retry_count + 2)))"
 
     echo ""
-    echo -e "Run ${CYAN}./speed/speed run${RESET} to execute."
+    echo -e "Run ${COLOR_STEP}./speed/speed run${RESET} to execute."
     echo ""
 }
 
@@ -2829,11 +2941,11 @@ cmd_clean() {
             ;;
 
         *)
-            echo -e "Usage: ${CYAN}./speed/speed clean${RESET} [logs|feature <name>|all]"
+            echo -e "Usage: ${COLOR_STEP}./speed/speed clean${RESET} [logs|feature <name>|all]"
             echo ""
-            echo -e "  ${CYAN}logs${RESET}               Remove log files (active feature or all)"
-            echo -e "  ${CYAN}feature <name>${RESET}      Remove a specific feature's state and worktrees"
-            echo -e "  ${CYAN}all${RESET}                Remove entire .speed/ directory"
+            echo -e "  ${COLOR_STEP}logs${RESET}               Remove log files (active feature or all)"
+            echo -e "  ${COLOR_STEP}feature <name>${RESET}      Remove a specific feature's state and worktrees"
+            echo -e "  ${COLOR_STEP}all${RESET}                Remove entire .speed/ directory"
             ;;
     esac
 }
@@ -2844,12 +2956,16 @@ main() {
     local command="${1:-help}"
     shift || true
 
-    # ── Extract global --feature flag before dispatching ──────────
+    # ── Extract global flags before dispatching ─────────────────
     GLOBAL_FEATURE=""
     local args=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --feature|-f) GLOBAL_FEATURE="$2"; shift 2 ;;
+            --feature|-f)  GLOBAL_FEATURE="$2"; shift 2 ;;
+            --quiet)       VERBOSITY=0; shift ;;
+            --verbose)     VERBOSITY=2; shift ;;
+            --debug)       VERBOSITY=3; shift ;;
+            --json)        JSON_OUTPUT=true; VERBOSITY=0; shift ;;
             *) args+=("$1"); shift ;;
         esac
     done

@@ -28,7 +28,7 @@ When multiple tasks touch the data model:
 - Do migrations create tables that match the models?
 - Do GraphQL types match the underlying models?
 - Are enum values consistent across all tasks?
-- If Task 3 creates a `Tribe` model and Task 7 creates a GraphQL `TribeType`, do the field names match?
+- If Task 3 creates a `Team` model and Task 7 creates a GraphQL `TeamType`, do the field names match?
 
 ### 3. Naming Consistency
 

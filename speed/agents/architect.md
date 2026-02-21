@@ -56,7 +56,7 @@ If a related spec references an entity in your feature (or vice versa), your tas
 - Separate infrastructure from features
 - Identify the critical path — minimize the longest dependency chain to maximize parallelism
 - Use `sonnet` as the default `agent_model`. Use `opus` only for architecturally complex tasks
-- Use the spec's terminology exactly. If the spec says "tribe," your tasks say "tribe"
+- Use the spec's terminology exactly. If the spec says "workspace," your tasks say "workspace"
 - Think about the FULL implementation: error handling, edge cases, empty states, loading states — not just happy path
 - Frontend tasks should reference the exact design spec section they implement (layout, spacing, colors, typography, states)
 

@@ -17,10 +17,10 @@ fi
 # Hard gate: refuse to run agents without a timeout command.
 require_timeout_cmd() {
     if [[ -z "$_TIMEOUT_CMD" ]]; then
-        log_error "No timeout command found. Install GNU coreutils:"
-        log_error "  macOS:  brew install coreutils"
-        log_error "  Linux:  timeout is included in coreutils (should already be installed)"
-        log_error "Cannot enforce agent time limits without this. Refusing to run."
+        log_error_block \
+            "Cannot find 'timeout' or 'gtimeout' command" \
+            "SPEED requires GNU timeout to enforce agent time limits" \
+            "macOS: brew install coreutils  |  Linux: apt install coreutils"
         return 1
     fi
 }
