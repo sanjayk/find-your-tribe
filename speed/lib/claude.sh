@@ -156,22 +156,32 @@ claude_run() {
 }
 
 # Spawn a Claude agent that outputs structured JSON
-# Args: system_prompt_file user_message json_schema_file [model] [max_turns]
+# Args: system_prompt_file user_message json_schema_file [model] [max_turns] [tools]
+#
+# Semantic separation:
+#   --system-prompt  = CLAUDE.md + agent role prompt (behavioral authority)
+#   --json-schema    = machine-enforced output schema (CLI validates output)
+#   --tools          = tool access ("" to disable all, omit for defaults)
+#   positional arg   = user message (the actual task input)
+#
 # Returns the extracted result text on stdout.
 # Returns non-zero on failure (with error logged to stderr).
+#   Exit 1 = CLI crash, timeout, or empty output
+#   Exit 2 = CLI error envelope (max turns, tool error, etc.)
 claude_run_json() {
     local system_prompt_file="$1"
     local user_message="$2"
     local json_schema_file="$3"
     local model="${4:-$MODEL_SUPPORT}"
     local max_turns="${5:-$DEFAULT_JSON_MAX_TURNS}"
+    local arg_count=$#
 
     local system_prompt
     system_prompt="$(cat "$system_prompt_file")"
 
-    local context=""
+    # Prepend CLAUDE.md to system prompt for project conventions
     if [[ -f "$CLAUDE_MD" ]]; then
-        context="$(cat "$CLAUDE_MD")"$'\n\n---\n\n'
+        system_prompt="$(cat "$CLAUDE_MD")"$'\n\n---\n\n'"${system_prompt}"
     fi
 
     local schema
@@ -182,6 +192,24 @@ claude_run_json() {
     local agent_timeout="${DEFAULT_AGENT_TIMEOUT:-600}"
     local kill_grace="${AGENT_KILL_GRACE:-10}"
 
+    # Build CLI arguments with proper semantic separation
+    local cli_args=(
+        -p
+        --model "$model"
+        --system-prompt "$system_prompt"
+        --output-format json
+        --json-schema "$schema"
+        --max-turns "$max_turns"
+    )
+
+    # --tools: only passed if 6th arg was explicitly provided
+    #   "" = disable all tools (pure reasoning, 1 turn)
+    #   "Bash Edit Read" = specific tools
+    #   omitted = CLI default tool set
+    if [[ $arg_count -ge 6 ]]; then
+        cli_args+=(--tools "${6}")
+    fi
+
     # Capture stderr separately so CLI errors are not lost
     local stderr_file
     stderr_file=$(mktemp)
@@ -189,18 +217,15 @@ claude_run_json() {
     local raw_output
     local rc=0
     raw_output=$("$_TIMEOUT_CMD" --kill-after="$kill_grace" "$agent_timeout" \
-        "$CLAUDE_BIN" -p \
-        --model "$model" \
-        --output-format json \
-        --max-turns "$max_turns" \
-        "${context}${system_prompt}"$'\n\n---\n\nIMPORTANT: You MUST respond with valid JSON matching this schema:\n```json\n'"${schema}"$'\n```\n\n---\n\n'"${user_message}" \
+        "$CLAUDE_BIN" "${cli_args[@]}" \
+        "$user_message" \
         2>"$stderr_file") || rc=$?
 
     local stderr_content
     stderr_content=$(cat "$stderr_file" 2>/dev/null)
     rm -f "$stderr_file"
 
-    # Check for timeout
+    # Check for timeout (exit 124 = SIGTERM, 137 = SIGKILL)
     if [[ $rc -eq 124 || $rc -eq 137 ]]; then
         log_error "JSON agent timed out after ${agent_timeout}s (exit code ${rc})"
         if [[ -n "$stderr_content" ]]; then
@@ -271,7 +296,7 @@ claude_spawn_bg() {
     local output_file="$3"
     local model="${4:-$MODEL_SUPPORT}"
     local allowed_tools="${5:-$AGENT_TOOLS_FULL}"
-    local agent_cwd="${6:-$TRIBE_ROOT}"
+    local agent_cwd="${6:-$PROJECT_ROOT}"
 
     local system_prompt
     system_prompt="$(cat "$system_prompt_file")"

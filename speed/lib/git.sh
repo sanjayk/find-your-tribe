@@ -5,7 +5,7 @@
 
 # Ensure we're in the project root for all git operations
 _git() {
-    git -C "$TRIBE_ROOT" "$@"
+    git -C "$PROJECT_ROOT" "$@"
 }
 
 # Detect the repo's default branch (main, master, etc.)
@@ -87,7 +87,7 @@ git_create_baseline() {
 
     log_step "Creating baseline commit so task branches see all files..."
     _git add -A
-    _git commit -m "tribe: baseline commit for swarm operation" >/dev/null 2>&1
+    _git commit -m "speed: baseline commit for operation" >/dev/null 2>&1
     log_success "Baseline commit created"
     return 0
 }
@@ -166,28 +166,28 @@ git_setup_worktree_deps() {
     local worktree_path="$1"
 
     # Frontend node_modules
-    local fe_nm="${TRIBE_ROOT}/src/frontend/node_modules"
+    local fe_nm="${PROJECT_ROOT}/src/frontend/node_modules"
     local wt_fe="${worktree_path}/src/frontend"
     if [[ -d "$fe_nm" ]] && [[ -d "$wt_fe" ]] && [[ ! -e "$wt_fe/node_modules" ]]; then
         ln -s "$fe_nm" "$wt_fe/node_modules"
     fi
 
     # Backend .venv
-    local be_venv="${TRIBE_ROOT}/src/backend/.venv"
+    local be_venv="${PROJECT_ROOT}/src/backend/.venv"
     local wt_be="${worktree_path}/src/backend"
     if [[ -d "$be_venv" ]] && [[ -d "$wt_be" ]] && [[ ! -e "$wt_be/.venv" ]]; then
         ln -s "$be_venv" "$wt_be/.venv"
     fi
 
     # Plugin node_modules
-    local pl_nm="${TRIBE_ROOT}/src/plugins/claude-code-hook/node_modules"
+    local pl_nm="${PROJECT_ROOT}/src/plugins/claude-code-hook/node_modules"
     local wt_pl="${worktree_path}/src/plugins/claude-code-hook"
     if [[ -d "$pl_nm" ]] && [[ -d "$wt_pl" ]] && [[ ! -e "$wt_pl/node_modules" ]]; then
         ln -s "$pl_nm" "$wt_pl/node_modules"
     fi
 
     # Frontend .next cache (needed for next lint / next build)
-    local fe_next="${TRIBE_ROOT}/src/frontend/.next"
+    local fe_next="${PROJECT_ROOT}/src/frontend/.next"
     local wt_fe_next="${worktree_path}/src/frontend"
     if [[ -d "$fe_next" ]] && [[ -d "$wt_fe_next" ]] && [[ ! -e "$wt_fe_next/.next" ]]; then
         ln -s "$fe_next" "$wt_fe_next/.next"

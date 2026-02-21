@@ -10,7 +10,7 @@
 
 grounding_run() {
     local task_id="$1"
-    local worktree_path="${2:-$TRIBE_ROOT}"
+    local worktree_path="${2:-$PROJECT_ROOT}"
     local all_passed=true
     local results=()
 
@@ -189,7 +189,7 @@ grounding_check_scope() {
 
 grounding_check_python_imports() {
     local task_id="$1"
-    local worktree_path="${2:-$TRIBE_ROOT}"
+    local worktree_path="${2:-$PROJECT_ROOT}"
     local task_json="${TASKS_DIR}/${task_id}.json"
     local branch
     branch=$(jq -r '.branch' "$task_json" 2>/dev/null)
@@ -230,7 +230,7 @@ except:
             imp_path=$(echo "$imp" | tr '.' '/')
             # Check both as file and as package (look in worktree first, then main repo)
             local found=false
-            for base_root in "$worktree_path" "$TRIBE_ROOT"; do
+            for base_root in "$worktree_path" "$PROJECT_ROOT"; do
                 for base_dir in "src/backend" "src/frontend" "."; do
                     if [[ -f "${base_root}/${base_dir}/${imp_path}.py" ]] || \
                        [[ -f "${base_root}/${base_dir}/${imp_path}/__init__.py" ]] || \
@@ -270,13 +270,13 @@ grounding_check_not_blocked() {
 }
 
 # ── Contract Check: verify schema matches contract.json ───────────
-# Uses AST parsing (swarm/lib/contract_verify.py) instead of grep.
+# Uses AST parsing (speed/lib/contract_verify.py) instead of grep.
 # Structurally extracts __tablename__, Column(), ForeignKey(), and
 # op.create_table() from Python source — no false positives from
 # comments, docstrings, or substring matches.
 
 contract_check() {
-    local contract_file="${CONTRACT_FILE:-${TRIBE_DIR}/contract.json}"
+    local contract_file="${CONTRACT_FILE:-${STATE_DIR}/contract.json}"
 
     if [[ ! -f "$contract_file" ]]; then
         log_warn "No contract.json found — skipping contract verification"
@@ -292,7 +292,7 @@ contract_check() {
     log_step "Verifying schema contract (AST-based)..."
 
     local verify_output
-    verify_output=$(python3 "$verify_script" "$contract_file" "$TRIBE_ROOT" 2>&1)
+    verify_output=$(python3 "$verify_script" "$contract_file" "$PROJECT_ROOT" 2>&1)
     local verify_exit=$?
 
     # Exit code 2 = script error (bad args, unreadable contract)
@@ -475,7 +475,7 @@ spec_grounding_check() {
     log_step "Grounding spec against codebase (AST)..."
 
     local output
-    output=$(python3 "$ground_script" "$spec_file" "$TRIBE_ROOT" 2>&1)
+    output=$(python3 "$ground_script" "$spec_file" "$PROJECT_ROOT" 2>&1)
     local exit_code=$?
 
     if [[ $exit_code -eq 2 ]]; then

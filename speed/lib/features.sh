@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # features.sh — Feature namespace management
 #
-# The swarm supports running multiple features in parallel. Each feature
+# SPEED supports running multiple features in parallel. Each feature
 # gets isolated state: tasks, logs, contract, spec_path, worktrees.
 #
 # Directory layout:
-#   .tribe/
+#   .speed/
 #     active_feature        ← name of the last-planned feature
 #     features/
 #       f3-projects/
@@ -21,7 +21,7 @@
 #       f3-projects/        ← git worktrees for f3 tasks
 #       f4-tribes/          ← git worktrees for f4 tasks
 #
-# Branch naming: tribe/{feature}/task-{id}-{slug}
+# Branch naming: speed/{feature}/task-{id}-{slug}
 #
 # Requires config.sh and log.sh to be sourced first
 
@@ -49,8 +49,9 @@ feature_activate() {
     LOGS_DIR="${FEATURE_DIR}/logs"
     CONTRACT_FILE="${FEATURE_DIR}/contract.json"
     STATE_FILE="${FEATURE_DIR}/state.json"
-    WORKTREES_DIR="${TRIBE_DIR}/worktrees/${name}"
-    BRANCH_PREFIX="tribe/${name}"
+    WORKTREES_DIR="${STATE_DIR}/worktrees/${name}"
+    SPEED_LOCK="${FEATURE_DIR}/speed.lock"
+    BRANCH_PREFIX="speed/${name}"
 
     mkdir -p "$TASKS_DIR" "$LOGS_DIR"
 
@@ -64,14 +65,14 @@ feature_activate() {
 
 feature_set_active() {
     local name="$1"
-    echo "$name" > "${TRIBE_DIR}/active_feature"
+    echo "$name" > "${STATE_DIR}/active_feature"
 }
 
 # ── Get the active feature name (or empty string) ────────────────
 
 feature_get_active() {
-    if [[ -f "${TRIBE_DIR}/active_feature" ]]; then
-        cat "${TRIBE_DIR}/active_feature"
+    if [[ -f "${STATE_DIR}/active_feature" ]]; then
+        cat "${STATE_DIR}/active_feature"
     fi
 }
 
@@ -140,7 +141,7 @@ _require_feature() {
         return 0
     fi
 
-    log_error "No feature context. Use --feature <name> or run 'tribe plan' first."
+    log_error "No feature context. Use --feature <name> or run 'speed plan' first."
     echo ""
     local features
     features=$(feature_list)
@@ -156,7 +157,7 @@ _require_feature() {
             echo -e "  - ${CYAN}${f}${RESET}${marker}"
         done <<< "$features"
     else
-        echo "No features found. Run: ./swarm/tribe plan <spec-file>"
+        echo "No features found. Run: ./speed/speed plan <spec-file>"
     fi
     exit 1
 }

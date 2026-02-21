@@ -38,19 +38,17 @@ node_modules/
 # AI tooling
 CLAUDE.md
 
-# Tribe runtime state
-.tribe/
+# SPEED runtime state
+.speed/
+.speed/logs/
+.speed/features/*/logs/
+.speed/features/*/state.json
+.speed/features/*/failure_history.jsonl
+.speed/active_feature
+.speed/state.json
+.speed/running/
+.speed/worktrees/
 
 # Local-only directories
 playground/
 src/prototype/
-
-# Tribe runtime state
-.tribe/logs/
-.tribe/features/*/logs/
-.tribe/features/*/state.json
-.tribe/features/*/failure_history.jsonl
-.tribe/active_feature
-.tribe/state.json
-.tribe/running/
-.tribe/worktrees/

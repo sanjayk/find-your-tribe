@@ -1,12 +1,12 @@
-# Tribe Swarm
+# SPEED
 
 A bash-based orchestration framework that coordinates multiple Claude Code agents to build software from product specs. Give it a spec, it produces a task DAG, assigns agents to branches, runs quality gates, and merges the result.
 
-This is the tool building Find Your Tribe. It lives in the repo it builds.
+A product-agnostic orchestrator. It lives alongside the code it builds.
 
 ## How it works
 
-Tribe decomposes a product specification into a directed acyclic graph of tasks, then executes them in parallel using Claude Code agents on isolated git branches. Each task is small (15-30 minutes of work), scoped to declared files, and verified by non-LLM gates before merge.
+SPEED decomposes a product specification into a directed acyclic graph of tasks, then executes them in parallel using Claude Code agents on isolated git branches. Each task is small (15-30 minutes of work), scoped to declared files, and verified by non-LLM gates before merge.
 
 ```
 spec.md → validate → plan → verify → run → review → coherence → integrate
@@ -42,7 +42,7 @@ When tasks fail, the system doesn't just retry blindly:
 Quality checks split into two categories:
 
 - **Grounding gates** (non-LLM): diff is non-empty, declared files exist, scope check (files touched vs declared), Python import resolution via AST parsing, blocked status detection. A script can't be bullshitted.
-- **Quality gates** (tools): syntax checking (Python AST, JSON, JS/TS), lint, typecheck, test. Commands are parsed from the project's CLAUDE.md so the swarm uses the same gates as the humans.
+- **Quality gates** (tools): syntax checking (Python AST, JSON, JS/TS), lint, typecheck, test. Commands are parsed from the project's CLAUDE.md so SPEED uses the same gates as the humans.
 
 ## Agents
 
@@ -73,41 +73,41 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 ### Commands
 
 ```bash
-# Initialize a project for swarm development
-./swarm/tribe init
+# Initialize a project for SPEED development
+./speed/speed init
 
 # Cross-validate all specs for consistency
-./swarm/tribe validate specs/
+./speed/speed validate specs/
 
 # Decompose a spec into a task DAG
-./swarm/tribe plan specs/product/f4-tribes.md --specs-dir specs/
+./speed/speed plan specs/product/f4-tribes.md --specs-dir specs/
 
 # Blind-verify the plan against the spec
-./swarm/tribe verify
+./speed/speed verify
 
 # Execute tasks with parallel agents
-./swarm/tribe run --max-parallel 3
+./speed/speed run --max-parallel 3
 
-# Show swarm state and progress
-./swarm/tribe status
+# Show SPEED state and progress
+./speed/speed status
 
 # Code review completed tasks
-./swarm/tribe review
+./speed/speed review
 
 # Check cross-task consistency before integration
-./swarm/tribe coherence
+./speed/speed coherence
 
 # Merge completed branches into main
-./swarm/tribe integrate
+./speed/speed integrate
 
 # Retry a failed task (optionally escalate model)
-./swarm/tribe retry --task-id 3 --escalate
+./speed/speed retry --task-id 3 --escalate
 
 # Recover from crashed/stale state
-./swarm/tribe recover
+./speed/speed recover
 
 # Run Product Guardian vision check on a spec
-./swarm/tribe guardian specs/product/f4-tribes.md
+./speed/speed guardian specs/product/f4-tribes.md
 ```
 
 ### Options
@@ -124,8 +124,8 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 ## Project structure
 
 ```
-swarm/
-  tribe                 # Main CLI (bash)
+speed/
+  speed                 # Main CLI (bash)
   agents/               # Agent role definitions (markdown)
     architect.md        # Spec → task DAG decomposition
     developer.md        # Single-task implementation
@@ -149,14 +149,14 @@ swarm/
     claude-md.md        # CLAUDE.md template
     spec.md             # Spec file template
     task.json           # Task schema
-  specs/                # Swarm-specific specs (used during planning)
+  # (no specs/ — those belong to the host project)
 ```
 
 ## Design decisions
 
 **Why bash?** It's glue. The orchestrator's job is to spawn processes, manage files, and call CLIs. Bash does this natively. The complex reasoning happens inside the Claude agents, not the orchestrator.
 
-**Why file-based state?** Tasks are JSON files in `.tribe/tasks/`. No database, no server, no daemon. You can inspect state with `cat` and `jq`. If something breaks, the state is human-readable. Bash 3.2 compatibility (macOS default) means no associative arrays, hence temp-file-based tracking in the topological sort.
+**Why file-based state?** Tasks are JSON files in `.speed/tasks/`. No database, no server, no daemon. You can inspect state with `cat` and `jq`. If something breaks, the state is human-readable. Bash 3.2 compatibility (macOS default) means no associative arrays, hence temp-file-based tracking in the topological sort.
 
 **Why isolated branches?** Each developer agent works on its own git branch, scoped to declared files. This prevents agents from stepping on each other, makes diffs reviewable per-task, and allows parallel execution without locks.
 

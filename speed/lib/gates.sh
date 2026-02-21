@@ -13,11 +13,11 @@
 # Run all gates on a completed task: grounding + quality
 # Args: task_id [worktree_path]
 # When worktree_path is provided, gates run inside the isolated worktree
-# (no git checkout needed). Falls back to TRIBE_ROOT for backwards compat.
+# (no git checkout needed). Falls back to PROJECT_ROOT for backwards compat.
 # Returns 0 if all pass, 1 if any fail
 gates_run() {
     local task_id="$1"
-    local worktree_path="${2:-$TRIBE_ROOT}"
+    local worktree_path="${2:-$PROJECT_ROOT}"
     local grounding_passed=true
     local quality_passed=true
 
@@ -103,18 +103,18 @@ gates_run() {
 # Args: task_id [worktree_path]
 gate_syntax_check() {
     local task_id="${1:-}"
-    local worktree_path="${2:-$TRIBE_ROOT}"
+    local worktree_path="${2:-$PROJECT_ROOT}"
     local failed=false
 
     # Determine diff base: use task branch if available, fallback to HEAD~1
-    local diff_cmd="git -C ${TRIBE_ROOT} diff --name-only HEAD~1 HEAD"
+    local diff_cmd="git -C ${PROJECT_ROOT} diff --name-only HEAD~1 HEAD"
     if [[ -n "$task_id" ]]; then
         local task_file="${TASKS_DIR}/${task_id}.json"
         if [[ -f "$task_file" ]]; then
             local branch
             branch=$(jq -r '.branch' "$task_file" 2>/dev/null)
             if [[ -n "$branch" ]] && [[ "$branch" != "null" ]]; then
-                diff_cmd="git -C ${TRIBE_ROOT} diff --name-only main...${branch}"
+                diff_cmd="git -C ${PROJECT_ROOT} diff --name-only main...${branch}"
             fi
         fi
     fi
@@ -173,7 +173,7 @@ gate_syntax_check() {
 gate_run_command() {
     local name="$1"
     local cmd="$2"
-    local gate_cwd="${3:-$TRIBE_ROOT}"
+    local gate_cwd="${3:-$PROJECT_ROOT}"
     local timestamp
     timestamp=$(date +%s)
     local log_file="${LOGS_DIR}/gate-${name}-${timestamp}.log"

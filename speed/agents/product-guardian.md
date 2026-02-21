@@ -110,7 +110,7 @@ If a task plan includes "Could Have" work before "Must Have" work is complete, f
 
 ## When You Run
 
-You run at three insertion points in the swarm workflow:
+You run at three insertion points in the SPEED workflow:
 
 ### Before Planning (Pre-Plan Gate)
 Input: Feature spec or task request.

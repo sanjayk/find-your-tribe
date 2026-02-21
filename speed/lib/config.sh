@@ -4,24 +4,24 @@
 set -euo pipefail
 
 # ── Paths ────────────────────────────────────────────────────────
-TRIBE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SWARM_DIR="${TRIBE_ROOT}/swarm"
-LIB_DIR="${SWARM_DIR}/lib"
-AGENTS_DIR="${SWARM_DIR}/agents"
-TEMPLATES_DIR="${SWARM_DIR}/templates"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SPEED_DIR="${PROJECT_ROOT}/speed"
+LIB_DIR="${SPEED_DIR}/lib"
+AGENTS_DIR="${SPEED_DIR}/agents"
+TEMPLATES_DIR="${SPEED_DIR}/templates"
 
-TRIBE_DIR="${TRIBE_ROOT}/.tribe"
-FEATURES_DIR="${TRIBE_DIR}/features"
-CLAUDE_MD="${TRIBE_ROOT}/CLAUDE.md"
+STATE_DIR="${PROJECT_ROOT}/.speed"
+FEATURES_DIR="${STATE_DIR}/features"
+CLAUDE_MD="${PROJECT_ROOT}/CLAUDE.md"
 
 # ── Feature-scoped paths (defaults — overridden by feature_activate) ──
 # Commands that require a feature call feature_activate() which updates
 # these globals to point at the feature's namespace directory.
-TASKS_DIR="${TRIBE_DIR}/tasks"
-LOGS_DIR="${TRIBE_DIR}/logs"
-WORKTREES_DIR="${TRIBE_DIR}/worktrees"
-STATE_FILE="${TRIBE_DIR}/state.json"
-CONTRACT_FILE="${TRIBE_DIR}/contract.json"
+TASKS_DIR="${STATE_DIR}/tasks"
+LOGS_DIR="${STATE_DIR}/logs"
+WORKTREES_DIR="${STATE_DIR}/worktrees"
+STATE_FILE="${STATE_DIR}/state.json"
+CONTRACT_FILE="${STATE_DIR}/contract.json"
 FEATURE_NAME=""
 FEATURE_DIR=""
 
@@ -33,7 +33,7 @@ export PATH="${PATH}:${HOME}/.local/bin"
 DEFAULT_MAX_PARALLEL=3
 DEFAULT_AGENT_TIMEOUT=600
 AGENT_KILL_GRACE=10          # seconds after SIGTERM before SIGKILL
-BRANCH_PREFIX="tribe"
+BRANCH_PREFIX="speed"
 
 # ── Model Tiers ──────────────────────────────────────────────────
 # Planning tier: high-stakes reasoning where quality cascades.
@@ -60,7 +60,7 @@ AGENT_TOOLS_READONLY="Read Glob Grep"
 POLL_INTERVAL=5                # seconds between main loop iterations
 COMPLETION_FLUSH_WAIT=1        # seconds to wait for file writes after completion
 STALE_STATE_PAUSE=3            # seconds to pause on stale state warning
-HALT_FAILURE_PCT=30            # halt swarm if this % of tasks fail
+HALT_FAILURE_PCT=30            # halt SPEED if this % of tasks fail
 PATTERN_FAILURE_THRESHOLD=3    # invoke supervisor after this many failures
 
 # ── Context Limits ───────────────────────────────────────────────
