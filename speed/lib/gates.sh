@@ -182,12 +182,20 @@ gate_run_command() {
 
     mkdir -p "$LOGS_DIR"
 
-    # Activate venv if it exists in the target directory so tools like ruff/pytest are on PATH
+    # Activate venv/node_modules if they exist in the target directory
+    # Generic: extract the cd target from the command, check for .venv or node_modules
     local venv_activate=""
-    if [[ "$cmd" == cd\ src/backend* ]] && [[ -f "${gate_cwd}/src/backend/.venv/bin/activate" ]]; then
-        venv_activate="source ${gate_cwd}/src/backend/.venv/bin/activate && "
-    elif [[ "$cmd" == cd\ src/frontend* ]] && [[ -d "${gate_cwd}/src/frontend/node_modules/.bin" ]]; then
-        venv_activate="export PATH=${gate_cwd}/src/frontend/node_modules/.bin:\$PATH && "
+    local cmd_target_dir=""
+    if [[ "$cmd" =~ ^cd[[:space:]]+([^[:space:]&;]+) ]]; then
+        cmd_target_dir="${BASH_REMATCH[1]}"
+    fi
+    if [[ -n "$cmd_target_dir" ]]; then
+        local full_target="${gate_cwd}/${cmd_target_dir}"
+        if [[ -f "${full_target}/.venv/bin/activate" ]]; then
+            venv_activate="source ${full_target}/.venv/bin/activate && "
+        elif [[ -d "${full_target}/node_modules/.bin" ]]; then
+            venv_activate="export PATH=${full_target}/node_modules/.bin:\$PATH && "
+        fi
     fi
 
     if (cd "$gate_cwd" && eval "${venv_activate}${cmd}" > "$log_file" 2>&1); then
@@ -224,8 +232,11 @@ _prune_logs() {
     done <<< "$files"
 }
 
-# Detect which subsystem a task touches based on its files_touched
-# Returns: "frontend", "backend", or "both"
+# Detect which subsystem a task touches based on its files_touched.
+# Returns: subsystem name (e.g. "frontend", "backend") or "both".
+#
+# If TOML_SUBSYSTEMS is set (from speed.toml [subsystems]), matches file
+# paths against configured glob prefixes. Otherwise uses hardcoded logic.
 _detect_subsystem() {
     local task_id="$1"
     local task_file="${TASKS_DIR}/${task_id}.json"
@@ -243,6 +254,61 @@ _detect_subsystem() {
         return
     fi
 
+    if [[ -n "${TOML_SUBSYSTEMS:-}" ]]; then
+        _detect_subsystem_configured "$files_touched"
+    else
+        _detect_subsystem_hardcoded "$files_touched"
+    fi
+}
+
+# Config-driven subsystem detection using TOML_SUBSYSTEMS.
+# TOML_SUBSYSTEMS format: "name1:glob1,glob2 name2:glob3"
+_detect_subsystem_configured() {
+    local files_touched="$1"
+    local matched_subsystems=""
+    local match_count=0
+
+    local entry
+    for entry in $TOML_SUBSYSTEMS; do
+        local name="${entry%%:*}"
+        local globs="${entry##*:}"
+        local matched=false
+
+        # Check each file against the subsystem's globs
+        while IFS= read -r f; do
+            [[ -z "$f" ]] && continue
+            # Split globs by comma and check each
+            IFS=',' read -ra glob_array <<< "$globs"
+            for glob in "${glob_array[@]}"; do
+                # Convert glob to a prefix match (strip trailing /**)
+                local prefix="${glob%%/\*\*}"
+                prefix="${prefix%%\*}"
+                if [[ "$f" == ${prefix}* ]]; then
+                    matched=true
+                    break
+                fi
+            done
+            $matched && break
+        done <<< "$files_touched"
+
+        if $matched; then
+            matched_subsystems="${matched_subsystems} ${name}"
+            ((match_count++))
+        fi
+    done
+
+    if [[ $match_count -gt 1 ]]; then
+        echo "both"
+    elif [[ $match_count -eq 1 ]]; then
+        echo "${matched_subsystems## }"
+    else
+        echo "both"
+    fi
+}
+
+# Hardcoded subsystem detection (backwards compatibility when no speed.toml).
+_detect_subsystem_hardcoded() {
+    local files_touched="$1"
     local has_frontend=false
     local has_backend=false
     local has_plugin=false

@@ -25,30 +25,35 @@ CONTRACT_FILE="${STATE_DIR}/contract.json"
 FEATURE_NAME=""
 FEATURE_DIR=""
 
-# ── Claude CLI ────────────────────────────────────────────────────
-CLAUDE_BIN="$(which claude 2>/dev/null || echo "claude")"
+# ── Read speed.toml (if present) ──────────────────────────────────
+SPEED_TOML="${PROJECT_ROOT}/speed.toml"
+if [[ -f "$SPEED_TOML" ]]; then
+    eval "$(python3 "${LIB_DIR}/toml.py" "$SPEED_TOML" 2>/dev/null)" || true
+fi
+
+# ── PATH ──────────────────────────────────────────────────────────
 export PATH="${PATH}:${HOME}/.local/bin"
 
-# ── Defaults ─────────────────────────────────────────────────────
+# ── Defaults (env > toml > built-in) ─────────────────────────────
 DEFAULT_MAX_PARALLEL=3
-DEFAULT_AGENT_TIMEOUT=600
+DEFAULT_AGENT_TIMEOUT="${SPEED_TIMEOUT:-${TOML_AGENT_TIMEOUT:-600}}"
 AGENT_KILL_GRACE=10          # seconds after SIGTERM before SIGKILL
 BRANCH_PREFIX="speed"
 
 # ── Model Tiers ──────────────────────────────────────────────────
 # Planning tier: high-stakes reasoning where quality cascades.
 #   Used by: architect, plan verifier, coherence checker
-MODEL_PLANNING="opus"
+MODEL_PLANNING="${SPEED_PLANNING_MODEL:-${TOML_AGENT_PLANNING_MODEL:-opus}}"
 
 # Support tier: structured tasks applying frameworks to known inputs.
 #   Used by: debugger, supervisor, guardian, reviewer, validator, integrator
-MODEL_SUPPORT="sonnet"
+MODEL_SUPPORT="${SPEED_SUPPORT_MODEL:-${TOML_AGENT_SUPPORT_MODEL:-sonnet}}"
 
 # Developer tier: set per-task by the architect, defaults to MODEL_SUPPORT.
 #   Escalated automatically by timeout (sonnet → opus).
 
 # ── Agent Turns ──────────────────────────────────────────────────
-DEFAULT_MAX_TURNS=50           # max turns for developer/interactive agents
+DEFAULT_MAX_TURNS="${SPEED_MAX_TURNS:-${TOML_AGENT_MAX_TURNS:-50}}"
 DEFAULT_JSON_MAX_TURNS=3       # max turns for simple JSON-producing agents
 ARCHITECT_MAX_TURNS=30         # architect needs many turns for large specs
 
@@ -66,6 +71,9 @@ PATTERN_FAILURE_THRESHOLD=3    # invoke supervisor after this many failures
 # ── Context Limits ───────────────────────────────────────────────
 AGENT_OUTPUT_TAIL=200          # lines of agent output to send to debugger
 DIFF_HEAD_LINES=500            # lines of diff to send to debugger/reviewer
+
+# ── Vision File ──────────────────────────────────────────────────
+VISION_FILE="${TOML_SPECS_VISION_FILE:-specs/product/overview.md}"
 
 # ── Log Retention ───────────────────────────────────────────────
 LOG_RETAIN_PER_CATEGORY=3      # keep last N logs per category (gate, supervisor, etc.)

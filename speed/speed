@@ -27,7 +27,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/config.sh"
 source "${SCRIPT_DIR}/lib/log.sh"
 source "${SCRIPT_DIR}/lib/git.sh"
-source "${SCRIPT_DIR}/lib/claude.sh"
+source "${SCRIPT_DIR}/lib/provider.sh"
 source "${SCRIPT_DIR}/lib/tasks.sh"
 source "${SCRIPT_DIR}/lib/grounding.sh"
 source "${SCRIPT_DIR}/lib/gates.sh"
@@ -152,14 +152,37 @@ EOF
         log_info "CLAUDE.md already exists, skipping"
     fi
 
-    # 6. Initial commit
+    # 6. speed.toml
+    local speed_toml="${PROJECT_ROOT}/speed.toml"
+    if [[ ! -f "$speed_toml" ]]; then
+        cp "${TEMPLATES_DIR}/speed-toml.toml" "$speed_toml"
+        log_success "Created speed.toml — ${DIM}configure providers and settings${RESET}"
+    else
+        log_info "speed.toml already exists, skipping"
+    fi
+
+    # 7. Vision file template
+    local vision_path="${PROJECT_ROOT}/${VISION_FILE}"
+    local vision_dir
+    vision_dir=$(dirname "$vision_path")
+    if [[ ! -f "$vision_path" ]]; then
+        mkdir -p "$vision_dir"
+        cp "${TEMPLATES_DIR}/overview.md" "$vision_path"
+        log_success "Created ${VISION_FILE} — ${DIM}define your product vision${RESET}"
+    else
+        log_info "${VISION_FILE} already exists, skipping"
+    fi
+
+    # 8. Initial commit
     (cd "$PROJECT_ROOT" && git add -A && git commit -m "speed init: project scaffold" 2>/dev/null) || true
 
     echo ""
     log_success "SPEED initialized! Next steps:"
     echo -e "  1. Edit ${CYAN}CLAUDE.md${RESET} with your project conventions"
-    echo -e "  2. Create a product spec: ${CYAN}cp speed/templates/spec.md my-spec.md${RESET}"
-    echo -e "  3. Plan your tasks: ${CYAN}./speed/speed plan my-spec.md${RESET}"
+    echo -e "  2. Edit ${CYAN}speed.toml${RESET} to configure your provider and settings"
+    echo -e "  3. Edit ${CYAN}${VISION_FILE}${RESET} with your product vision"
+    echo -e "  4. Create a product spec: ${CYAN}cp speed/templates/spec.md my-spec.md${RESET}"
+    echo -e "  5. Plan your tasks: ${CYAN}./speed/speed plan my-spec.md${RESET}"
     echo ""
 }
 
@@ -1611,7 +1634,7 @@ _run_guardian() {
     local content="$2"
     local label="${3:-}"
 
-    local overview_file="${PROJECT_ROOT}/specs/product/overview.md"
+    local overview_file="${PROJECT_ROOT}/${VISION_FILE}"
     if [[ ! -f "$overview_file" ]]; then
         log_warn "Product overview not found at ${overview_file} — skipping guardian check"
         return 0
@@ -1690,7 +1713,7 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
 
             # Print critical flags
             local critical_flags
-            critical_flags=$(echo "$guardian_output" | jq -r '.flags[] | select(.severity == "critical") | "    \(.description)\n    Spec: \(.spec_reference)"' 2>/dev/null || echo "")
+            critical_flags=$(echo "$guardian_output" | jq -r '.flags[] | select(.severity == "critical") | "    \(.description)\n    Spec: \(.vision_reference // .spec_reference)"' 2>/dev/null || echo "")
             if [[ -n "$critical_flags" ]]; then
                 echo ""
                 echo -e "  ${BOLD}Critical Violations:${RESET}"
@@ -1700,7 +1723,7 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
 
             # Print Won't Have violations
             local wont_have
-            wont_have=$(echo "$guardian_output" | jq -r '.wont_have_violations[]? | "    \(.feature) → maps to Won'\''t Have: \(.maps_to)"' 2>/dev/null || echo "")
+            wont_have=$(echo "$guardian_output" | jq -r '(.scope_violations // .wont_have_violations // [])[] | "    \(.feature) → maps to Won'\''t Have: \(.maps_to)"' 2>/dev/null || echo "")
             if [[ -n "$wont_have" ]]; then
                 echo -e "  ${BOLD}Won't Have Violations:${RESET}"
                 echo -e "$wont_have"
@@ -2225,7 +2248,7 @@ ${PROJECT_ROOT}
     fi
 
     # ── Post-integration: Guardian vision check ──────────────────
-    # Check: does the integrated result still feel like FYT?
+    # Check: does the integrated result still align with the product vision?
     if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
         echo ""
         log_header "Post-Integration Vision Check"

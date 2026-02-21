@@ -1,40 +1,26 @@
 #!/usr/bin/env bash
-# claude.sh — Claude CLI wrapper for spawning agents
+# claude-code.sh — Claude Code CLI provider for SPEED
+#
+# Implements the provider interface:
+#   provider_run, provider_run_json, provider_spawn_bg,
+#   provider_is_running, provider_wait
+#
+# Requires provider.sh (for _TIMEOUT_CMD, require_timeout_cmd, parse_agent_json)
+# and config.sh (for CLAUDE_MD, DEFAULT_AGENT_TIMEOUT, etc.) to be sourced first.
 
-# Requires config.sh and log.sh to be sourced first
+# ── Provider setup ───────────────────────────────────────────────
 
 # Allow nested invocation when running inside a Claude Code session.
 # The -p (print/pipe) mode is non-interactive and safe to nest.
 unset CLAUDECODE 2>/dev/null || true
 
-# Resolve timeout command (GNU coreutils: timeout on Linux, gtimeout on macOS)
-_TIMEOUT_CMD=""
-if command -v timeout &>/dev/null; then
-    _TIMEOUT_CMD="timeout"
-elif command -v gtimeout &>/dev/null; then
-    _TIMEOUT_CMD="gtimeout"
-fi
+# Resolve Claude CLI binary
+PROVIDER_BIN="${CLAUDE_BIN:-$(which claude 2>/dev/null || echo "claude")}"
 
-# Hard gate: refuse to run agents without a timeout command.
-# Without this, a stuck agent runs forever with no feedback.
-require_timeout_cmd() {
-    if [[ -z "$_TIMEOUT_CMD" ]]; then
-        log_error "No timeout command found. Install GNU coreutils:"
-        log_error "  macOS:  brew install coreutils"
-        log_error "  Linux:  timeout is included in coreutils (should already be installed)"
-        log_error "Cannot enforce agent time limits without this. Refusing to run."
-        return 1
-    fi
-}
-
-# ── CLI envelope error detection ─────────────────────────────
+# ── CLI envelope error detection ─────────────────────────────────
 # The Claude CLI with --output-format json wraps output in an envelope.
 # On error: {"type":"result","subtype":"error_max_turns",...} — no .result field.
 # On success: {"type":"result","result":"...actual output...",...}
-# This function detects error envelopes and returns a human-readable message.
-#
-# Returns 0 + prints error message if an error was detected.
-# Returns 1 if no error (output is normal).
 
 _detect_cli_error() {
     local raw="$1"
@@ -80,10 +66,11 @@ _detect_cli_error() {
     return 1
 }
 
-# Spawn a Claude agent with a system prompt and user message
-# Returns the agent's output on stdout
-# Returns non-zero on failure (with error logged to stderr)
-claude_run() {
+# ── Provider interface implementation ────────────────────────────
+
+# Spawn a Claude agent with a system prompt and user message.
+# Returns the agent's output on stdout.
+provider_run() {
     local system_prompt_file="$1"
     local user_message="$2"
     local model="${3:-$MODEL_SUPPORT}"
@@ -110,7 +97,7 @@ claude_run() {
     local raw_output
     local rc=0
     raw_output=$("$_TIMEOUT_CMD" --kill-after="$kill_grace" "$agent_timeout" \
-        "$CLAUDE_BIN" -p \
+        "$PROVIDER_BIN" -p \
         --model "$model" \
         --allowedTools "$allowed_tools" \
         --max-turns "$DEFAULT_MAX_TURNS" \
@@ -139,7 +126,6 @@ claude_run() {
         if [[ -z "$raw_output" ]]; then
             return 1
         fi
-        # Non-zero exit but we got output — log warning and continue
         log_warn "CLI returned non-zero exit but produced output, proceeding"
     fi
 
@@ -155,20 +141,11 @@ claude_run() {
     echo "$raw_output"
 }
 
-# Spawn a Claude agent that outputs structured JSON
+# Spawn a Claude agent that outputs structured JSON.
 # Args: system_prompt_file user_message json_schema_file [model] [max_turns] [tools]
-#
-# Semantic separation:
-#   --system-prompt  = CLAUDE.md + agent role prompt (behavioral authority)
-#   --json-schema    = machine-enforced output schema (CLI validates output)
-#   --tools          = tool access ("" to disable all, omit for defaults)
-#   positional arg   = user message (the actual task input)
-#
-# Returns the extracted result text on stdout.
-# Returns non-zero on failure (with error logged to stderr).
 #   Exit 1 = CLI crash, timeout, or empty output
 #   Exit 2 = CLI error envelope (max turns, tool error, etc.)
-claude_run_json() {
+provider_run_json() {
     local system_prompt_file="$1"
     local user_message="$2"
     local json_schema_file="$3"
@@ -192,7 +169,7 @@ claude_run_json() {
     local agent_timeout="${DEFAULT_AGENT_TIMEOUT:-600}"
     local kill_grace="${AGENT_KILL_GRACE:-10}"
 
-    # Build CLI arguments with proper semantic separation
+    # Build CLI arguments
     local cli_args=(
         -p
         --model "$model"
@@ -203,21 +180,18 @@ claude_run_json() {
     )
 
     # --tools: only passed if 6th arg was explicitly provided
-    #   "" = disable all tools (pure reasoning, 1 turn)
-    #   "Bash Edit Read" = specific tools
-    #   omitted = CLI default tool set
     if [[ $arg_count -ge 6 ]]; then
         cli_args+=(--tools "${6}")
     fi
 
-    # Capture stderr separately so CLI errors are not lost
+    # Capture stderr separately
     local stderr_file
     stderr_file=$(mktemp)
 
     local raw_output
     local rc=0
     raw_output=$("$_TIMEOUT_CMD" --kill-after="$kill_grace" "$agent_timeout" \
-        "$CLAUDE_BIN" "${cli_args[@]}" \
+        "$PROVIDER_BIN" "${cli_args[@]}" \
         "$user_message" \
         2>"$stderr_file") || rc=$?
 
@@ -225,7 +199,7 @@ claude_run_json() {
     stderr_content=$(cat "$stderr_file" 2>/dev/null)
     rm -f "$stderr_file"
 
-    # Check for timeout (exit 124 = SIGTERM, 137 = SIGKILL)
+    # Check for timeout
     if [[ $rc -eq 124 || $rc -eq 137 ]]; then
         log_error "JSON agent timed out after ${agent_timeout}s (exit code ${rc})"
         if [[ -n "$stderr_content" ]]; then
@@ -255,19 +229,15 @@ claude_run_json() {
         return 1
     fi
 
-    # ── Detect CLI error envelopes ─────────────────────────────
-    # The CLI returns {"type":"result","subtype":"error_max_turns",...} on failure.
-    # These are valid JSON but NOT agent output — they're error reports.
+    # Detect CLI error envelopes
     local cli_error
     if cli_error=$(_detect_cli_error "$raw_output"); then
         log_error "Claude CLI error: ${cli_error}"
-        # Still save the raw output for debugging (caller should handle this)
         echo "$raw_output"
-        return 2  # Distinct from 1 (CLI crash) — 2 means "got error envelope"
+        return 2
     fi
 
-    # ── Extract result from success envelope ───────────────────
-    # Claude CLI --output-format json wraps output in: {"type":"result","result":"..."}
+    # Extract result from success envelope
     local result_text
     if echo "$raw_output" | jq -e '.result' &>/dev/null; then
         result_text=$(echo "$raw_output" | jq -r '.result')
@@ -275,7 +245,6 @@ claude_run_json() {
         result_text="$raw_output"
     fi
 
-    # Check for empty result after extraction
     if [[ -z "$result_text" ]]; then
         log_error "JSON agent returned envelope with empty result"
         return 1
@@ -284,13 +253,9 @@ claude_run_json() {
     echo "$result_text"
 }
 
-# Spawn a Claude agent in the background
+# Spawn a Claude agent in the background.
 # Returns the PID on stdout.
-# The subshell writes marker files on completion:
-#   ${output_file}.done     — always written on completion
-#   ${output_file}.timeout  — written if agent timed out
-#   ${output_file}.error    — written if CLI exited non-zero (not timeout)
-claude_spawn_bg() {
+provider_spawn_bg() {
     local system_prompt_file="$1"
     local user_message="$2"
     local output_file="$3"
@@ -308,7 +273,6 @@ claude_spawn_bg() {
 
     require_timeout_cmd || return 1
 
-    # Write a marker file when process completes
     local done_marker="${output_file}.done"
     local timeout_marker="${output_file}.timeout"
     local error_marker="${output_file}.error"
@@ -317,15 +281,8 @@ claude_spawn_bg() {
     local agent_timeout="${DEFAULT_AGENT_TIMEOUT:-600}"
     local kill_grace="${AGENT_KILL_GRACE:-10}"
 
-    # IMPORTANT: The subshell must not inherit the caller's stdout pipe.
-    # When called via pid=$(claude_spawn_bg ...), bash creates a pipe and
-    # the ( ... ) & subshell inherits the write end. Even though we redirect
-    # stdout to $output_file inside the subshell, the pipe fd stays open
-    # and $() blocks until the subshell exits (could be 10+ minutes).
-    # Fix: redirect the subshell's stdout/stderr to /dev/null at the ( ) level,
-    # and use explicit file redirects for all output inside.
     ( cd "$agent_cwd" && "$_TIMEOUT_CMD" --kill-after="$kill_grace" "$agent_timeout" \
-        "$CLAUDE_BIN" -p \
+        "$PROVIDER_BIN" -p \
         --model "$model" \
         --allowedTools "$allowed_tools" \
         --max-turns "$DEFAULT_MAX_TURNS" \
@@ -345,108 +302,14 @@ claude_spawn_bg() {
     echo $!
 }
 
-# ── JSON extraction from agent output ─────────────────────────
-# Agent output is free-form text that may contain JSON. This function
-# applies a consistent extraction pipeline so every call site doesn't
-# reinvent its own fragile parser.
-#
-# Pipeline (stops at first success):
-#   1. Direct jq parse — output is already valid JSON
-#   2. Code-fence extraction — ```json ... ``` or ``` ... ```
-#   3. Brace/bracket scanning — find outermost { } or [ ]
-#      Falls back to last { } if the outermost span is invalid
-#      (handles JSON appended to end of long output, e.g. blocked status)
-#
-# Usage:
-#   parsed=$(parse_agent_json "$agent_output")
-#   cat file.log | parse_agent_json
-#
-# Returns 0 + prints JSON on success, returns 1 on failure.
-
-parse_agent_json() {
-    local raw="${1:-$(cat)}"
-
-    [[ -z "$raw" ]] && return 1
-
-    # 1. Direct parse
-    if echo "$raw" | jq -e '.' &>/dev/null; then
-        echo "$raw" | jq -c '.'
-        return 0
-    fi
-
-    # 2. Code-fence extraction (```json ... ``` or ``` ... ```)
-    local fenced
-    fenced=$(echo "$raw" | sed -n '/^```/,/^```/{/^```/d;p;}')
-    if [[ -n "$fenced" ]] && echo "$fenced" | jq -e '.' &>/dev/null; then
-        echo "$fenced" | jq -c '.'
-        return 0
-    fi
-
-    # 3. Brace/bracket scanning via Python (handles nested structures reliably)
-    # Let Python stderr through so errors are visible
-    local py_result
-    py_result=$(python3 -c '
-import sys, json
-
-text = sys.stdin.read()
-
-def try_parse(s):
-    try:
-        return json.loads(s)
-    except (json.JSONDecodeError, ValueError):
-        return None
-
-for sc, ec in [("{", "}"), ("[", "]")]:
-    # Strategy A: outermost span (first sc to last ec)
-    start = text.find(sc)
-    end = text.rfind(ec)
-    if start >= 0 and end > start:
-        parsed = try_parse(text[start:end+1])
-        if parsed is not None:
-            print(json.dumps(parsed))
-            sys.exit(0)
-
-    # Strategy B: last valid block (for JSON appended to long output)
-    # Walk backwards from each ec to find its matching sc
-    pos = len(text)
-    while True:
-        end = text.rfind(ec, 0, pos)
-        if end < 0:
-            break
-        depth = 0
-        for i in range(end, -1, -1):
-            if text[i] == ec:
-                depth += 1
-            elif text[i] == sc:
-                depth -= 1
-                if depth == 0:
-                    parsed = try_parse(text[i:end+1])
-                    if parsed is not None:
-                        print(json.dumps(parsed))
-                        sys.exit(0)
-                    break
-        pos = end  # try earlier occurrence
-
-sys.exit(1)
-' <<< "$raw" 2>&1)
-    local py_rc=$?
-
-    if [[ $py_rc -eq 0 ]] && [[ -n "$py_result" ]]; then
-        echo "$py_result"
-        return 0
-    fi
-
-    return 1
-}
-
-# Check if a Claude agent process is still running
-claude_is_running() {
+# Check if an agent process is still running.
+provider_is_running() {
     local pid="$1"
     kill -0 "$pid" 2>/dev/null
 }
 
-# Wait for a Claude agent to finish and return exit code
-claude_wait() {
+# Wait for an agent to finish and return exit code.
+provider_wait() {
     local pid="$1"
     wait "$pid" 2>/dev/null
     return $?

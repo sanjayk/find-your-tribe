@@ -1,12 +1,12 @@
 # SPEED
 
-A bash-based orchestration framework that coordinates multiple Claude Code agents to build software from product specs. Give it a spec, it produces a task DAG, assigns agents to branches, runs quality gates, and merges the result.
+A bash-based orchestration framework that coordinates AI coding agents to build software from product specs. Give it a spec, it produces a task DAG, assigns agents to branches, runs quality gates, and merges the result.
 
 A product-agnostic orchestrator. It lives alongside the code it builds.
 
 ## How it works
 
-SPEED decomposes a product specification into a directed acyclic graph of tasks, then executes them in parallel using Claude Code agents on isolated git branches. Each task is small (15-30 minutes of work), scoped to declared files, and verified by non-LLM gates before merge.
+SPEED decomposes a product specification into a directed acyclic graph of tasks, then executes them in parallel using coding agents on isolated git branches. Each task is small (15-30 minutes of work), scoped to declared files, and verified by non-LLM gates before merge.
 
 ```
 spec.md → validate → plan → verify → run → review → coherence → integrate
@@ -44,6 +44,73 @@ Quality checks split into two categories:
 - **Grounding gates** (non-LLM): diff is non-empty, declared files exist, scope check (files touched vs declared), Python import resolution via AST parsing, blocked status detection. A script can't be bullshitted.
 - **Quality gates** (tools): syntax checking (Python AST, JSON, JS/TS), lint, typecheck, test. Commands are parsed from the project's CLAUDE.md so SPEED uses the same gates as the humans.
 
+## Providers
+
+SPEED supports multiple AI coding agent providers through a plugin system. Each provider implements 5 functions: `provider_run`, `provider_run_json`, `provider_spawn_bg`, `provider_is_running`, `provider_wait`.
+
+### Built-in providers
+
+| Provider | Binary | Description |
+|----------|--------|-------------|
+| `claude-code` | `claude` | [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (default) |
+| `codex-cli` | `codex` | [OpenAI Codex CLI](https://github.com/openai/codex) |
+
+### Selecting a provider
+
+```bash
+# Via environment variable (highest priority)
+SPEED_PROVIDER=codex-cli ./speed/speed plan my-spec.md
+
+# Via speed.toml (project-level)
+# [agent]
+# provider = "codex-cli"
+
+# Default: claude-code
+```
+
+### Adding a provider
+
+Create `speed/providers/<name>.sh` implementing the 5 provider functions. See `providers/claude-code.sh` as a reference.
+
+## Configuration
+
+SPEED is configured via `speed.toml` in the project root. All values are optional — without a config file, everything works with sensible defaults.
+
+```toml
+[agent]
+provider = "claude-code"       # or "codex-cli"
+planning_model = "opus"        # high-stakes: architect, verifier, coherence
+support_model = "sonnet"       # structured: guardian, reviewer, developer default
+timeout = 600                  # agent timeout in seconds
+max_turns = 50                 # max turns for developer agents
+
+[worktree.symlinks]
+# Symlink these dirs from main repo into git worktrees
+"src/frontend/node_modules" = "src/frontend/node_modules"
+"src/backend/.venv" = "src/backend/.venv"
+
+[subsystems]
+# Map subsystem names to glob patterns for quality gate targeting
+"frontend" = ["src/frontend/**"]
+"backend" = ["src/backend/**"]
+
+[specs]
+vision_file = "specs/product/overview.md"
+```
+
+### Configuration precedence
+
+Environment variable > `speed.toml` > built-in default
+
+| Setting | Env var | TOML key | Default |
+|---------|---------|----------|---------|
+| Provider | `SPEED_PROVIDER` | `agent.provider` | `claude-code` |
+| Planning model | `SPEED_PLANNING_MODEL` | `agent.planning_model` | `opus` |
+| Support model | `SPEED_SUPPORT_MODEL` | `agent.support_model` | `sonnet` |
+| Timeout | `SPEED_TIMEOUT` | `agent.timeout` | `600` |
+| Max turns | `SPEED_MAX_TURNS` | `agent.max_turns` | `50` |
+| Vision file | — | `specs.vision_file` | `specs/product/overview.md` |
+
 ## Agents
 
 | Agent | Role | When it runs |
@@ -59,28 +126,34 @@ Quality checks split into two categories:
 | **Supervisor** | Decides recovery strategy for failures | on failure |
 | **Integrator** | Merges branches in dependency order, resolves conflicts | `integrate` |
 
-Agent definitions live in `agents/*.md`. Each defines the agent's mission, constraints, input/output format, and guidelines. They're specific to the problem domain, not generic.
+Agent definitions live in `agents/*.md`. Each defines the agent's mission, constraints, input/output format, and guidelines.
 
 ## Usage
 
 ### Prerequisites
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude` on PATH)
+- A supported AI coding agent CLI (`claude`, `codex`, or custom provider)
 - `jq` (JSON processing)
-- `python3` (for AST-based import checking)
+- `python3` (for AST-based import checking and TOML parsing)
 - `git`
+- GNU `timeout` (macOS: `brew install coreutils`)
 
-### Commands
+### Quick start
 
 ```bash
 # Initialize a project for SPEED development
 ./speed/speed init
 
+# Edit the generated files:
+#   speed.toml         — configure provider and settings
+#   specs/product/overview.md — define your product vision
+#   CLAUDE.md          — project conventions and quality gates
+
 # Cross-validate all specs for consistency
 ./speed/speed validate specs/
 
 # Decompose a spec into a task DAG
-./speed/speed plan specs/product/f4-tribes.md --specs-dir specs/
+./speed/speed plan specs/tech/my-feature.md --specs-dir specs/
 
 # Blind-verify the plan against the spec
 ./speed/speed verify
@@ -100,14 +173,14 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 # Merge completed branches into main
 ./speed/speed integrate
 
-# Retry a failed task (optionally escalate model)
-./speed/speed retry --task-id 3 --escalate
+# Retry a failed task with human guidance
+./speed/speed retry --task-id 3 --context "fix the import path"
 
 # Recover from crashed/stale state
 ./speed/speed recover
 
 # Run Product Guardian vision check on a spec
-./speed/speed guardian specs/product/f4-tribes.md
+./speed/speed guardian specs/product/my-feature.md
 ```
 
 ### Options
@@ -115,9 +188,9 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--max-parallel N` | 3 | Max concurrent agents |
-| `--model MODEL` | sonnet | Default model (sonnet, opus, haiku) |
+| `--model MODEL` | sonnet | Default developer model |
 | `--task-id ID` | — | Target a specific task (retry, review) |
-| `--escalate` | — | Upgrade model on retry (sonnet → opus) |
+| `--escalate` | — | Upgrade model on retry |
 | `--specs-dir DIR` | — | Directory with related specs for cross-referencing |
 | `SKIP_GUARDIAN=true` | — | Skip Product Guardian gates |
 
@@ -130,31 +203,37 @@ speed/
     architect.md        # Spec → task DAG decomposition
     developer.md        # Single-task implementation
     reviewer.md         # Code review against product spec
-    product-guardian.md  # Product vision alignment
+    product-guardian.md  # Product vision alignment (generic)
     coherence-checker.md# Cross-branch composition check
     debugger.md         # Root cause analysis
     supervisor.md       # Recovery strategy decisions
     integrator.md       # Branch merging
     plan-verifier.md    # Adversarial plan audit
     validator.md        # Cross-spec consistency
+  providers/            # Agent CLI provider implementations
+    claude-code.sh      # Claude Code CLI provider (default)
+    codex-cli.sh        # OpenAI Codex CLI provider
   lib/                  # Shell libraries
-    config.sh           # Paths, defaults, colors
+    config.sh           # Paths, defaults, colors, TOML config
     log.sh              # Logging with timestamps
-    claude.sh           # Claude CLI wrapper (spawn, background, wait)
+    provider.sh         # Provider abstraction (interface + loader)
+    toml.py             # TOML parser (Python helper)
     tasks.sh            # Task CRUD, dependency resolution, topological sort
     git.sh              # Branch creation, merging, conflict detection
     grounding.sh        # Non-LLM verification gates
     gates.sh            # Quality gate runner (lint, test, typecheck)
   templates/            # Project scaffolding templates
     claude-md.md        # CLAUDE.md template
+    speed-toml.toml     # speed.toml template (all defaults)
+    overview.md         # Product vision document template
     spec.md             # Spec file template
     task.json           # Task schema
-  # (no specs/ — those belong to the host project)
+    architect-output.json # Architect output schema
 ```
 
 ## Design decisions
 
-**Why bash?** It's glue. The orchestrator's job is to spawn processes, manage files, and call CLIs. Bash does this natively. The complex reasoning happens inside the Claude agents, not the orchestrator.
+**Why bash?** It's glue. The orchestrator's job is to spawn processes, manage files, and call CLIs. Bash does this natively. The complex reasoning happens inside the agents, not the orchestrator.
 
 **Why file-based state?** Tasks are JSON files in `.speed/tasks/`. No database, no server, no daemon. You can inspect state with `cat` and `jq`. If something breaks, the state is human-readable. Bash 3.2 compatibility (macOS default) means no associative arrays, hence temp-file-based tracking in the topological sort.
 
@@ -164,13 +243,15 @@ speed/
 
 **Why a Product Guardian?** Scope creep is the default. Every individual feature request seems reasonable; collectively they turn a differentiated product into generic software. The Guardian runs at three insertion points (pre-plan, post-review, post-integration) and checks every change against the product's vision, anti-goals, and personas. It quotes the spec when flagging issues.
 
+**Why a provider abstraction?** Different teams use different coding agent CLIs. The provider interface (5 functions) lets SPEED work with Claude Code, Codex CLI, or any future agent tool without changing the orchestration logic.
+
 ## Known limitations
 
-- **JSON parsing is fragile.** Agent output is parsed from Claude's response. Falls back to sed-based extraction when structured output fails. Works in practice, but not bulletproof.
+- **JSON parsing is fragile.** Agent output is parsed from the agent's response. Falls back to brace-scanning extraction when structured output fails. Works in practice, but not bulletproof.
 - **No rollback.** If integration fails partway, manual `git reset` is needed.
-- **Budget enforcement requires `bc`.** Silently disabled if `bc` is missing.
 - **No tests for the orchestrator itself.** The agents are tested by running them. The bash scripts are not unit-tested.
 - **Sleep-polling for parallel tasks.** Uses `kill -0` PID checks in a loop, which is simple but not efficient for long waits.
+- **Codex CLI provider is untested.** The codex-cli provider implements the interface but has not been validated against a real Codex CLI installation.
 
 ## License
 

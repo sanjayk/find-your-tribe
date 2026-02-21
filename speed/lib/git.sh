@@ -162,35 +162,45 @@ git_create_worktree() {
 
 # Symlink shared dependencies (node_modules, .venv) into a worktree
 # so that lint/typecheck/test gates can run without a full install.
+#
+# If TOML_WORKTREE_SYMLINKS is set (from speed.toml [worktree.symlinks]),
+# uses configured pairs. Otherwise auto-discovers node_modules, .venv,
+# and .next directories under the project root.
 git_setup_worktree_deps() {
     local worktree_path="$1"
 
-    # Frontend node_modules
-    local fe_nm="${PROJECT_ROOT}/src/frontend/node_modules"
-    local wt_fe="${worktree_path}/src/frontend"
-    if [[ -d "$fe_nm" ]] && [[ -d "$wt_fe" ]] && [[ ! -e "$wt_fe/node_modules" ]]; then
-        ln -s "$fe_nm" "$wt_fe/node_modules"
-    fi
+    if [[ -n "${TOML_WORKTREE_SYMLINKS:-}" ]]; then
+        # Config-driven: loop over configured source:target pairs
+        local pair
+        for pair in $TOML_WORKTREE_SYMLINKS; do
+            local wt_rel="${pair%%:*}"
+            local src_rel="${pair##*:}"
+            local src_path="${PROJECT_ROOT}/${src_rel}"
+            local wt_path="${worktree_path}/${wt_rel}"
+            local wt_dir
+            wt_dir=$(dirname "$wt_path")
 
-    # Backend .venv
-    local be_venv="${PROJECT_ROOT}/src/backend/.venv"
-    local wt_be="${worktree_path}/src/backend"
-    if [[ -d "$be_venv" ]] && [[ -d "$wt_be" ]] && [[ ! -e "$wt_be/.venv" ]]; then
-        ln -s "$be_venv" "$wt_be/.venv"
-    fi
+            if [[ -d "$src_path" ]] && [[ -d "$wt_dir" ]] && [[ ! -e "$wt_path" ]]; then
+                ln -s "$src_path" "$wt_path"
+            fi
+        done
+    else
+        # Auto-discover: find node_modules, .venv, and .next dirs
+        local dir_name
+        for dir_name in node_modules .venv .next; do
+            while IFS= read -r -d '' src_path; do
+                # Compute relative path from PROJECT_ROOT
+                local rel_path="${src_path#${PROJECT_ROOT}/}"
+                local wt_path="${worktree_path}/${rel_path}"
+                local wt_dir
+                wt_dir=$(dirname "$wt_path")
 
-    # Plugin node_modules
-    local pl_nm="${PROJECT_ROOT}/src/plugins/claude-code-hook/node_modules"
-    local wt_pl="${worktree_path}/src/plugins/claude-code-hook"
-    if [[ -d "$pl_nm" ]] && [[ -d "$wt_pl" ]] && [[ ! -e "$wt_pl/node_modules" ]]; then
-        ln -s "$pl_nm" "$wt_pl/node_modules"
-    fi
-
-    # Frontend .next cache (needed for next lint / next build)
-    local fe_next="${PROJECT_ROOT}/src/frontend/.next"
-    local wt_fe_next="${worktree_path}/src/frontend"
-    if [[ -d "$fe_next" ]] && [[ -d "$wt_fe_next" ]] && [[ ! -e "$wt_fe_next/.next" ]]; then
-        ln -s "$fe_next" "$wt_fe_next/.next"
+                if [[ -d "$wt_dir" ]] && [[ ! -e "$wt_path" ]]; then
+                    ln -s "$src_path" "$wt_path"
+                fi
+            done < <(find "$PROJECT_ROOT" -maxdepth 4 -name "$dir_name" -type d \
+                -not -path "*/.speed/*" -not -path "*/.git/*" -print0 2>/dev/null)
+        done
     fi
 }
 

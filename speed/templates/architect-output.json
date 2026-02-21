@@ -33,8 +33,7 @@
           },
           "agent_model": {
             "type": "string",
-            "enum": ["sonnet", "opus"],
-            "description": "Claude model tier for this task"
+            "description": "Model tier for this task (provider-specific, e.g. sonnet, opus, o3)"
           },
           "files_touched": {
             "type": "array",
