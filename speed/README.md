@@ -148,6 +148,13 @@ Agent definitions live in `agents/*.md`. Each defines the agent's mission, const
 - `git`
 - GNU `timeout` (macOS: `brew install coreutils`)
 
+## Documentation
+
+- **[Getting Started](docs/getting-started.md)** — Tutorial with example output
+- **[Writing Specs](docs/writing-specs.md)** — How to write specs SPEED executes well
+- **[Troubleshooting](docs/troubleshooting.md)** — Failures, logs, recovery
+- **[Example Project](example/)** — Bookshelf app with pre-written specs
+
 ### Quick start
 
 ```bash

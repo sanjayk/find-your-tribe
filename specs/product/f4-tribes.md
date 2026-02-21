@@ -205,9 +205,30 @@ Tribes depend on authentication (F1), builder profiles (F2), and projects (F3). 
 | Tribe detail page | Built | Hero, members grid, open roles grid, skeleton, not-found |
 | Frontend GraphQL queries | Built | GET_TRIBE, GET_TRIBES |
 | Frontend GraphQL mutations | Built | All 8 mutations wired up |
-| Tribe creation form | Not built | |
-| Join request flow (UI) | Not built | Backend mutations exist but need `role_id` param added, no UI |
-| Owner contextual controls | Not built | Pending requests, member/role management, edit tribe |
+| Tribe creation form | Built | `create-tribe-modal.tsx` exists |
+| Join request flow (UI) | Built | Request to Join button with role_id works |
+| Owner contextual controls | Built | Pending requests, member/role management, edit tribe modal exist |
+
+### Design Gaps (built but not matching design spec)
+
+These components are functionally built but the **visual design does not match** `specs/design/f4-tribes.md`. This is the remaining work:
+
+| Gap | Current Implementation | Design Spec |
+|-----|----------------------|-------------|
+| Detail page layout | Wide multi-column grid layout (~1080px) | Single editorial column, 680px max-width, centered |
+| Members section | 3-column card grid, each member a separate card | Single `surface-elevated` card with vertical list rows, 48px avatars |
+| Open Roles section | Separate cards in a 2-column grid | Single `surface-elevated` card with subtle dividers between roles |
+| Status overline | Shows "OPEN" / "ACTIVE" with green dot | Should be "OPEN TRIBE" / "ACTIVE TRIBE" / "ALUMNI TRIBE" with terracotta/shipped/ink-tertiary colors |
+| Creator attribution | Shows "Formed February 2026" only | Should show "Created by [Av] Maya Chen · March 2025" with avatar; "You created this" for owner |
+| Members count in header | "3 / 8 members" below title | "3 / 5" right-aligned in Members section header |
+| Member role badges | No OWNER/MEMBER badges (except Owner badge on some members) | Caption uppercase badges: OWNER (accent-subtle bg) and MEMBER (surface-secondary bg) for all members |
+| Open roles button | "Request to Join" positioned next to title | Should be right-aligned primary button within the role row |
+| Nav link | No "Tribes" link in main nav | Tribes section should be accessible from nav |
+| Create Tribe CTA | No "Create a Tribe" button on /tribes discovery page | Discovery page needs a "Create a Tribe" button |
+| Profile tribe display | "Hospitality OS" + "3 builders" in a basic section | Compact inline with accent strip: `│▌ Hospitality OS · MEMBER · 3/5 members · ● Open │` |
+| Discovery accent strips | Correct colors | Verify terracotta for Open, accent for Active, ink-tertiary for Alumni |
+| Leave Tribe button styling | May use accent/primary | Should be ghost button with error text (sm) |
+| Active tribe "Request to Join" | Buttons visible | Spec: tribe not open → roles shown but no buttons |
 
 ## TBD
 

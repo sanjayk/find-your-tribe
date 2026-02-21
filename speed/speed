@@ -26,6 +26,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "${SCRIPT_DIR}/lib/config.sh"
 source "${SCRIPT_DIR}/lib/log.sh"
+source "${SCRIPT_DIR}/lib/cleanup.sh"
+source "${SCRIPT_DIR}/lib/progress.sh"
 source "${SCRIPT_DIR}/lib/git.sh"
 source "${SCRIPT_DIR}/lib/provider.sh"
 source "${SCRIPT_DIR}/lib/tasks.sh"
@@ -33,6 +35,10 @@ source "${SCRIPT_DIR}/lib/grounding.sh"
 source "${SCRIPT_DIR}/lib/gates.sh"
 source "${SCRIPT_DIR}/lib/lock.sh"
 source "${SCRIPT_DIR}/lib/features.sh"
+
+# ── Cleanup trap ─────────────────────────────────────────────
+# Kill orphaned agent processes and remove temp files on exit/interrupt.
+trap cleanup_all EXIT INT TERM
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -232,7 +238,8 @@ cmd_validate() {
         "${AGENTS_DIR}/validator.md" \
         "Cross-validate the following ${file_count} specification files for consistency, completeness, and missing relationships:${spec_files}" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_READONLY"); then
+        "$AGENT_TOOLS_READONLY" \
+        "Validator"); then
         log_error "Validator agent failed — check Claude CLI connection and authentication"
         exit 1
     fi
@@ -327,15 +334,44 @@ _get_spec_path() {
     fi
 }
 
+# ── Plan stage caching ─────────────────────────────────────────
+# Caches expensive stages (Guardian, Architect) keyed by a hash of
+# spec inputs. Auto-invalidates when specs change. --force bypasses.
+
+_plan_cache_dir() { echo "${FEATURE_DIR}/cache"; }
+
+_plan_cache_valid() {
+    local stage="$1" hash="$2"
+    local cache_dir
+    cache_dir=$(_plan_cache_dir)
+    [[ -f "${cache_dir}/${stage}.hash" && -f "${cache_dir}/${stage}.dat" ]] \
+        && [[ "$(cat "${cache_dir}/${stage}.hash")" == "$hash" ]]
+}
+
+_plan_cache_write() {
+    local stage="$1" hash="$2" data="$3"
+    local cache_dir
+    cache_dir=$(_plan_cache_dir)
+    mkdir -p "$cache_dir"
+    echo "$hash" > "${cache_dir}/${stage}.hash"
+    echo "$data" > "${cache_dir}/${stage}.dat"
+}
+
+_plan_cache_read() {
+    cat "$(_plan_cache_dir)/${1}.dat"
+}
+
 cmd_plan() {
     local spec_file="${1:-}"
     shift || true
     local specs_dir=""
+    local force_plan=false
 
     # Parse options
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --specs-dir) specs_dir="$2"; shift 2 ;;
+            --force) force_plan=true; shift ;;
             *) log_error "Unknown option: $1"; exit 1 ;;
         esac
     done
@@ -373,8 +409,10 @@ cmd_plan() {
     #                                  → specs/design/<name>.md
     local product_spec_file=""
     local design_spec_file=""
-    local derived_product="${spec_file/\/tech\//\/product\/}"
-    local derived_design="${spec_file/\/tech\//\/design\/}"
+    local derived_product
+    local derived_design
+    derived_product=$(echo "$spec_file" | sed 's|/tech/|/product/|')
+    derived_design=$(echo "$spec_file" | sed 's|/tech/|/design/|')
 
     if [[ "$derived_product" != "$spec_file" ]] && [[ -f "$derived_product" ]]; then
         product_spec_file="$derived_product"
@@ -422,11 +460,23 @@ cmd_plan() {
         design_spec_content=$(cat "$design_spec_file")
     fi
 
+    # ── Spec hash for stage caching ───────────────────────────────
+    local spec_hash
+    spec_hash=$(printf '%s' "${tech_spec_content}${product_spec_content}${design_spec_content}" | shasum -a 256 | cut -d' ' -f1)
+
     # ── Pre-Plan Guardian Gate ─────────────────────────────────────
     # Check: does this spec belong in the product?
-    log_step "Running pre-plan vision check..."
     local guardian_rc=0
-    _run_guardian "pre-plan" "$tech_spec_content" "$spec_file" || guardian_rc=$?
+    if [[ "$force_plan" != "true" ]] && _plan_cache_valid "guardian" "$spec_hash"; then
+        guardian_rc=$(_plan_cache_read "guardian")
+        log_step "Guardian: ${COLOR_DIM}cached (specs unchanged)${RESET}"
+    else
+        log_step "Running pre-plan vision check..."
+        local _guardian_out
+        _guardian_out=$(_run_guardian "pre-plan" "$tech_spec_content" "$spec_file") || guardian_rc=$?
+        _plan_cache_write "guardian" "$spec_hash" "$guardian_rc"
+    fi
+
     if [[ $guardian_rc -eq 1 ]]; then
         log_error "Product Guardian REJECTED this spec — it conflicts with the product vision"
         echo -e "Review the guardian report and either:"
@@ -458,68 +508,79 @@ cmd_plan() {
         fi
     fi
 
-    log_step "Sending to Architect agent..."
-    echo ""
-
-    # ── Build structured architect message ─────────────────────────
-    # Three specs (product + tech + design) + grounding context + related specs.
-    # The architect validates coverage across all three before decomposing.
-    local architect_message=""
-
-    if [[ -n "$product_spec_content" ]]; then
-        architect_message+="## Product Spec (what to build)\n\n${product_spec_content}"
-    fi
-
-    architect_message+="\n\n## Tech Spec (backend implementation)\n\n${tech_spec_content}"
-
-    if [[ -n "$design_spec_content" ]]; then
-        architect_message+="\n\n## Design Spec (frontend implementation)\n\n${design_spec_content}"
-    fi
-
-    if [[ -n "$SPEC_CODEBASE_CONTEXT" ]]; then
-        architect_message+="\n\n## Codebase Context (ground truth from automated scan)\n\n${SPEC_CODEBASE_CONTEXT}"
-    fi
-
-    if [[ -n "$related_specs" ]]; then
-        architect_message+="\n\n## Related Specs (cross-reference for entity relationships)\n${related_specs}"
-    fi
-
-    # ── Run architect agent ────────────────────────────────────────
-    # No tools (pure reasoning), 1 turn, opus model, schema-enforced output.
-    local architect_output
-    local architect_rc=0
-    architect_output=$(claude_run_json \
-        "${AGENTS_DIR}/architect.md" \
-        "$architect_message" \
-        "${TEMPLATES_DIR}/architect-output.json" \
-        "$MODEL_PLANNING" \
-        1 \
-        "") || architect_rc=$?
-
-    # Save raw output for debugging
-    echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
-
-    # Check for architect failure
-    if [[ $architect_rc -ne 0 ]]; then
-        log_error "Architect agent failed (exit code ${architect_rc})"
-        if [[ $architect_rc -eq 2 ]]; then
-            log_error "The architect returned an error envelope — check ${LOGS_DIR}/architect-raw.log"
-        fi
-        log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
-        exit 1
-    fi
-
-    # ── Parse architect output ─────────────────────────────────────
+    # ── Architect agent ───────────────────────────────────────────
     local parsed_architect
-    parsed_architect=$(parse_agent_json "$architect_output") || {
-        log_error "Could not extract valid JSON from architect output"
-        log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
-        echo -e "${COLOR_DIM}First 5 lines of output:${RESET}" >&2
-        echo "$architect_output" | head -5 | while IFS= read -r line; do
-            echo -e "  ${COLOR_DIM}${line}${RESET}" >&2
-        done
-        exit 1
-    }
+
+    if [[ "$force_plan" != "true" ]] && _plan_cache_valid "architect" "$spec_hash"; then
+        parsed_architect=$(_plan_cache_read "architect")
+        log_step "Architect: ${COLOR_DIM}cached (specs unchanged)${RESET}"
+        echo ""
+    else
+        log_step "Sending to Architect agent..."
+        echo ""
+
+        # Build structured architect message
+        # Three specs (product + tech + design) + grounding context + related specs.
+        local architect_message=""
+
+        if [[ -n "$product_spec_content" ]]; then
+            architect_message+="## Product Spec (what to build)\n\n${product_spec_content}"
+        fi
+
+        architect_message+="\n\n## Tech Spec (backend implementation)\n\n${tech_spec_content}"
+
+        if [[ -n "$design_spec_content" ]]; then
+            architect_message+="\n\n## Design Spec (frontend implementation)\n\n${design_spec_content}"
+        fi
+
+        if [[ -n "$SPEC_CODEBASE_CONTEXT" ]]; then
+            architect_message+="\n\n## Codebase Context (ground truth from automated scan)\n\n${SPEC_CODEBASE_CONTEXT}"
+        fi
+
+        if [[ -n "$related_specs" ]]; then
+            architect_message+="\n\n## Related Specs (cross-reference for entity relationships)\n${related_specs}"
+        fi
+
+        # Full tools, generous turns — the Architect explores the codebase
+        # to produce an informed plan. Timeout is the real safety bound.
+        local architect_output
+        local architect_rc=0
+        architect_output=$(claude_run_json \
+            "${AGENTS_DIR}/architect.md" \
+            "$architect_message" \
+            "${TEMPLATES_DIR}/architect-output.json" \
+            "$MODEL_PLANNING" \
+            "$ARCHITECT_MAX_TURNS" \
+            "" \
+            "Architect") || architect_rc=$?
+
+        # Save raw output for debugging
+        echo "$architect_output" > "${LOGS_DIR}/architect-raw.log"
+
+        # Check for architect failure
+        if [[ $architect_rc -ne 0 ]]; then
+            log_error "Architect agent failed (exit code ${architect_rc})"
+            if [[ $architect_rc -eq 2 ]]; then
+                log_error "The architect returned an error envelope — check ${LOGS_DIR}/architect-raw.log"
+            fi
+            log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+            exit 1
+        fi
+
+        # Parse architect output
+        parsed_architect=$(parse_agent_json "$architect_output") || {
+            log_error "Could not extract valid JSON from architect output"
+            log_error "Raw output saved to ${LOGS_DIR}/architect-raw.log"
+            echo -e "${COLOR_DIM}First 5 lines of output:${RESET}" >&2
+            echo "$architect_output" | head -5 | while IFS= read -r line; do
+                echo -e "  ${COLOR_DIM}${line}${RESET}" >&2
+            done
+            exit 1
+        }
+
+        # Cache successful architect output
+        _plan_cache_write "architect" "$spec_hash" "$parsed_architect"
+    fi
 
     # ── Validation gate ────────────────────────────────────────────
     # The architect validates coverage across product, tech, and design specs.
@@ -729,7 +790,8 @@ Verify this plan against the product specification. Read the spec FIRST, form yo
         "${AGENTS_DIR}/plan-verifier.md" \
         "$verify_message" \
         "$MODEL_PLANNING" \
-        "$AGENT_TOOLS_READONLY"); then
+        "$AGENT_TOOLS_READONLY" \
+        "Verifier"); then
         log_error "Plan Verifier agent failed — check Claude CLI connection"
         exit 1
     fi
@@ -1772,7 +1834,8 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
         "${AGENTS_DIR}/product-guardian.md" \
         "$guardian_message" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_READONLY"); then
+        "$AGENT_TOOLS_READONLY" \
+        "Guardian"); then
         log_warn "Guardian agent failed (${check_type}) — check Claude CLI connection"
         return 3
     fi
@@ -2185,7 +2248,8 @@ Check that all these task implementations compose correctly. Focus on interfaces
         "${AGENTS_DIR}/coherence-checker.md" \
         "$coherence_message" \
         "$MODEL_PLANNING" \
-        "$AGENT_TOOLS_READONLY"); then
+        "$AGENT_TOOLS_READONLY" \
+        "Coherence"); then
         log_error "Coherence Checker agent failed — check Claude CLI connection"
         exit 1
     fi
@@ -2311,7 +2375,8 @@ ${PROJECT_ROOT}
         "${AGENTS_DIR}/integrator.md" \
         "$agent_message" \
         "$MODEL_SUPPORT" \
-        "$AGENT_TOOLS_FULL"); then
+        "$AGENT_TOOLS_FULL" \
+        "Integrator"); then
         log_error "Integrator agent failed — check Claude CLI connection"
         exit 1
     fi
@@ -2391,7 +2456,8 @@ ${spec_content}
 This is a post-integration check. Evaluate whether the integrated result, taken as a whole, is consistent with the product vision."
 
         local grc=0
-        _run_guardian "post-integration" "$guardian_input" "integration" || grc=$?
+        local _guardian_out
+        _guardian_out=$(_run_guardian "post-integration" "$guardian_input" "integration") || grc=$?
         if [[ $grc -eq 1 ]]; then
             echo ""
             log_error "Guardian REJECTED the integrated result — vision violation detected"
@@ -2496,7 +2562,8 @@ Respond with your review as JSON."
             "${AGENTS_DIR}/reviewer.md" \
             "$agent_message" \
             "$MODEL_SUPPORT" \
-            "$AGENT_TOOLS_READONLY"); then
+            "$AGENT_TOOLS_READONLY" \
+            "Reviewer"); then
             log_error "Reviewer agent failed for task ${tid} — check Claude CLI connection"
             continue
         fi
@@ -2539,7 +2606,8 @@ ${diff}
 ${criteria}"
 
                 local grc=0
-                _run_guardian "post-review" "$guardian_input" "task-${tid}" || grc=$?
+                local _guardian_out
+                _guardian_out=$(_run_guardian "post-review" "$guardian_input" "task-${tid}") || grc=$?
                 if [[ $grc -eq 1 ]]; then
                     log_error "Task ${tid}: Guardian REJECTED — vision violation in implementation"
                     local guardian_log
