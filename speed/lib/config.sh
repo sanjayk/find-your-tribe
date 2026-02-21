@@ -26,9 +26,29 @@ FEATURE_NAME=""
 FEATURE_DIR=""
 
 # ── Read speed.toml (if present) ──────────────────────────────────
+# Note: colors.sh isn't sourced yet, so use plain echo for warnings.
 SPEED_TOML="${PROJECT_ROOT}/speed.toml"
 if [[ -f "$SPEED_TOML" ]]; then
-    eval "$(python3 "${LIB_DIR}/toml.py" "$SPEED_TOML" 2>/dev/null)" || true
+    if ! command -v python3 &>/dev/null; then
+        echo "Warning: python3 not found — speed.toml ignored, using defaults" >&2
+    else
+        _toml_err_file=$(mktemp "${TMPDIR:-/tmp}/_speed_toml_XXXXXX")
+        _toml_rc=0
+        _toml_out=$(python3 "${LIB_DIR}/toml.py" "$SPEED_TOML" 2>"$_toml_err_file") || _toml_rc=$?
+        _toml_err=$(cat "$_toml_err_file" 2>/dev/null)
+        rm -f "$_toml_err_file"
+
+        if [[ $_toml_rc -ne 0 ]]; then
+            echo "Warning: speed.toml parse failed (exit ${_toml_rc}) — using defaults" >&2
+            [[ -n "$_toml_err" ]] && echo "  ${_toml_err}" >&2
+        elif [[ -n "$_toml_err" ]]; then
+            echo "Warning: ${_toml_err}" >&2
+            eval "$_toml_out"
+        else
+            eval "$_toml_out"
+        fi
+        unset _toml_out _toml_err _toml_err_file _toml_rc
+    fi
 fi
 
 # ── PATH ──────────────────────────────────────────────────────────
