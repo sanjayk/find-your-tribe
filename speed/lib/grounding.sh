@@ -64,7 +64,7 @@ grounding_run() {
 
     # Check 6: Test file coverage
     if grounding_check_test_coverage "$task_id"; then
-        results+=("${COLOR_SUCCESS}${SYM_CHECK} Test coverage (new files have tests)${RESET}")
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Test file coverage${RESET}")
     else
         results+=("${COLOR_ERROR}${SYM_CROSS} Missing test files for new source files${RESET}")
         all_passed=false
@@ -302,11 +302,11 @@ _test_coverage_excluded() {
         *.test.ts|*.test.tsx|*.spec.ts|*.spec.tsx|*_test.py|test_*.py) return 0 ;;
     esac
 
-    # Config files
+    # Config and setup files
     case "$basename" in
         vitest.config.*|next.config.*|jest.config.*|tailwind.config.*|postcss.config.*|\
         eslint.config.*|prettier.config.*|tsconfig*.json|*.config.ts|*.config.js|\
-        *.config.mjs|*.config.cjs) return 0 ;;
+        *.config.mjs|*.config.cjs|setup.ts|setup.js) return 0 ;;
     esac
 
     # Type definitions
@@ -346,9 +346,14 @@ _test_coverage_excluded() {
         global-error.tsx|default.tsx) return 0 ;;
     esac
 
-    # Test utilities and mocks
-    if [[ "$file" == */test/setup.* ]] || [[ "$file" == */test/utils.* ]] || \
-       [[ "$file" == */__mocks__/* ]] || \
+    # Test directories — all files within test/, tests/, __tests__/ are utilities, not tested
+    if [[ "$file" == */test/* ]] || [[ "$file" == */tests/* ]] || \
+       [[ "$file" == */__tests__/* ]]; then
+        return 0
+    fi
+
+    # Test utility mocks
+    if [[ "$file" == */__mocks__/* ]] || \
        [[ "$basename" == *.mock.ts ]] || [[ "$basename" == *.mock.tsx ]]; then
         return 0
     fi
@@ -383,12 +388,12 @@ _test_file_exists_in_diff() {
     dir=$(dirname "$file")
 
     if [[ "$file" == *.py ]]; then
-        # Backend: co-located {stem}_test.py OR tests/test_{stem}.py
+        # Backend: co-located {stem}_test.py OR any tests/test_{stem}.py in the diff
         stem="${basename%.py}"
         local colocated_test="${dir}/${stem}_test.py"
-        local tests_dir_test="${dir}/tests/test_${stem}.py"
+        # Use suffix match so tests/ at any level (e.g. src/backend/tests/) is found
         if echo "$diff_files" | grep -qF "$colocated_test" || \
-           echo "$diff_files" | grep -qF "$tests_dir_test"; then
+           echo "$diff_files" | grep -qF "tests/test_${stem}.py"; then
             return 0
         fi
     else
