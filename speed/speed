@@ -92,6 +92,9 @@ speed_help() {
     echo -e "    --max-parallel N            Max concurrent agents (default: ${DEFAULT_MAX_PARALLEL})"
     echo -e "    --model MODEL               Developer model: sonnet|opus|haiku (default: ${MODEL_SUPPORT})"
     echo ""
+    echo -e "${BOLD}INTEGRATE OPTIONS${RESET}"
+    echo -e "    --skip-tests                Skip post-integration regression tests"
+    echo ""
     echo -e "${BOLD}RETRY OPTIONS${RESET}"
     echo -e "    --task-id ID                Target a specific failed task (required)"
     echo -e "    --context \"...\"             Human guidance for the retry (required)"
@@ -3025,6 +3028,15 @@ Check that all these task implementations compose correctly. Focus on interfaces
 
 cmd_integrate() {
     _require_feature "$GLOBAL_FEATURE"
+
+    local skip_tests=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --skip-tests) skip_tests=true; shift ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
     # ── Acquire exclusive lock ────────────────────────────────────
     speed_acquire_lock "integrate" || exit 1
 
@@ -3127,7 +3139,9 @@ ${PROJECT_ROOT}
     echo ""
     log_header "Post-Integration Verification"
 
-    if regression_run; then
+    if [[ "$skip_tests" == true ]]; then
+        log_dim "Regression tests skipped (--skip-tests)"
+    elif regression_run; then
         log_success "Regression tests passed"
     else
         log_error "Regression tests FAILED after integration"
