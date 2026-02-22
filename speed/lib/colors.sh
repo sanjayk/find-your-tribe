@@ -10,9 +10,9 @@
 # Requires: TOML_UI_THEME, TOML_UI_ASCII may be set by config.sh before sourcing.
 
 # ── Raw ANSI colors ───────────────────────────────────────────────
-# Disabled when: NO_COLOR is set (any value), or stdout is not a tty.
+# Disabled when: NO_COLOR is set (any value), or either stdout/stderr is not a tty.
 
-if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
+if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]] && [[ -t 2 ]]; then
     RED='\033[0;31m'
     GREEN='\033[0;32m'
     YELLOW='\033[0;33m'
