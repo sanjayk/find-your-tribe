@@ -1,6 +1,6 @@
 # Phase 1: Spec Templates
 
-> Parent RFC: [Unified Intake & Defect Pipeline](../spec-templates-defects-integrations.md)
+> Parent RFC: [Unified Intake & Defect Pipeline](../unified-intake.md)
 
 ## Problem
 
@@ -8,8 +8,14 @@ Every SPEED spec starts from a blank page. Authors decide what sections to inclu
 
 ## Users
 
-### SPEED Operator
-Writes specs to feed into the SPEED pipeline. Needs to know what sections each agent reads, what's required vs. optional, and where the file goes. Currently guesses at structure by looking at existing specs.
+### Product
+Writes PRDs. Needs to know what sections the Architect and Guardian read, what's required, and where the file goes. Currently guesses at structure by looking at existing specs.
+
+### Engineering
+Writes RFCs. Needs to know what the Architect needs for task decomposition (data model, API surface, validation rules). Currently no canonical structure to follow.
+
+### Design
+Writes design specs. Needs to know what states and components to define, how to reference design tokens, and how to link back to the PRD.
 
 ### New SPEED User
 Setting up SPEED for the first time. Needs a fast path from "I have a feature idea" to "I have a spec SPEED can plan from." Currently blocked by the blank-page problem.
@@ -18,11 +24,11 @@ Setting up SPEED for the first time. Needs a fast path from "I have a feature id
 
 | ID | Story | Priority |
 |----|-------|----------|
-| S1 | As an operator, I want to scaffold a product spec so that I get the right sections pre-filled with guidance comments | Must |
-| S2 | As an operator, I want to scaffold a tech spec so that I know what the Architect needs (data model, API surface, validation) | Must |
-| S3 | As an operator, I want to scaffold a design spec so that I know what states and components to define | Must |
-| S4 | As an operator, I want to scaffold a defect report so that I can describe a bug in 2 minutes with the right fields | Must |
-| S5 | As an operator, I want the scaffold command to open my editor automatically so I can start writing immediately | Should |
+| S1 | As a product person, I want to scaffold a PRD so that I get the right sections pre-filled with guidance comments | Must |
+| S2 | As an engineer, I want to scaffold an RFC so that I know what the Architect needs (data model, API surface, validation) | Must |
+| S3 | As a designer, I want to scaffold a design spec so that I know what states and components to define | Must |
+| S4 | As an engineer, I want to scaffold a defect report so that I can describe a bug in 2 minutes with the right fields | Must |
+| S5 | As an engineer, I want the scaffold command to open my editor automatically so I can start writing immediately | Should |
 | S6 | As a new user, I want the templates to include guidance comments explaining what goes in each section | Must |
 
 ## User Flows
@@ -68,10 +74,10 @@ Setting up SPEED for the first time. Needs a fast path from "I have a feature id
 - Directory auto-creation for `specs/defects/`
 
 ### Out of Scope (and why)
-- Agent-assisted drafting — that's Phase 2 (Intake Agent)
+- Spec validation — that's Phase 2 (Audit Agent)
 - Auto-numbering features (`F{n}`) — feature numbers are semantic, set by the author
 - Template versioning — agents parse markdown flexibly, not needed yet
-- Validation of filled-in templates — `speed validate` handles this separately
+- Validation of filled-in templates — `speed audit` handles this (Phase 2)
 
 ## Dependencies
 
@@ -82,4 +88,4 @@ None. This is Phase 1 — zero external dependencies, builds on existing SPEED C
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | Templates become stale as agents evolve | Low | Templates are guidance, not contracts. Agents parse flexibly. Update templates when agent prompts change significantly. |
-| Users skip guidance comments and submit hollow specs | Medium | The Architect's RFC review (Phase 2+) catches this. Templates can't force quality, only enable it. |
+| Users skip guidance comments and submit hollow specs | Medium | `speed audit` (Phase 2) catches structural gaps. The Architect's RFC review catches technical issues. Templates can't force quality, only enable it. |

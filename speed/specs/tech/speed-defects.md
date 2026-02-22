@@ -1,8 +1,8 @@
 # RFC: Defect Pipeline
 
 > See [product spec](../product/speed-defects.md) for product context.
-> Depends on: [Phase 1: Spec Templates](speed-templates.md), [Phase 2: Intake Agent](speed-intake.md)
-> Parent RFC: [Unified Intake & Defect Pipeline](../spec-templates-defects-integrations.md)
+> Depends on: [Phase 1: Spec Templates](speed-templates.md), [Phase 2: Audit Agent](speed-audit.md)
+> Parent RFC: [Unified Intake & Defect Pipeline](../unified-intake.md)
 
 ## Triage Agent
 
@@ -26,11 +26,15 @@ The Triage Agent receives:
 ```json
 {
   "is_defect": true,
+  "reported_severity": "P0 | P1 | P2 | P3",
+  "defect_type": "logic | visual | data",
   "complexity": "trivial | moderate | complex",
   "root_cause_hypothesis": "Invite resolver doesn't check github_connected before sending invite email",
   "affected_files": ["src/backend/app/graphql/mutations/tribe.py"],
   "blast_radius": "low | medium | high",
   "blast_radius_detail": "Isolated to invite flow, no other callers of send_invite()",
+  "test_coverage": "existing | none",
+  "test_coverage_detail": "Existing tests in tests/test_tribe_mutations.py using async fixtures",
   "related_spec": "specs/product/f4-tribes.md",
   "suggested_approach": "Add guard clause in resolve_invite checking user.github_connected before calling send_invite()",
   "regression_risks": ["invite happy path", "tribe membership count"],
@@ -43,8 +47,27 @@ The Triage Agent receives:
 | Complexity | Criteria | Pipeline path |
 |------------|----------|---------------|
 | **Trivial** | 1 file affected, obvious fix, low blast radius, Triage has high confidence in approach | Fix → Gates → Integrate |
-| **Moderate** | 2-4 files, non-obvious fix or medium blast radius, Triage has a hypothesis but wants test confirmation | Reproduce → Fix → Gates → Review → Integrate |
-| **Complex** | 5+ files, requires schema change or migration, high blast radius, or Triage can't isolate root cause | Escalate to feature pipeline |
+| **Moderate** | 2-4 files, non-obvious fix or medium blast radius, Triage has a hypothesis but wants test confirmation, existing tests in affected area | Reproduce → Fix → Gates → Review → Integrate |
+| **Complex** | 5+ files, requires schema change or migration, high blast radius, Triage can't isolate root cause, OR no existing test coverage in affected area (reproduce stage can't follow patterns) | Escalate to feature pipeline |
+
+### Severity × Complexity interaction
+
+Severity (P0-P3) is reported by the human. Complexity (trivial/moderate/complex) is determined by the Triage Agent. They are orthogonal:
+
+- A **P0-critical** defect with **trivial** complexity: fix proceeds immediately with no human gate (urgency overrides ceremony)
+- A **P0-critical** defect with **moderate** complexity: Triage still stops for human review, but the output is flagged as urgent
+- A **P3-low** defect with **complex** complexity: still escalates to feature pipeline — low urgency doesn't justify a risky hack
+- Severity does not change the pipeline path. Complexity alone determines routing. Severity is metadata for human prioritization of what to triage next.
+
+### Defect type classification
+
+The Triage Agent classifies the defect type to inform the reproduce stage's test strategy:
+
+| Type | Description | Test strategy |
+|------|-------------|---------------|
+| **logic** | Backend or frontend logic error — wrong return value, missing guard, bad state transition | Backend: pytest with existing fixtures. Frontend: vitest + testing-library (render component, assert behavior). |
+| **visual** | Wrong design tokens, broken layout, missing component states, responsive breakpoint issues | vitest + testing-library for component state assertions. Playwright for layout/visual regression (screenshot comparison, element positioning). |
+| **data** | Wrong query, missing join, stale cache, incorrect aggregation, migration issue | pytest against test database with seed data that triggers the defect. |
 
 ## Defect Pipeline Stages
 
@@ -74,7 +97,9 @@ Implementation in `cmd_defect()`:
 1. Parse defect report from the provided path
 2. Extract `Related Feature` field → resolve to spec paths
 3. Build Triage Agent system prompt with report, specs, codebase access
-4. Run agent via `provider_run_json()`
+4. Run agent in two phases:
+   - **Investigation:** `provider_run()` with Read/Glob/Grep tools — agent explores the codebase, traces call chains, checks test coverage in affected area
+   - **Classification:** `provider_run_json()` with the investigation transcript — agent produces the structured triage JSON
 5. Parse triage output
 6. Write triage result to `.speed/defects/<name>/triage.json`
 7. Update state: `filed → triaging → triaged`
@@ -89,13 +114,18 @@ Implementation in `cmd_defect()`:
 
 Implementation: reuse `cmd_run()` with defect-specific developer prompt.
 
-1. Create isolated branch: `speed/defect-<name>-reproduce`
+1. Create isolated branch: `speed/defect-<name>`
 2. Build Developer Agent prompt:
    - "Write a failing test that demonstrates this defect"
    - "Do NOT fix the bug"
-   - Include: triage output, defect report, related specs
+   - "Look at existing tests near the affected files for patterns, fixtures, and conventions to follow"
+   - Test strategy based on `defect_type`:
+     - `logic`: "Use pytest (backend) or vitest + testing-library (frontend) to assert the correct behavior"
+     - `visual`: "Use vitest + testing-library for component state assertions, or Playwright for layout/visual regression if the bug is about positioning, spacing, or responsive behavior"
+     - `data`: "Use pytest with test database fixtures that reproduce the data conditions described in the defect report"
+   - Include: triage output (with `test_coverage_detail`, `defect_type`), defect report, related specs
 3. Run Developer Agent
-4. Run quality gates (lint, typecheck should pass; new test expected to fail)
+4. Run quality gates: lint + typecheck only (test gate skipped — the new test is expected to fail)
 5. Commit the failing test
 6. Update state: `triaged → reproducing → reproduced`
 
@@ -104,8 +134,8 @@ Implementation: reuse `cmd_run()` with defect-specific developer prompt.
 Implementation: reuse `cmd_run()` with defect-specific developer prompt.
 
 1. Branch:
-   - Trivial: create new branch `speed/defect-<name>-fix`
-   - Moderate: continue on reproduce branch (test already there)
+   - Trivial: create new branch `speed/defect-<name>`
+   - Moderate: continue on defect branch (failing test already there)
 2. Build Developer Agent prompt:
    - "Minimal change. Fix the defect described in the triage output."
    - "Do not refactor, do not improve surrounding code, do not add features."
@@ -177,8 +207,10 @@ When Triage classifies as `complex`:
 ```json
 {
   "status": "filed | triaging | triaged | reproducing | fixing | reviewing | integrating | resolved | rejected | escalated",
+  "reported_severity": "P0 | P1 | P2 | P3",
+  "defect_type": "logic | visual | data | null",
   "complexity": "trivial | moderate | complex | null",
-  "branch": "speed/defect-invite-failure-fix",
+  "branch": "speed/defect-invite-failure",
   "created_at": "2026-02-21T10:30:00Z",
   "updated_at": "2026-02-21T10:35:00Z",
   "source_spec": "specs/defects/invite-failure.md"
@@ -199,9 +231,9 @@ Add defect summary to `cmd_status()` output:
 
 ```
 Defects:
-  invite-failure     moderate   fixing     speed/defect-invite-failure-fix
-  login-redirect     trivial    resolved   (merged)
-  tribe-count        complex    escalated  → specs/product/tribe-count.md
+  invite-failure     P1   moderate   fixing     speed/defect-invite-failure
+  login-redirect     P2   trivial    resolved   (merged)
+  tribe-count        P0   complex    escalated  → specs/product/tribe-count.md
 ```
 
 ## Files changed
@@ -218,4 +250,5 @@ Defects:
 
 - Phase 1: defect report template must exist
 - Existing infrastructure: Developer Agent, Reviewer Agent, Integrator, quality gates, grounding gates
-- `provider_run_json()` for Triage Agent output parsing
+- `provider_run()` for Triage Agent investigation phase (multi-turn with tools)
+- `provider_run_json()` for Triage Agent classification phase (structured output)

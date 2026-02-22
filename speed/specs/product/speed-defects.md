@@ -1,7 +1,7 @@
 # Phase 3: Defect Pipeline
 
-> Parent RFC: [Unified Intake & Defect Pipeline](../spec-templates-defects-integrations.md)
-> Depends on: [Phase 1: Spec Templates](speed-templates.md), [Phase 2: Intake Agent](speed-intake.md)
+> Parent RFC: [Unified Intake & Defect Pipeline](../unified-intake.md)
+> Depends on: [Phase 1: Spec Templates](speed-templates.md), [Phase 2: Audit Agent](speed-audit.md)
 
 ## Problem
 
@@ -9,24 +9,28 @@ SPEED handles features but not bugs. When something breaks, the fix happens ad-h
 
 ## Users
 
-### SPEED Operator
-Discovers a bug in production or during development. Wants to file it, get a diagnosis, and have it fixed through a structured pipeline with quality gates — not an untracked ad-hoc commit.
+### Any Team Member (Product, Engineering, Design)
+Discovers a bug in production, during development, or during design review. Wants to file it with minimal friction and have it triaged automatically — not figure out who to tell or which Slack channel to post in.
 
-### Tech Lead
-Needs visibility into what bugs exist, what's being investigated, and what's been fixed. Wants defect handling to be as observable as feature delivery.
+### Engineering
+Owns the fix. Wants a structured pipeline from triage to resolution with quality gates — not an untracked ad-hoc commit.
+
+### Product
+Needs visibility into what bugs exist, what's being investigated, and what's been fixed. Wants defect handling to be as observable as feature delivery. Wants assurance that "bug fixes" don't sneak in scope changes.
 
 ## User Stories
 
 | ID | Story | Priority |
 |----|-------|----------|
-| S1 | As an operator, I want to submit a defect report and have it triaged automatically | Must |
-| S2 | As an operator, I want to see the triage result (root cause, complexity, approach) before the fix proceeds | Must |
-| S3 | As an operator, I want trivial defects to be fixed with minimal ceremony (no reproduction step, no review) | Must |
-| S4 | As an operator, I want moderate defects to include a failing test before the fix | Must |
-| S5 | As an operator, I want complex defects to be escalated to a feature spec rather than hacked into a fix | Must |
-| S6 | As an operator, I want to see defect status alongside feature status in `speed status` | Should |
-| S7 | As a tech lead, I want the defect fix to be minimal — no drive-by refactoring or scope creep | Must |
-| S8 | As an operator, I want to retry a failed defect fix with additional context or an escalated model | Should |
+| S1 | As any team member, I want to submit a defect report and have it triaged automatically | Must |
+| S2 | As an engineer, I want to see the triage result (root cause, complexity, approach) before the fix proceeds | Must |
+| S3 | As an engineer, I want trivial defects to be fixed with minimal ceremony (no reproduction step, no review) | Must |
+| S4 | As an engineer, I want moderate defects to include a failing test before the fix | Must |
+| S5 | As an engineer, I want complex defects to be escalated to a feature spec rather than hacked into a fix | Must |
+| S6 | As an engineer, I want to see defect status alongside feature status in `speed status` | Should |
+| S7 | As a product person, I want the defect fix to be minimal — no drive-by refactoring or scope creep | Must |
+| S8 | As a designer, I want to file visual/UX bugs (wrong tokens, broken states, layout issues) and have them triaged like any other defect | Must |
+| S9 | As an engineer, I want to retry a failed defect fix with additional context or an escalated model | Should |
 
 ## User Flows
 
@@ -92,6 +96,7 @@ Needs visibility into what bugs exist, what's being investigated, and what's bee
 - [ ] `speed status --defects` shows all defects with current state
 - [ ] Defect state is stored in `.speed/defects/<name>/` as readable JSON
 - [ ] `speed retry --defect <name>` retries with optional `--context` and `--escalate`
+- [ ] Defect severity (P0-P3) is preserved in triage output and visible in `speed status --defects`
 
 ## Scope
 
@@ -118,7 +123,7 @@ Needs visibility into what bugs exist, what's being investigated, and what's bee
 ## Dependencies
 
 - Phase 1 (Spec Templates) — defect report template must exist
-- Phase 2 (Intake Agent) — `speed intake` can draft defect reports, but `speed defect` also works with manually written reports
+- Phase 2 (Audit Agent) — `speed audit` can validate defect reports before triage, but is not required
 - Existing SPEED pipeline infrastructure: Developer Agent, Reviewer Agent, Integrator, quality gates
 
 ## Risks

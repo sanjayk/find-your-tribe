@@ -1,7 +1,7 @@
 # RFC: Spec Templates
 
 > See [product spec](../product/speed-templates.md) for product context.
-> Parent RFC: [Unified Intake & Defect Pipeline](../spec-templates-defects-integrations.md)
+> Parent RFC: [Unified Intake & Defect Pipeline](../unified-intake.md)
 
 ## Implementation
 
@@ -33,8 +33,7 @@ Add `cmd_new()` function to `speed/speed`. Subcommands:
    - `{Feature Name}` → humanized name (e.g., `my-feature` → `My Feature`)
    - `{name}` → raw name as provided
    - `{n}` → left as `{n}` (author fills in the feature number)
-   - `{path}` → left as `{path}` (author fills in cross-references)
-   - `{product-spec}` → `specs/product/<name>.md` (auto-filled for RFC and design templates)
+   - `{product-spec}` → `specs/product/<name>.md` (auto-filled for RFC and design templates, used as both link text and URL)
    - `{dep}` → left as `{dep}` (author fills in dependencies)
 6. Open in `$EDITOR` if set, otherwise print the file path
 
@@ -62,12 +61,19 @@ sed -e "s/{Feature Name}/${humanized_name}/g" \
     "$template" > "$output"
 ```
 
-Humanization: replace hyphens with spaces, capitalize first letter of each word.
+Humanization: replace hyphens with spaces, capitalize first letter of each word:
+
+```bash
+humanized=$(echo "$name" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+# my-feature → My Feature
+```
+
+Note: `sed 's/\b\(\w\)/\u\1/g'` works on GNU sed but not macOS. The `awk` approach is portable.
 
 ### Validation
 
 - `name` is required (exit with `EXIT_CONFIG_ERROR` if missing)
-- `name` must be valid for a filename: lowercase, alphanumeric + hyphens only
+- `name` must match `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` (lowercase alphanumeric + hyphens, no leading/trailing hyphens)
 - Subcommand must be one of: `prd`, `rfc`, `design`, `defect`
 
 ### Error handling
@@ -75,6 +81,7 @@ Humanization: replace hyphens with spaces, capitalize first letter of each word.
 | Condition | Behavior |
 |-----------|----------|
 | Missing name argument | Print usage, exit 3 (`EXIT_CONFIG_ERROR`) |
+| Invalid name (fails regex) | Print error with valid format example, exit 3 |
 | Invalid subcommand | Print usage with valid subcommands, exit 3 |
 | Output file exists | Print warning with path, exit 3 (no overwrite) |
 | Template file missing | Print error (installation issue), exit 3 |
@@ -84,11 +91,11 @@ Humanization: replace hyphens with spaces, capitalize first letter of each word.
 
 | File | Change |
 |------|--------|
-| `speed/speed` | Add `cmd_new()` function, add `new` to command dispatch |
-| `speed/templates/prd.md` | New file — PRD template |
-| `speed/templates/rfc.md` | New file — RFC template |
-| `speed/templates/design.md` | New file — Design template |
-| `speed/templates/defect.md` | New file — Defect report template |
+| `speed/speed` | Add `cmd_new()` function, add `new` to command dispatch and `speed_help()` |
+| `speed/templates/prd.md` | Already exists — PRD template |
+| `speed/templates/rfc.md` | Already exists — RFC template |
+| `speed/templates/design.md` | Already exists — Design template |
+| `speed/templates/defect.md` | Already exists — Defect report template |
 
 ## Dependencies
 
