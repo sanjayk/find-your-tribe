@@ -894,7 +894,7 @@ cmd_run() {
 
     # Check for stale state — auto-recover if previous run was killed
     local current_state
-    current_state=$(jq -r '.status' "$STATE_FILE" 2>/dev/null || echo "idle")
+    current_state=$(jq -r '.status // "idle"' "$STATE_FILE" 2>/dev/null || echo "idle")
     if [[ "$current_state" == "running" ]]; then
         log_warn "SPEED state is 'running' — previous run likely crashed. Auto-recovering..."
 
@@ -1072,8 +1072,8 @@ cmd_run() {
                 local timeout_marker="${output_file}.timeout"
                 if [[ -f "$timeout_marker" ]]; then
                     local timeout_count current_model
-                    timeout_count=$(jq -r '.timeout_count // 0' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
-                    current_model=$(jq -r --arg def "$MODEL_SUPPORT" '.agent_model // $def' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
+                    timeout_count=$(jq -r '.timeout_count // 0' "${TASKS_DIR}/${task_id}.json")
+                    current_model=$(jq -r --arg def "$MODEL_SUPPORT" '.agent_model // $def' "${TASKS_DIR}/${task_id}.json")
 
                     task_set_timeout "$task_id" "Agent timed out after ${DEFAULT_AGENT_TIMEOUT}s"
                     rm -f "$pid_file" "$done_marker" "$timeout_marker"
@@ -1102,7 +1102,7 @@ cmd_run() {
                     log_warn "Task ${task_id}: agent reported BLOCKED"
 
                     local uncertain_about
-                    uncertain_about=$(echo "$blocked_json" | jq -r '.uncertain_about // "Unknown"' 2>/dev/null)
+                    uncertain_about=$(echo "$blocked_json" | jq -r '.uncertain_about // "Unknown"')
                     log_warn "  Uncertainty: ${uncertain_about}"
 
                     # Atomic: status + error + agent_pid in one write
@@ -1134,7 +1134,7 @@ cmd_run() {
                         completion_json=$(parse_agent_json "$(cat "$output_file")" 2>/dev/null) || completion_json=""
                         if [[ -n "$completion_json" ]] && echo "$completion_json" | jq -e '.status == "done"' &>/dev/null; then
                             local has_metadata
-                            has_metadata=$(echo "$completion_json" | jq 'has("decisions") or has("concerns")' 2>/dev/null)
+                            has_metadata=$(echo "$completion_json" | jq 'has("decisions") or has("concerns")')
                             if [[ "$has_metadata" == "true" ]]; then
                                 local tmp_task; tmp_task=$(mktemp)
                                 jq --argjson dec "$(echo "$completion_json" | jq '.decisions // []')" \
@@ -1297,7 +1297,7 @@ cmd_run() {
                 # so this agent knows what upstream agents learned and flagged
                 local upstream_context=""
                 local dep_ids_for_context
-                dep_ids_for_context=$(echo "$task_json" | jq -r '.depends_on[]' 2>/dev/null)
+                dep_ids_for_context=$(echo "$task_json" | jq -r '.depends_on[]?' 2>/dev/null)
                 if [[ -n "$dep_ids_for_context" ]]; then
                     while IFS= read -r dep_id; do
                         [[ -z "$dep_id" ]] && continue
@@ -1305,8 +1305,8 @@ cmd_run() {
                         [[ -f "$dep_file" ]] || continue
                         local dep_title dep_decisions dep_concerns
                         dep_title=$(jq -r '.title' "$dep_file")
-                        dep_decisions=$(jq -r '.decisions // [] | if length > 0 then map("  - " + .) | join("\n") else empty end' "$dep_file" 2>/dev/null)
-                        dep_concerns=$(jq -r '.concerns // [] | if length > 0 then map("  - " + .) | join("\n") else empty end' "$dep_file" 2>/dev/null)
+                        dep_decisions=$(jq -r '.decisions // [] | if length > 0 then map("  - " + .) | join("\n") else empty end' "$dep_file")
+                        dep_concerns=$(jq -r '.concerns // [] | if length > 0 then map("  - " + .) | join("\n") else empty end' "$dep_file")
                         if [[ -n "$dep_decisions" ]] || [[ -n "$dep_concerns" ]]; then
                             upstream_context+=$'\n'"#### Task ${dep_id}: ${dep_title}"
                             if [[ -n "$dep_decisions" ]]; then
@@ -1332,7 +1332,7 @@ cmd_run() {
                 # features so two orchestrators never do checkout+merge
                 # on the shared working tree simultaneously.
                 local dep_ids
-                dep_ids=$(echo "$task_json" | jq -r '.depends_on[]' 2>/dev/null)
+                dep_ids=$(echo "$task_json" | jq -r '.depends_on[]?' 2>/dev/null)
                 if [[ -n "$dep_ids" ]]; then
                     local merge_failed=false
 
@@ -1344,7 +1344,7 @@ cmd_run() {
                     while IFS= read -r dep_id; do
                         [[ -z "$dep_id" ]] && continue
                         local dep_branch
-                        dep_branch=$(jq -r '.branch' "${TASKS_DIR}/${dep_id}.json" 2>/dev/null)
+                        dep_branch=$(jq -r '.branch // empty' "${TASKS_DIR}/${dep_id}.json" 2>/dev/null)
                         [[ -z "$dep_branch" || "$dep_branch" == "null" ]] && continue
                         git_branch_exists "$dep_branch" || continue
 
@@ -2034,7 +2034,7 @@ cmd_status() {
             [[ -f "$f" ]] || continue
             ((feat_total++))
             local s
-            s=$(jq -r '.status' "$f" 2>/dev/null)
+            s=$(jq -r '.status // "unknown"' "$f")
             case "$s" in
                 done) ((feat_done++)) ;;
                 running) ((feat_running++)) ;;
@@ -2346,7 +2346,7 @@ cmd_integrate() {
 
     while IFS= read -r task_id; do
         local status
-        status=$(jq -r '.status' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
+        status=$(jq -r '.status // "unknown"' "${TASKS_DIR}/${task_id}.json")
         if [[ "$status" == "done" ]]; then
             local branch
             branch=$(jq -r '.branch' "${TASKS_DIR}/${task_id}.json")
@@ -2874,7 +2874,7 @@ _kill_orphan_agents() {
     for f in "${TASKS_DIR}"/*.json; do
         [[ -f "$f" ]] || continue
         local status agent_pid tid
-        status=$(jq -r '.status' "$f" 2>/dev/null)
+        status=$(jq -r '.status // "unknown"' "$f")
         [[ "$status" == "running" ]] || continue
 
         tid=$(jq -r '.id' "$f")

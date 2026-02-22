@@ -238,7 +238,7 @@ git_cleanup_worktrees() {
 
         # If the task is not running, remove the worktree
         local status
-        status=$(jq -r '.status' "$task_file" 2>/dev/null || echo "unknown")
+        status=$(jq -r '.status // "unknown"' "$task_file")
         if [[ "$status" != "running" ]]; then
             _git worktree remove --force "$wt_dir" 2>/dev/null || rm -rf "$wt_dir"
         fi

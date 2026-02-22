@@ -112,7 +112,7 @@ gate_syntax_check() {
         local task_file="${TASKS_DIR}/${task_id}.json"
         if [[ -f "$task_file" ]]; then
             local branch
-            branch=$(jq -r '.branch' "$task_file" 2>/dev/null)
+            branch=$(jq -r '.branch // empty' "$task_file")
             if [[ -n "$branch" ]] && [[ "$branch" != "null" ]]; then
                 diff_cmd="git -C ${PROJECT_ROOT} diff --name-only main...${branch}"
             fi
@@ -143,7 +143,7 @@ gate_syntax_check() {
     for f in $(echo "$diff_files" | grep '\.json$' || true); do
         local full_path="${worktree_path}/${f}"
         [[ -f "$full_path" ]] || continue
-        if ! jq empty "$full_path" 2>/dev/null; then
+        if ! jq empty "$full_path"; then
             log_error "JSON syntax error in: $f"
             failed=true
         fi
@@ -247,7 +247,7 @@ _detect_subsystem() {
     fi
 
     local files_touched
-    files_touched=$(jq -r '.files_touched[]?' "$task_file" 2>/dev/null)
+    files_touched=$(jq -r '.files_touched[]?' "$task_file")
 
     if [[ -z "$files_touched" ]]; then
         echo "both"

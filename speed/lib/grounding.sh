@@ -83,7 +83,7 @@ grounding_check_diff_nonempty() {
     local task_id="$1"
     local task_json="${TASKS_DIR}/${task_id}.json"
     local branch
-    branch=$(jq -r '.branch' "$task_json" 2>/dev/null)
+    branch=$(jq -r '.branch // empty' "$task_json")
 
     if [[ -z "$branch" ]] || [[ "$branch" == "null" ]]; then
         return 1
@@ -103,7 +103,7 @@ grounding_check_declared_files() {
 
     # Get files_touched from task (may not exist in older task format)
     local files_touched
-    files_touched=$(jq -r '.files_touched[]?' "$task_json" 2>/dev/null)
+    files_touched=$(jq -r '.files_touched[]?' "$task_json")
 
     if [[ -z "$files_touched" ]]; then
         # No files declared — can't check, pass by default
@@ -111,7 +111,7 @@ grounding_check_declared_files() {
     fi
 
     local branch
-    branch=$(jq -r '.branch' "$task_json" 2>/dev/null)
+    branch=$(jq -r '.branch // empty' "$task_json")
     local missing=false
 
     while IFS= read -r declared_file; do
@@ -138,7 +138,7 @@ grounding_check_scope() {
     local task_json="${TASKS_DIR}/${task_id}.json"
 
     local files_touched
-    files_touched=$(jq -r '.files_touched[]?' "$task_json" 2>/dev/null)
+    files_touched=$(jq -r '.files_touched[]?' "$task_json")
 
     if [[ -z "$files_touched" ]]; then
         # No declaration — can't check scope
@@ -146,7 +146,7 @@ grounding_check_scope() {
     fi
 
     local branch
-    branch=$(jq -r '.branch' "$task_json" 2>/dev/null)
+    branch=$(jq -r '.branch // empty' "$task_json")
 
     # Get actual files changed on branch
     local actual_files
@@ -192,7 +192,7 @@ grounding_check_python_imports() {
     local worktree_path="${2:-$PROJECT_ROOT}"
     local task_json="${TASKS_DIR}/${task_id}.json"
     local branch
-    branch=$(jq -r '.branch' "$task_json" 2>/dev/null)
+    branch=$(jq -r '.branch // empty' "$task_json")
 
     # Get Python files changed on this branch
     local py_files
@@ -410,7 +410,7 @@ grounding_check_file_conflicts() {
     local task_json="${TASKS_DIR}/${task_id}.json"
 
     local my_files
-    my_files=$(jq -r '.files_touched[]?' "$task_json" 2>/dev/null)
+    my_files=$(jq -r '.files_touched[]?' "$task_json")
 
     if [[ -z "$my_files" ]]; then
         return 0  # No declarations, can't check
@@ -431,7 +431,7 @@ grounding_check_file_conflicts() {
 
         local other_json="${TASKS_DIR}/${other_id}.json"
         local other_files
-        other_files=$(jq -r '.files_touched[]?' "$other_json" 2>/dev/null)
+        other_files=$(jq -r '.files_touched[]?' "$other_json")
 
         while IFS= read -r my_file; do
             [[ -z "$my_file" ]] && continue

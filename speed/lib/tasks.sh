@@ -86,8 +86,8 @@ task_update() {
 
     local tmp
     tmp=$(mktemp)
-    if ! jq --arg val "$value" ".${field} = \$val" "$task_file" > "$tmp" 2>/dev/null; then
-        log_error "Task ${id}: failed to update field '${field}' (jq error)"
+    if ! jq --arg val "$value" ".${field} = \$val" "$task_file" > "$tmp"; then
+        log_error "Task ${id}: failed to update field '${field}'"
         rm -f "$tmp"
         return 1
     fi
@@ -110,8 +110,8 @@ task_update_raw() {
 
     local tmp
     tmp=$(mktemp)
-    if ! jq --argjson val "$value" ".${field} = \$val" "$task_file" > "$tmp" 2>/dev/null; then
-        log_error "Task ${id}: failed to update field '${field}' with raw value (jq error)"
+    if ! jq --argjson val "$value" ".${field} = \$val" "$task_file" > "$tmp"; then
+        log_error "Task ${id}: failed to update field '${field}' with raw value"
         rm -f "$tmp"
         return 1
     fi
@@ -244,7 +244,7 @@ task_deps_met() {
 
     local task_file="${TASKS_DIR}/${id}.json"
     local deps
-    deps=$(jq -r '.depends_on[]' "$task_file" 2>/dev/null)
+    deps=$(jq -r '.depends_on[]?' "$task_file")
 
     if [[ -z "$deps" ]]; then
         return 0 # no dependencies
@@ -252,7 +252,7 @@ task_deps_met() {
 
     while IFS= read -r dep_id; do
         local dep_status
-        dep_status=$(jq -r '.status' "${TASKS_DIR}/${dep_id}.json" 2>/dev/null)
+        dep_status=$(jq -r '.status // "unknown"' "${TASKS_DIR}/${dep_id}.json")
         if [[ "$dep_status" != "done" ]]; then
             return 1
         fi
@@ -285,7 +285,7 @@ task_count_by_status() {
     for f in "${TASKS_DIR}"/*.json; do
         [[ -f "$f" ]] || continue
         local s
-        s=$(jq -r '.status' "$f" 2>/dev/null)
+        s=$(jq -r '.status // "unknown"' "$f")
         if [[ "$s" == "$status" ]]; then
             ((count++))
         fi
@@ -384,7 +384,7 @@ task_topo_sort() {
         local id
         id=$(jq -r '.id' "$f")
         local deps
-        deps=$(jq -r '.depends_on[]' "$f" 2>/dev/null || true)
+        deps=$(jq -r '.depends_on[]?' "$f")
         while IFS= read -r dep; do
             [[ -z "$dep" ]] && continue
             local cur_deg
