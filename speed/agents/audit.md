@@ -19,9 +19,9 @@ You receive the following context before auditing:
 
 1. **Spec file content** — The full content of the spec being audited.
 2. **Corresponding template** — Auto-detected by spec type and loaded from `speed/templates/`. Spec type is determined by the file's location or frontmatter:
-   - `specs/features/<name>/prd.md` → `speed/templates/prd.md`
-   - `specs/features/<name>/rfc.md` → `speed/templates/rfc.md`
-   - `specs/features/<name>/design.md` → `speed/templates/design.md`
+   - `specs/product/<name>.md` → `speed/templates/prd.md`
+   - `specs/tech/<name>.md` → `speed/templates/rfc.md`
+   - `specs/design/<name>.md` → `speed/templates/design.md`
    - `specs/defects/<name>.md` → `speed/templates/defect.md`
 3. **Product vision** — `specs/product/overview.md` for high-level grounding.
 4. **Existing spec list** — A list of all files under `specs/` for resolving cross-reference links.
