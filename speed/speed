@@ -987,25 +987,41 @@ _print_human_escalation() {
     echo ""
 }
 
-# Print human escalation from verification JSON critical failures (convergence failure / exhausted iterations).
+# Print human escalation from verification JSON (critical failures + needs_human items).
 # Usage: _print_human_escalation_from_verify "$verify_json"
 _print_human_escalation_from_verify() {
     local verify_json="$1"
 
-    local cf_count
+    local cf_count nh_count
     cf_count=$(echo "$verify_json" | jq '[.critical_failures // [] | .[]] | length' 2>/dev/null) || cf_count=0
-    [[ "$cf_count" -eq 0 ]] && return
+    nh_count=$(echo "$verify_json" | jq '[.needs_human // [] | .[]] | length' 2>/dev/null) || nh_count=0
+    [[ "$cf_count" -eq 0 ]] && [[ "$nh_count" -eq 0 ]] && return
 
     echo ""
     echo -e "  ${COLOR_WARN}Cannot auto-fix — requires your judgment:${RESET}"
     echo ""
 
-    echo "$verify_json" | jq -c '.critical_failures[]' 2>/dev/null | while IFS= read -r failure; do
+    # Print critical failures
+    echo "$verify_json" | jq -c '.critical_failures // [] | .[]' 2>/dev/null | while IFS= read -r failure; do
         [[ -z "$failure" ]] && continue
         local desc spec_ref plan_gap
         desc=$(echo "$failure" | jq -r '.description // "unknown"')
         spec_ref=$(echo "$failure" | jq -r '.spec_reference // empty')
         plan_gap=$(echo "$failure" | jq -r '.plan_gap // empty')
+
+        echo -e "    ${COLOR_DIM}Issue: ${desc}${RESET}"
+        [[ -n "$spec_ref" ]] && echo -e "    ${COLOR_DIM}Spec says: ${spec_ref}${RESET}"
+        [[ -n "$plan_gap" ]] && echo -e "    ${COLOR_DIM}Plan says: ${plan_gap}${RESET}"
+        echo ""
+    done
+
+    # Print needs_human items (if verifier classified them separately)
+    echo "$verify_json" | jq -c '.needs_human // [] | .[]' 2>/dev/null | while IFS= read -r item; do
+        [[ -z "$item" ]] && continue
+        local desc spec_ref plan_gap
+        desc=$(echo "$item" | jq -r '.description // "unknown"')
+        spec_ref=$(echo "$item" | jq -r '.spec_reference // empty')
+        plan_gap=$(echo "$item" | jq -r '.plan_gap // empty')
 
         echo -e "    ${COLOR_DIM}Issue: ${desc}${RESET}"
         [[ -n "$spec_ref" ]] && echo -e "    ${COLOR_DIM}Spec says: ${spec_ref}${RESET}"
@@ -1162,9 +1178,18 @@ cmd_verify() {
     fi
 
     # ── Status is "fail" — attempt auto-fix loop ─────────────────
-    local failure_count
+    local failure_count rec_count_init verify_needs_human_count
     failure_count=$(echo "$verify_json" | jq '[.critical_failures // [] | .[]] | length' 2>/dev/null) || failure_count=0
+    rec_count_init=$(echo "$verify_json" | jq '[.recommendations // [] | .[]] | length' 2>/dev/null) || rec_count_init=0
+    verify_needs_human_count=$(echo "$verify_json" | jq '[.needs_human // [] | .[]] | length' 2>/dev/null) || verify_needs_human_count=0
     log_error "Plan verification FAILED — ${failure_count} critical issue(s) found"
+
+    # If verifier classified all issues as needing human judgment, skip the fix loop (AC #14)
+    if [[ "$verify_needs_human_count" -gt 0 ]] && [[ "$failure_count" -eq 0 ]] && [[ "$rec_count_init" -eq 0 ]]; then
+        log_warn "All issues require human judgment — skipping auto-fix"
+        _print_human_escalation_from_verify "$verify_json"
+        exit 1
+    fi
 
     # Gather task file contents for the Fix Agent
     local task_files_content=""
