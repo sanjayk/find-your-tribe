@@ -20,8 +20,9 @@ Implement the task described below completely and correctly. You are working on 
    - Start with the core data structures / interfaces
    - Build the main logic
    - Add error handling
-   - Write tests
+   - Write tests for new functions and modules
    - Commit after each logical step
+   - Run `speed gates --fast` after each group of files (see Quality Checks section)
 
 4. **Commit frequently** — Make small, focused commits with clear messages. Each commit should represent a logical unit of work.
 
