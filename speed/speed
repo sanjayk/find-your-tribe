@@ -14,6 +14,7 @@
 #   coherence               Check cross-task consistency before integration
 #   integrate               Merge completed branches into main
 #   review [--task-id ID]   Run code review on completed tasks
+#   fix-nits [--task-id ID] Create a task to fix reviewer nits
 #   retry --task-id ID      Retry a failed task with human guidance
 #   recover                 Recover from crashed/stale state
 #   guardian [spec-file]     Run Product Guardian vision check
@@ -69,6 +70,7 @@ speed_help() {
     echo -e "    ${COLOR_STEP}coherence${RESET}                    Cross-task consistency check pre-integration"
     echo -e "    ${COLOR_STEP}integrate${RESET}                    Merge completed branches + regression + contract"
     echo -e "    ${COLOR_STEP}review${RESET} [--task-id ID]        Run code review on completed tasks"
+    echo -e "    ${COLOR_STEP}fix-nits${RESET} [--task-id ID]      Create a task to fix reviewer nits"
     echo -e "    ${COLOR_STEP}retry${RESET}  --task-id ID --context Retry a failed task with human guidance"
     echo -e "    ${COLOR_STEP}recover${RESET}                      Recover from crashed/stale SPEED state"
     echo -e "    ${COLOR_STEP}clean${RESET}   [logs|all]            Remove logs or entire .speed/ state"
@@ -3298,6 +3300,117 @@ cmd_recover() {
     echo ""
 }
 
+# ── Fix Nits ──────────────────────────────────────────────────────
+
+cmd_fix_nits() {
+    _require_feature "$GLOBAL_FEATURE"
+    local filter_task_id=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --task-id) filter_task_id="$2"; shift 2 ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    log_header "Fix Nits"
+
+    local nits_file="${LOGS_DIR}/review-nits.json"
+
+    if [[ ! -f "$nits_file" ]]; then
+        log_error "No nits found. Run 'speed review' first."
+        exit 1
+    fi
+
+    local nits_json
+    nits_json=$(cat "$nits_file")
+
+    local nit_count
+    nit_count=$(echo "$nits_json" | jq 'length' 2>/dev/null) || nit_count=0
+
+    if [[ "$nit_count" == "0" ]] || [[ -z "$nit_count" ]]; then
+        log_error "No nits found in ${nits_file}. Run 'speed review' first."
+        exit 1
+    fi
+
+    # Filter by task ID if provided
+    if [[ -n "$filter_task_id" ]]; then
+        nits_json=$(echo "$nits_json" | jq --arg tid "$filter_task_id" '[.[] | select(.task_id == $tid)]')
+        nit_count=$(echo "$nits_json" | jq 'length' 2>/dev/null) || nit_count=0
+        if [[ "$nit_count" == "0" ]] || [[ -z "$nit_count" ]]; then
+            log_error "No nits found for task ${filter_task_id}."
+            exit 1
+        fi
+    fi
+
+    # Compute next task ID (max existing + 1)
+    local max_id=0
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local tid
+        tid=$(jq -r '.id' "$f" 2>/dev/null) || continue
+        if [[ "$tid" -gt "$max_id" ]] 2>/dev/null; then
+            max_id="$tid"
+        fi
+    done
+    local next_id=$((max_id + 1))
+
+    # Collect unique original task IDs
+    local source_task_ids
+    source_task_ids=$(echo "$nits_json" | jq -r '[.[].task_id] | unique | join(", ")' 2>/dev/null)
+
+    # Build numbered description from nits
+    local description=""
+    description+="Fix the following reviewer nits. Each fix is small and mechanical."
+    description+="\n"
+
+    local i=1
+    while IFS= read -r nit_line; do
+        [[ -z "$nit_line" ]] && continue
+        local nit_task nit_severity nit_message nit_file nit_line_num nit_suggestion
+        nit_task=$(echo "$nit_line" | jq -r '.task_id // "?"')
+        nit_severity=$(echo "$nit_line" | jq -r '.severity // "nit"')
+        nit_message=$(echo "$nit_line" | jq -r '.message // .description // "no message"')
+        nit_file=$(echo "$nit_line" | jq -r '.file // "?"')
+        nit_line_num=$(echo "$nit_line" | jq -r '.line // "?"')
+        nit_suggestion=$(echo "$nit_line" | jq -r '.suggestion // empty')
+
+        description+="\n${i}. **${nit_file}:${nit_line_num}** (${nit_severity}, from task ${nit_task})"
+        description+="\n   Issue: ${nit_message}"
+        if [[ -n "$nit_suggestion" ]]; then
+            description+="\n   Fix: ${nit_suggestion}"
+        fi
+
+        i=$((i + 1))
+    done < <(echo "$nits_json" | jq -c '.[]')
+
+    description+="\n\nApply each fix. If a suggestion is wrong or not applicable, add a code comment explaining why it was skipped."
+
+    # Build acceptance criteria
+    local criteria="- Each nit is fixed or has a comment explaining why not applicable\n- No new lint/typecheck/test failures\n- All quality gates pass"
+
+    # Build depends_on from unique original task IDs
+    local depends_on
+    depends_on=$(echo "$nits_json" | jq -c '[.[].task_id] | unique')
+
+    # Build files_touched from unique file paths
+    local files_touched
+    files_touched=$(echo "$nits_json" | jq -c '[.[].file // empty] | unique | map(select(. != "?"))')
+
+    # Create the task
+    local title="Fix review nits from tasks ${source_task_ids}"
+
+    task_create "$next_id" "$title" "$(echo -e "$description")" "$(echo -e "$criteria")" "$depends_on" "$MODEL_SUPPORT"
+    task_update_raw "$next_id" "files_touched" "$files_touched"
+
+    echo ""
+    log_success "Created task ${next_id}: ${title}"
+    log_step "${nit_count} nit(s) from task(s) ${source_task_ids}"
+    echo ""
+    echo -e "  ${COLOR_DIM}Next: ${COLOR_STEP}speed run${COLOR_DIM} && ${COLOR_STEP}speed review${RESET}"
+    echo ""
+}
+
 # ── Clean ─────────────────────────────────────────────────────────
 
 cmd_clean() {
@@ -3433,6 +3546,7 @@ main() {
         coherence) cmd_coherence "$@" ;;
         integrate) cmd_integrate "$@" ;;
         review)    cmd_review "$@" ;;
+        fix-nits)  cmd_fix_nits "$@" ;;
         retry)     cmd_retry "$@" ;;
         recover)   cmd_recover "$@" ;;
         guardian)   cmd_guardian "$@" ;;

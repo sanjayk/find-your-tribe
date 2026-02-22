@@ -84,6 +84,7 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 | S15 | As an operator, I want SPEED to retry on rate limit errors with backoff instead of failing immediately | Must |
 | S16 | As an operator, I want to see a summary of all reviewer nits and minor issues at the end of `speed review`, not just pass/fail per task | Must |
 | S17 | As an operator, I want reviewer nits saved to a structured file I can act on later | Should |
+| S18 | As an operator, I want `speed fix-nits` to create a task from reviewer nits so I can fix them through the normal pipeline | Should |
 
 ## User Flows
 
@@ -230,6 +231,9 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - [ ] Token budget config: `TPM_BUDGET`, `RPM_BUDGET` in `config.sh` with sensible defaults
 - [ ] `speed review` prints a nit/minor summary at the end of the run for all approved tasks
 - [ ] `speed review` saves aggregated nits to `${LOGS_DIR}/review-nits.json`
+- [ ] `speed fix-nits` reads `review-nits.json` and creates a single aggregate task with all nits as numbered fix instructions
+- [ ] `speed fix-nits --task-id ID` filters nits to a specific original task
+- [ ] The generated task goes through the normal `run → review` cycle with no special-casing
 
 ## Scope
 
@@ -251,6 +255,7 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - Pre-flight token estimation before API calls
 - Reviewer nit summary at end of `speed review` run
 - Aggregated nit output file (`review-nits.json`)
+- `speed fix-nits` command to create a task from reviewer nits (`cmd_fix_nits()` in `speed/speed`)
 
 ### Out of Scope (and why)
 - Mid-agent injection (pausing the agent to force gate runs) — architecturally invasive, Claude Code doesn't support it

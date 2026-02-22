@@ -902,26 +902,108 @@ _print_review_nits() {
   Full details: .speed/features/my-feature/logs/review-nits.json
 ```
 
+## `speed fix-nits` — Nits to Tasks Pipeline
+
+### Command signature
+
+```bash
+./speed/speed fix-nits [-f feature] [--task-id ID]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f feature` | auto-detected | Feature context (standard global flag) |
+| `--task-id ID` | (optional) | Filter nits to a specific original task |
+
+### `cmd_fix_nits()` implementation
+
+Added to `speed/speed` alongside other `cmd_*()` functions. Reads `review-nits.json`, creates a single aggregate task.
+
+```
+cmd_fix_nits()
+├── _require_feature "$GLOBAL_FEATURE"
+├── Parse --task-id (optional filter)
+├── Read ${LOGS_DIR}/review-nits.json
+│   └── Error if missing/empty: "No nits found. Run 'speed review' first."
+├── Filter by --task-id if provided
+├── Compute next task ID (max existing ID + 1)
+├── Build description: numbered list from nits JSON
+│   └── Each nit: file:line (severity, from task N) + issue + fix suggestion
+├── Build acceptance criteria
+├── Compute depends_on: unique original task IDs from nits
+├── Compute files_touched: unique file paths from nits
+├── task_create(next_id, title, description, criteria, depends_on, MODEL_SUPPORT)
+├── task_update_raw(next_id, "files_touched", files_touched)
+└── Print: "Created task {id}. Next: speed run && speed review"
+```
+
+Key design decisions:
+- **One task for all nits.** Nits are small by definition. Spinning up a developer agent (worktree, branch, agent spawn) for each nit is massive overhead for one-line fixes. One task, one pass, all nits fixed.
+- **Depends on original tasks.** The generated task's `depends_on` lists the original task IDs, ensuring it doesn't run until those tasks are done.
+- **Uses MODEL_SUPPORT (sonnet).** Nit fixes are mechanical, not reasoning tasks.
+- **No new agent type.** The task goes through the normal `run → review` cycle with the standard Developer Agent.
+
+### Task description template
+
+```
+Title: "Fix review nits from tasks {ids}"
+
+Description:
+  Fix the following reviewer nits. Each fix is small and mechanical.
+
+  1. **speed/speed:?** (minor, from task 5)
+     Issue: Fix Agent schema uses task_file but spec uses file
+     Fix: Change task_file to file in the prompt
+
+  2. ...
+
+  Apply each fix. If a suggestion is wrong or not applicable,
+  add a code comment explaining why it was skipped.
+
+Acceptance Criteria:
+  - Each nit is fixed or has a comment explaining why not applicable
+  - No new lint/typecheck/test failures
+  - All quality gates pass
+```
+
+### Operator flow
+
+```
+speed review          → nits surfaced, saved to review-nits.json
+speed fix-nits        → task created from nits
+speed run             → developer agent fixes nits
+speed review          → fixes reviewed (cycle repeats if needed)
+```
+
+### Reused functions (no modifications needed)
+
+- `task_create()` — creates the task JSON file
+- `task_update_raw()` — sets `files_touched` as a JSON array
+- `_require_feature()` — resolves feature context, sets TASKS_DIR/LOGS_DIR
+- `log_header()`, `log_step()`, `log_success()`, `log_error()` — output helpers
+
 ## Command registration
 
-Add `gates` to the command dispatch in `speed/speed`:
+Add `gates` and `fix-nits` to the command dispatch in `speed/speed`:
 
 ```bash
 # In the main case statement:
-gates)    shift; cmd_gates "$@" ;;
+gates)     cmd_gates "$@" ;;
+fix-nits)  cmd_fix_nits "$@" ;;
 ```
 
 Add to help text:
 
 ```
 gates       Run quality gates for a task (used by Developer Agent mid-task)
+fix-nits    Create a task to fix reviewer nits
 ```
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `speed/speed` | Add `cmd_gates()`, `_load_relevant_specs()`. Rewrite `cmd_verify()`: use `parse_agent_json()`, add `_print_verify_report()`, add auto-fix loop with Fix Agent, add human escalation output. Rewrite `cmd_review()` spec loading (smart loader), diff truncation, paced API calls with retry. Update command dispatch and help text for `gates`. Update `agent_message` template in `cmd_run()` to include gate commands. |
+| `speed/speed` | Add `cmd_gates()`, `cmd_fix_nits()`, `_load_relevant_specs()`. Rewrite `cmd_verify()`: use `parse_agent_json()`, add `_print_verify_report()`, add auto-fix loop with Fix Agent, add human escalation output. Rewrite `cmd_review()` spec loading (smart loader), diff truncation, paced API calls with retry. Add `cmd_fix_nits()` to read `review-nits.json` and create aggregate fix task. Update command dispatch and help text for `gates` and `fix-nits`. Update `agent_message` template in `cmd_run()` to include gate commands. |
 | `speed/agents/developer.md` | Replace vague "write tests" instruction with explicit "Quality Checks" section containing copy-pasteable `speed gates` commands |
 | `speed/lib/grounding.sh` | Add `grounding_check_test_coverage()`, `_test_coverage_excluded()`, `_test_file_exists_in_diff()`, `grounding_check_gate_evidence()`. Update `grounding_run()` to include checks 6 and 7. |
 | `speed/lib/config.sh` | Add `MAX_VERIFY_FIX_ITERATIONS=3`, `TPM_BUDGET`, `RPM_BUDGET`, `RATE_LIMIT_MAX_RETRIES`, `RATE_LIMIT_BASE_DELAY`, `RATE_LIMIT_MAX_DELAY` constants |
