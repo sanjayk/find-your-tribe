@@ -145,13 +145,17 @@ _PROVIDERS_DIR="${SCRIPT_DIR}/providers"
 _PROVIDER_FILE="${_PROVIDERS_DIR}/${_PROVIDER_NAME}.sh"
 
 if [[ ! -f "$_PROVIDER_FILE" ]]; then
-    echo "Error: Unknown provider '${_PROVIDER_NAME}'" >&2
-    echo "Available providers:" >&2
+    local _available=""
     for f in "${_PROVIDERS_DIR}"/*.sh; do
         [[ -f "$f" ]] || continue
-        echo "  - $(basename "$f" .sh)" >&2
+        _available+="  - $(basename "$f" .sh)"$'\n'
     done
-    exit 1
+    log_error_block \
+        "Unknown provider '${_PROVIDER_NAME}'" \
+        "Set via: SPEED_PROVIDER env var, speed.toml [agent].provider, or default 'claude-code'" \
+        "Available providers:" \
+        "${_available% }"
+    exit "$EXIT_CONFIG_ERROR"
 fi
 
 source "$_PROVIDER_FILE"
