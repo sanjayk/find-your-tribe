@@ -75,6 +75,7 @@ speed_help() {
     echo -e "    ${COLOR_STEP}recover${RESET}                      Recover from crashed/stale SPEED state"
     echo -e "    ${COLOR_STEP}clean${RESET}   [logs|all]            Remove logs or entire .speed/ state"
     echo -e "    ${COLOR_STEP}guardian${RESET} [spec-file]           Run Product Guardian vision check"
+    echo -e "    ${COLOR_STEP}new${RESET} <type> <name>           Scaffold a new spec from template"
     echo -e "    ${COLOR_STEP}gates${RESET}   --task ID             Run quality gates for a task (used by Developer Agent mid-task)"
     echo -e "    ${COLOR_STEP}help${RESET}                         Show this help message"
     echo ""
@@ -121,6 +122,8 @@ speed_help() {
     echo "    ./speed/speed coherence"
     echo "    ./speed/speed integrate"
     echo "    ./speed/speed clean feature auth"
+    echo "    ./speed/speed new prd my-feature"
+    echo "    ./speed/speed new defect invite-failure"
     echo ""
 }
 
@@ -4006,6 +4009,96 @@ cmd_clean() {
     esac
 }
 
+# ── New ───────────────────────────────────────────────────────────
+
+cmd_new() {
+    local subcommand="${1:-}"
+    local name="${2:-}"
+
+    log_header "Creating new ${subcommand:-spec} spec"
+
+    # Validate subcommand
+    case "$subcommand" in
+        prd|rfc|design|defect) ;;
+        *)
+            log_error "Invalid subcommand: '${subcommand}'"
+            echo "" >&2
+            echo -e "  Valid types: ${COLOR_STEP}prd${RESET}  ${COLOR_STEP}rfc${RESET}  ${COLOR_STEP}design${RESET}  ${COLOR_STEP}defect${RESET}" >&2
+            echo "" >&2
+            exit "$EXIT_CONFIG_ERROR"
+            ;;
+    esac
+
+    # Validate name (required)
+    if [[ -z "$name" ]]; then
+        log_error "Usage: ./speed/speed new <type> <name>"
+        echo "" >&2
+        echo -e "  Example: ${COLOR_STEP}./speed/speed new ${subcommand} my-feature${RESET}" >&2
+        echo "" >&2
+        exit "$EXIT_CONFIG_ERROR"
+    fi
+
+    # Validate name format: lowercase alphanumeric + hyphens, no leading/trailing hyphens
+    if ! echo "$name" | grep -qE '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'; then
+        log_error "Invalid name: '${name}'"
+        echo "" >&2
+        echo -e "  Name must be lowercase alphanumeric with hyphens (no leading/trailing hyphens)" >&2
+        echo -e "  Example: ${COLOR_STEP}my-feature${RESET}, ${COLOR_STEP}fix-login-bug${RESET}, ${COLOR_STEP}auth${RESET}" >&2
+        echo "" >&2
+        exit "$EXIT_CONFIG_ERROR"
+    fi
+
+    # Map subcommand to template and output directory
+    local template output_dir
+    case "$subcommand" in
+        prd)    template="${TEMPLATES_DIR}/prd.md";    output_dir="specs/product" ;;
+        rfc)    template="${TEMPLATES_DIR}/rfc.md";    output_dir="specs/tech" ;;
+        design) template="${TEMPLATES_DIR}/design.md"; output_dir="specs/design" ;;
+        defect) template="${TEMPLATES_DIR}/defect.md"; output_dir="specs/defects" ;;
+    esac
+
+    # Check template exists
+    if [[ ! -f "$template" ]]; then
+        log_error "Template not found: ${template}"
+        echo "" >&2
+        echo -e "  This may indicate an incomplete SPEED installation." >&2
+        echo -e "  Expected template at: ${COLOR_STEP}${template}${RESET}" >&2
+        echo "" >&2
+        exit "$EXIT_CONFIG_ERROR"
+    fi
+
+    local output="${PROJECT_ROOT}/${output_dir}/${name}.md"
+
+    # Check output file does not already exist
+    if [[ -f "$output" ]]; then
+        log_error "File already exists: ${output}"
+        echo "" >&2
+        echo -e "  To avoid overwriting, the existing file was left unchanged." >&2
+        echo "" >&2
+        exit "$EXIT_CONFIG_ERROR"
+    fi
+
+    # Create output directory
+    mkdir -p "${PROJECT_ROOT}/${output_dir}"
+
+    # Humanize name: hyphens → spaces, title case
+    local humanized
+    humanized=$(echo "$name" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+
+    # Copy template with placeholder substitution
+    sed -e "s/{Feature Name}/${humanized}/g" \
+        -e "s/{name}/${name}/g" \
+        -e "s|{product-spec}|specs/product/${name}.md|g" \
+        "$template" > "$output"
+
+    log_success "Created ${output_dir}/${name}.md"
+
+    # Open in editor if set
+    if [[ -n "${EDITOR:-}" ]]; then
+        exec "$EDITOR" "$output"
+    fi
+}
+
 # ── Main ─────────────────────────────────────────────────────────
 
 main() {
@@ -4040,6 +4133,7 @@ main() {
         fix-nits)  cmd_fix_nits "$@" ;;
         retry)     cmd_retry "$@" ;;
         recover)   cmd_recover "$@" ;;
+        new)       cmd_new "$@" ;;
         guardian)   cmd_guardian "$@" ;;
         gates)     cmd_gates "$@" ;;
         clean)     cmd_clean "$@" ;;
