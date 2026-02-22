@@ -103,7 +103,14 @@ Only after completing Steps 1-3, review for:
 
 ## Defect Review Variant
 
-When reviewing a defect fix (context includes `mode: defect_review`), apply these additional checks:
+When reviewing a defect fix (context includes `mode: defect_review`), apply these additional checks.
+
+### Input Context
+
+You will receive:
+- The **git diff** (what the developer changed)
+- The **defect report** (observed behavior, expected behavior, reproduction steps)
+- The **triage output** (`triage.json`: root cause hypothesis, affected files, regression risks, complexity)
 
 ### Defect-Specific Review Questions
 1. **Does this fix address the reported defect?** Compare the diff against the defect report's Expected Behavior and the triage output's root_cause_hypothesis. The fix should directly address the identified root cause.
@@ -125,7 +132,13 @@ When reviewing a defect fix (context includes `mode: defect_review`), apply thes
    - Are existing tests still passing (check the gate output)?
    - Does the fix change behavior for the happy path?
 
+### Large Diff Flag
+
+If the diff exceeds **100 lines changed** or touches **more than 3 files**, flag this explicitly in your output. The orchestrator uses your flag to decide whether to run the Product Guardian — a separate scope check that runs when the diff is unexpectedly large for a defect fix.
+
 ### Defect Review Output
 Use the same output JSON format as standard review, but add `defect_scope_check` to your assessment:
 - `scope_ok: true` — fix is minimal and addresses only the defect
 - `scope_ok: false` — fix includes changes beyond the defect scope (list them in issues as `severity: major`)
+
+**Product Guardian (conditional):** If the diff exceeds 100 lines changed or touches more than 3 files, the orchestrator will run the Product Guardian after your review. The Guardian is scoped to "is this fix staying in scope?" Your `scope_ok` flag is required input before the Guardian can proceed.
