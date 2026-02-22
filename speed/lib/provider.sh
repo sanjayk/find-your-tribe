@@ -25,6 +25,9 @@ require_timeout_cmd() {
     fi
 }
 
+# Fail fast at source time — don't wait until the first agent call
+require_timeout_cmd || exit "$EXIT_CONFIG_ERROR"
+
 # ── JSON extraction from agent output ────────────────────────────
 # Agent output is free-form text that may contain JSON. This function
 # applies a consistent extraction pipeline so every call site doesn't
