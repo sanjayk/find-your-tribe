@@ -170,9 +170,11 @@ def scan_project_files(project_root):
             continue
 
         files = []
-        for root, _dirs, filenames in os.walk(full_dir):
+        for root, dirs, filenames in os.walk(full_dir):
+            # Skip __pycache__ and hidden directories
+            dirs[:] = [d for d in dirs if d != "__pycache__" and not d.startswith(".")]
             for fname in sorted(filenames):
-                if fname.startswith(".") or fname == "__pycache__":
+                if fname.startswith(".") or fname.endswith(".pyc"):
                     continue
                 rel_path = os.path.relpath(os.path.join(root, fname), project_root)
                 files.append(rel_path)
