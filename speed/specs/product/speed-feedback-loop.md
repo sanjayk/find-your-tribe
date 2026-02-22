@@ -31,10 +31,22 @@ Three specific failures:
 
 3. **No path from findings to fixes.** When verification fails, the message is "fix the spec or re-run speed plan." No guidance on *which task file* to edit, *what specific value* to change, or *where* the drift occurred. The verifier knows all of this — it just doesn't tell the operator in actionable terms.
 
+### 3. Reviewer and pipeline: token-unaware, hits API limits
+
+SPEED has no awareness of Claude's API rate limits. It fires requests as fast as it can — 3 parallel developer agents, then debugger/supervisor agents, then 5 sequential review calls — with no tracking of token consumption and no pacing.
+
+This causes two failures:
+
+1. **Spec dump blows context and token budgets.** `cmd_review()` loads every spec file in the project (288KB, ~70k tokens) into every review prompt. This exceeds Claude's context window ("prompt too long") and consumes the TPM budget in 2-3 calls ("rate limit reached"). The reviewer only needs the feature's own spec and specs that reference the changed files — not the GitHub adapter spec to review a grounding gate change.
+
+2. **No rate limit awareness or recovery.** When the API returns a rate limit error, `cmd_review()` logs a warning and immediately moves to the next task — which also hits the rate limit. No backoff, no retry, no pacing. Claude Code's API limits are TPM-based (200k-300k for small teams) with a rolling 5-hour window. SPEED should track its token usage and pace calls to stay within budget.
+
+3. **Unbounded diff size.** `cmd_review()` sends the full `git diff` with no truncation. `DIFF_HEAD_LINES=500` exists in config but is only applied by the Guardian, not the reviewer. Large diffs compound the context problem.
+
 ## Users
 
 ### Engineering (Operator)
-Runs `speed plan` and `speed run`. Wants a higher first-attempt pass rate so fewer tasks need debugging and retry. Wants confidence that the agent tested its own code before declaring done.
+Runs `speed plan` and `speed run`. Wants a higher first-attempt pass rate so fewer tasks need debugging and retry. Wants confidence that the agent tested its own code before declaring done. Wants `speed review` to work reliably without hitting API limits.
 
 ### Developer Agent (Internal User)
 Executes inside a worktree. Needs a single command that runs the right gates for the right subsystem without worrying about venv activation, directory resolution, or which linter to invoke.
@@ -57,6 +69,10 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 | S9 | As an operator, I want `speed verify` to automatically fix plan issues and re-verify until the plan passes or a fix requires my judgment | Must |
 | S10 | As an operator, I want `speed verify` to tell me exactly which task file to edit and what to change when it can't auto-fix | Must |
 | S11 | As an operator, I want the JSON parser to handle agent output wrapped in markdown prose without failing | Must |
+| S12 | As an operator, I want `speed review` to load only specs relevant to the code being reviewed, not every spec in the project | Must |
+| S13 | As an operator, I want `speed review` to truncate large diffs so individual reviews don't exceed context limits | Must |
+| S14 | As an operator, I want SPEED to track token usage and pace API calls so I don't hit rate limits mid-pipeline | Must |
+| S15 | As an operator, I want SPEED to retry on rate limit errors with backoff instead of failing immediately | Must |
 
 ## User Flows
 
@@ -141,6 +157,28 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 6. Operator edits the task file or accepts the drift
 7. Operator re-runs `speed verify` — passes
 
+### Reviewer completing without hitting limits
+
+1. Operator runs `speed review` after 5 tasks complete
+2. For task 1, `cmd_review()` builds the diff, truncates at 500 lines
+3. Two-layer grep finds 2 relevant specs (out of 15+ in the project) — loads only those
+4. Pre-flight estimate: ~15k tokens. Within TPM budget. Sends the call.
+5. Review completes successfully. Token tracker updates remaining budget.
+6. Before task 2, pacing check: budget sufficient, no delay needed. Sends immediately.
+7. Tasks 2-4 review without issue.
+8. Before task 5, pacing check: approaching TPM limit. Waits 30 seconds for budget to replenish.
+9. Task 5 reviews successfully.
+10. All 5 reviews complete in one `speed review` invocation — no rate limit errors, no prompt-too-long failures.
+
+### Reviewer hitting rate limit with graceful recovery
+
+1. Operator runs `speed review` after a large batch
+2. Task 3 review triggers a rate limit error from the API
+3. SPEED logs: "Rate limit reached — waiting 60s before retry (attempt 1/3)"
+4. After backoff, retries the same review call
+5. Call succeeds. Pipeline continues with remaining tasks.
+6. If all 3 retries fail, SPEED logs the failure and moves to the next task (same as today, but with retries first)
+
 ### Plan verification with all issues auto-fixed
 
 1. Operator runs `speed verify`
@@ -173,6 +211,12 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - [ ] `speed verify` auto-fix loop: stops and prints actionable guidance when a fix requires human judgment
 - [ ] `speed verify` auto-fix loop: caps at 3 iterations to prevent infinite loops
 - [ ] `speed verify` auto-fix loop: prints summary of all auto-applied fixes
+- [ ] `speed review` loads only specs relevant to the task's diff (two-layer grep: file paths + function names)
+- [ ] `speed review` truncates diffs exceeding `DIFF_HEAD_LINES` (500) with a truncation note
+- [ ] SPEED tracks token consumption per API call and cumulative per pipeline run
+- [ ] SPEED paces API calls when approaching TPM/RPM budget limits
+- [ ] SPEED retries rate-limited API calls with exponential backoff (3 attempts max)
+- [ ] Token budget config: `TPM_BUDGET`, `RPM_BUDGET` in `config.sh` with sensible defaults
 
 ## Scope
 
@@ -187,6 +231,11 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - `cmd_verify()` rewrite: robust JSON parsing, human-readable output, auto-fix loop
 - Verify → Fix → Re-verify automatic loop with iteration cap
 - Human escalation for ambiguous fixes (design decisions the agent can't make)
+- Smart spec loader for `cmd_review()` — two-layer grep to find relevant specs
+- Diff truncation in `cmd_review()` using `DIFF_HEAD_LINES`
+- Token budget tracking and pacing (`TPM_BUDGET`, `RPM_BUDGET` in config)
+- Rate limit retry with exponential backoff in provider layer
+- Pre-flight token estimation before API calls
 
 ### Out of Scope (and why)
 - Mid-agent injection (pausing the agent to force gate runs) — architecturally invasive, Claude Code doesn't support it
@@ -195,6 +244,9 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - Automatic retry on gate failure mid-task — the agent should fix the issue itself; if it can't, it declares done and the normal retry pipeline handles it
 - `speed verify --no-fix` flag (run verification without auto-fix) — future; the auto-fix loop is the default and only mode initially
 - Spec-level fixes (the auto-fix loop fixes task JSON files, not the source spec) — if the spec itself is wrong, that's a human problem
+- Per-call token counting via API response headers — Claude Code CLI doesn't expose token usage; estimation from character count is sufficient for pacing
+- Automatic TPM tier detection — too fragile; operator sets their budget in config
+- Request queuing or priority scheduling — SPEED's sequential review loop is simple enough; pacing + backoff is sufficient
 
 ## Dependencies
 
@@ -203,7 +255,8 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - `speed/lib/provider.sh` — `parse_agent_json()`, `_require_json()`, `claude_run()`
 - `speed/agents/developer.md` — prompt enhancement
 - `speed/agents/plan-verifier.md` — existing verifier agent (output consumed by new formatting/fix logic)
-- `speed/lib/config.sh` — path constants, subsystem detection config
+- `speed/lib/config.sh` — path constants, subsystem detection config, `DIFF_HEAD_LINES`, new `TPM_BUDGET`/`RPM_BUDGET`
+- `speed/providers/claude-code.sh` — `provider_run()` (rate limit detection + retry + token tracking)
 
 ## Risks
 
@@ -216,3 +269,7 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 | Fix Agent makes wrong edits to task JSON | Medium | Re-verification catches bad fixes. If the same issue persists after a fix attempt, the loop stops and escalates to the human. 3-iteration cap prevents runaway. |
 | Fix Agent changes task semantics beyond what was flagged | Low | Fix Agent prompt is scoped: "apply ONLY the fixes listed in the verification report, change nothing else." Re-verification catches scope drift. |
 | Auto-fix loop feels opaque (operator doesn't know what changed) | Medium | Every auto-applied fix is logged with before/after values. Summary printed at end: "Auto-fixed 2 issues: Task 1 threshold 10→8, Task 1 added sizing heuristic." |
+| Smart spec loader misses a relevant spec (false negative) | Low | Two-layer grep (file paths + function names) casts a wide net. False positives are acceptable. The feature's own spec is always included regardless of grep results. |
+| Token estimation inaccurate | Low | Character-based estimation (~4 chars/token) is a rough heuristic, not precise. Budget includes 20% headroom. The goal is pacing, not exact accounting. |
+| Rate limit backoff slows pipeline | Low | Only triggers when hitting actual limits. Waiting 60s is better than failing and requiring manual re-run. Backoff caps at 5 minutes. |
+| `DIFF_HEAD_LINES` truncation hides important code from reviewer | Low | 500 lines covers most single-task diffs. Truncation note tells reviewer the diff is partial. Reviewer has read-only file access for full inspection if needed. |

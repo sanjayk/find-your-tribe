@@ -92,6 +92,13 @@ PATTERN_FAILURE_THRESHOLD=3    # invoke supervisor after this many failures
 AGENT_OUTPUT_TAIL=1000         # lines of agent output to send to debugger
 DIFF_HEAD_LINES=500            # lines of diff to send to debugger/reviewer
 
+# ── Token Budget & Rate Limiting ─────────────────────────────────
+TPM_BUDGET="${SPEED_TPM_BUDGET:-${TOML_RATE_TPM_BUDGET:-200000}}"    # tokens per minute
+RPM_BUDGET="${SPEED_RPM_BUDGET:-${TOML_RATE_RPM_BUDGET:-5}}"         # requests per minute
+RATE_LIMIT_MAX_RETRIES=3       # max retries on rate limit error
+RATE_LIMIT_BASE_DELAY=60       # base delay in seconds for exponential backoff
+RATE_LIMIT_MAX_DELAY=300       # max delay cap (5 minutes)
+
 # ── Vision File ──────────────────────────────────────────────────
 VISION_FILE="${TOML_SPECS_VISION_FILE:-specs/product/overview.md}"
 

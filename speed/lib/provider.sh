@@ -169,3 +169,106 @@ claude_run_json()   { provider_run_json "$@"; }
 claude_spawn_bg()   { provider_spawn_bg "$@"; }
 claude_is_running() { provider_is_running "$@"; }
 claude_wait()       { provider_wait "$@"; }
+
+# ── Token budget & rate limit handling ────────────────────────────
+# Tracks token usage per pipeline run and paces API calls to stay
+# within TPM/RPM budgets. Retries on rate limit with exp backoff.
+
+_TOKEN_TRACKER="${TMPDIR:-/tmp}/_speed_tokens_$$"
+
+# Rough token estimate from character count (~4 chars per token)
+_estimate_tokens() {
+    local text="$1"
+    local chars=${#text}
+    echo $(( (chars + 3) / 4 ))
+}
+
+# Record a token usage event
+_track_tokens() {
+    local estimated="$1"
+    local now
+    now=$(date +%s)
+    echo "${now} ${estimated}" >> "$_TOKEN_TRACKER"
+}
+
+# Sum tokens used in the last 60 seconds
+_tokens_used_last_minute() {
+    local now cutoff total=0
+    now=$(date +%s)
+    cutoff=$((now - 60))
+    [[ ! -f "$_TOKEN_TRACKER" ]] && echo 0 && return 0
+    while IFS=' ' read -r ts tokens; do
+        [[ -z "$ts" ]] && continue
+        [[ $ts -ge $cutoff ]] && total=$((total + tokens))
+    done < "$_TOKEN_TRACKER"
+    echo "$total"
+}
+
+# Count requests in the last 60 seconds
+_requests_last_minute() {
+    local now cutoff count=0
+    now=$(date +%s)
+    cutoff=$((now - 60))
+    [[ ! -f "$_TOKEN_TRACKER" ]] && echo 0 && return 0
+    while IFS=' ' read -r ts _; do
+        [[ -z "$ts" ]] && continue
+        [[ $ts -ge $cutoff ]] && count=$((count + 1))
+    done < "$_TOKEN_TRACKER"
+    echo "$count"
+}
+
+# Wait until we have budget for the next API call
+_pace_api_call() {
+    local estimated_tokens="$1"
+
+    while true; do
+        local used rpm
+        used=$(_tokens_used_last_minute)
+        rpm=$(_requests_last_minute)
+        local headroom=$(( TPM_BUDGET * 80 / 100 ))  # 80% threshold
+
+        if [[ $((used + estimated_tokens)) -lt $headroom ]] && [[ $rpm -lt $RPM_BUDGET ]]; then
+            return 0  # safe to proceed
+        fi
+
+        local wait_secs=15
+        log_dim "Pacing: ${used}/${TPM_BUDGET} TPM, ${rpm}/${RPM_BUDGET} RPM — waiting ${wait_secs}s"
+        sleep "$wait_secs"
+    done
+}
+
+# Retry wrapper for rate-limited API calls
+_call_with_retry() {
+    local attempt=0
+    local delay=$RATE_LIMIT_BASE_DELAY
+
+    while true; do
+        local output=""
+        local rc=0
+        output=$("$@" 2>&1) || rc=$?
+
+        # Check for rate limit in output
+        if echo "$output" | grep -qi "rate limit" 2>/dev/null; then
+            attempt=$((attempt + 1))
+            if [[ $attempt -ge $RATE_LIMIT_MAX_RETRIES ]]; then
+                echo "$output"
+                return 1
+            fi
+            log_warn "Rate limit reached — waiting ${delay}s before retry (attempt ${attempt}/${RATE_LIMIT_MAX_RETRIES})"
+            sleep "$delay"
+            delay=$(( delay * 2 ))
+            [[ $delay -gt $RATE_LIMIT_MAX_DELAY ]] && delay=$RATE_LIMIT_MAX_DELAY
+            continue
+        fi
+
+        # Prompt too long is not retryable
+        if echo "$output" | grep -qi "prompt.*too long\|too long.*prompt" 2>/dev/null; then
+            log_error "Prompt too long — reduce context size"
+            echo "$output"
+            return 1
+        fi
+
+        echo "$output"
+        return $rc
+    done
+}

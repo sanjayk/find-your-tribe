@@ -2755,6 +2755,66 @@ This is a post-integration check. Evaluate whether the integrated result, taken 
     echo ""
 }
 
+# ── Smart spec loader for review ──────────────────────────────────
+# Instead of loading every spec file (which blows context/token budgets),
+# load only specs that reference files or identifiers from the diff.
+_load_relevant_specs() {
+    local diff_text="$1"
+    local primary_spec="$2"
+    local specs_dir="${PROJECT_ROOT}/speed/specs"
+    local result=""
+
+    # Always include primary spec
+    if [[ -n "$primary_spec" ]] && [[ -f "$primary_spec" ]]; then
+        result="$primary_spec"
+    fi
+
+    [[ ! -d "$specs_dir" ]] && echo "$result" && return 0
+
+    # Layer 1: file paths from diff
+    local diff_paths
+    diff_paths=$(echo "$diff_text" | grep -oE '(src|speed|lib)/[^ ]+' | sort -u 2>/dev/null || true)
+
+    # Layer 2: identifiers (function names, class names) — 5+ chars, capped at 100
+    local identifiers
+    identifiers=$(echo "$diff_text" | grep -oE '[a-zA-Z_][a-zA-Z0-9_]{4,}' | sort -u | head -100 2>/dev/null || true)
+
+    while IFS= read -r -d '' sf; do
+        # Skip primary spec (already included)
+        if [[ -n "$primary_spec" ]] && [[ "$(realpath "$sf" 2>/dev/null)" == "$(realpath "$primary_spec" 2>/dev/null)" ]]; then
+            continue
+        fi
+
+        local matched=false
+
+        # Layer 1: check if any diff file path appears in spec
+        if [[ -n "$diff_paths" ]]; then
+            while IFS= read -r dp; do
+                [[ -z "$dp" ]] && continue
+                if grep -q "$dp" "$sf" 2>/dev/null; then
+                    matched=true
+                    break
+                fi
+            done <<< "$diff_paths"
+        fi
+
+        # Layer 2: check if any identifier appears in spec (only if Layer 1 didn't match)
+        if [[ "$matched" == "false" ]] && [[ -n "$identifiers" ]]; then
+            while IFS= read -r id; do
+                [[ -z "$id" ]] && continue
+                if grep -q "$id" "$sf" 2>/dev/null; then
+                    matched=true
+                    break
+                fi
+            done <<< "$identifiers"
+        fi
+
+        [[ "$matched" == "true" ]] && result+=$'\n'"$sf"
+    done < <(find "$specs_dir" -name '*.md' -type f -print0 | sort -z)
+
+    echo "$result"
+}
+
 cmd_review() {
     _require_feature "$GLOBAL_FEATURE"
     local task_id=""
@@ -2800,28 +2860,31 @@ cmd_review() {
             continue
         fi
 
-        # Gather product specs for context (if specs/ directory exists)
+        # Truncate diff if too long
+        local diff_lines
+        diff_lines=$(echo "$diff" | wc -l | tr -d ' ')
+        if [[ $diff_lines -gt $DIFF_HEAD_LINES ]]; then
+            diff=$(echo "$diff" | head -n "$DIFF_HEAD_LINES")
+            diff+=$'\n'"... (truncated at ${DIFF_HEAD_LINES} lines — full diff on branch ${branch})"
+        fi
+
+        # Gather relevant specs (smart loader — not all specs)
         local spec_context=""
         local spec_file
         spec_file=$(_get_spec_path)
-        if [[ -n "$spec_file" ]] && [[ -f "$spec_file" ]]; then
-            spec_context="
+        local relevant_specs
+        relevant_specs=$(_load_relevant_specs "$diff" "$spec_file")
+        while IFS= read -r sf; do
+            [[ -z "$sf" ]] && continue
+            local relpath="${sf#${PROJECT_ROOT}/}"
+            if [[ -n "$spec_file" ]] && [[ "$(realpath "$sf" 2>/dev/null)" == "$(realpath "$spec_file" 2>/dev/null)" ]]; then
+                spec_context+="
 ### Product Specification (SOURCE OF TRUTH — verify code satisfies this)
-$(cat "$spec_file")"
-        fi
-
-        # Also include other specs if available
-        local specs_dir="${PROJECT_ROOT}/specs"
-        if [[ -d "$specs_dir" ]]; then
-            while IFS= read -r -d '' sf; do
-                local relpath="${sf#${PROJECT_ROOT}/}"
-                # Skip the primary spec (already included above)
-                if [[ -n "$spec_file" ]] && [[ "$(realpath "$sf")" == "$(realpath "$spec_file")" ]]; then
-                    continue
-                fi
+$(cat "$sf")"
+            else
                 spec_context+=$'\n\n'"--- RELATED SPEC: ${relpath} ---"$'\n'"$(cat "$sf")"
-            done < <(find "$specs_dir" -name '*.md' -type f -print0 | sort -z)
-        fi
+            fi
+        done <<< "$relevant_specs"
 
         local agent_message="## Review Task ${tid}: ${title}
 
@@ -2841,8 +2904,13 @@ ${spec_context}
 4. Then do standard code review (quality, conventions, security, tests)
 Respond with your review as JSON."
 
+        # Pace API call based on token budget
+        local estimated_tokens
+        estimated_tokens=$(_estimate_tokens "$agent_message")
+        _pace_api_call "$estimated_tokens"
+
         local review_output
-        if ! review_output=$(claude_run \
+        if ! review_output=$(_call_with_retry claude_run \
             "${AGENTS_DIR}/reviewer.md" \
             "$agent_message" \
             "$MODEL_SUPPORT" \
@@ -2851,6 +2919,9 @@ Respond with your review as JSON."
             log_error "Reviewer agent failed for task ${tid} — check Claude CLI connection"
             continue
         fi
+
+        # Track token usage after successful call
+        _track_tokens "$estimated_tokens"
 
         if [[ -z "$review_output" ]]; then
             log_error "Reviewer agent returned empty output for task ${tid}"

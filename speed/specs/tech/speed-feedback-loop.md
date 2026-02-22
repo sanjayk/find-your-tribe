@@ -533,6 +533,310 @@ MAX_VERIFY_FIX_ITERATIONS=3    # max fix → re-verify cycles
 
 Added to `config.sh` alongside existing orchestration tuning constants.
 
+## Reviewer: Smart Spec Loader
+
+### Problem
+
+`cmd_review()` loads every `.md` file under `specs/` into every review prompt (lines 2813-2824 in `speed/speed`). For this project that's 15+ specs totaling ~288KB (~70k tokens). The reviewer only needs specs relevant to the code being reviewed.
+
+### Solution: Two-layer grep
+
+Replace the `find specs/ -name '*.md'` dump with a targeted loader that greps spec file contents against the diff.
+
+```
+_load_relevant_specs(diff_text, primary_spec_path)
+├── Always include the feature's own spec (primary_spec_path)
+├── Layer 1: File path matching
+│   ├── Extract file paths from diff (grep '^[+-]{3} [ab]/' or --name-only)
+│   ├── For each spec file in specs/:
+│   │   └── grep -l any of the diff file paths → include
+├── Layer 2: Function/feature name matching
+│   ├── Extract identifiers from diff (function names, class names, imports)
+│   │   └── grep -oE '[a-zA-Z_][a-zA-Z0-9_]{4,}' from diff, deduplicated
+│   ├── For each remaining spec file:
+│   │   └── grep -l any of the identifiers → include
+├── Deduplicate results
+└── Return list of spec file paths
+```
+
+**Key design decisions:**
+- All bash — no LLM needed. `grep -l` is fast enough even for 20+ spec files.
+- False positives are fine — loading one extra spec is far better than missing a relevant one.
+- The feature's own spec is always included, bypassing grep.
+- Layer 1 (file paths) catches most cases. Layer 2 (identifiers) catches cross-cutting concerns like shared utilities referenced by name in specs.
+- Minimum identifier length of 5 chars avoids noise from common short words.
+
+### Implementation
+
+New function `_load_relevant_specs()` in `speed/speed`, called by `cmd_review()`:
+
+```bash
+_load_relevant_specs() {
+    local diff_text="$1"
+    local primary_spec="$2"
+    local specs_dir="${PROJECT_ROOT}/speed/specs"
+    local result=""
+
+    # Always include primary spec
+    if [[ -n "$primary_spec" ]] && [[ -f "$primary_spec" ]]; then
+        result="$primary_spec"
+    fi
+
+    [[ ! -d "$specs_dir" ]] && echo "$result" && return 0
+
+    # Layer 1: file paths from diff
+    local diff_paths
+    diff_paths=$(echo "$diff_text" | grep -oE '(src|speed|lib)/[^ ]+' | sort -u)
+
+    # Layer 2: identifiers (function names, class names) — 5+ chars
+    local identifiers
+    identifiers=$(echo "$diff_text" | grep -oE '[a-zA-Z_][a-zA-Z0-9_]{4,}' | sort -u | head -100)
+
+    while IFS= read -r -d '' sf; do
+        # Skip primary spec (already included)
+        [[ -n "$primary_spec" ]] && [[ "$(realpath "$sf")" == "$(realpath "$primary_spec")" ]] && continue
+
+        local matched=false
+
+        # Layer 1: check if any diff file path appears in spec
+        if [[ -n "$diff_paths" ]]; then
+            while IFS= read -r dp; do
+                [[ -z "$dp" ]] && continue
+                if grep -q "$dp" "$sf" 2>/dev/null; then
+                    matched=true
+                    break
+                fi
+            done <<< "$diff_paths"
+        fi
+
+        # Layer 2: check if any identifier appears in spec
+        if [[ "$matched" == "false" ]] && [[ -n "$identifiers" ]]; then
+            while IFS= read -r id; do
+                [[ -z "$id" ]] && continue
+                if grep -q "$id" "$sf" 2>/dev/null; then
+                    matched=true
+                    break
+                fi
+            done <<< "$identifiers"
+        fi
+
+        [[ "$matched" == "true" ]] && result+=$'\n'"$sf"
+    done < <(find "$specs_dir" -name '*.md' -type f -print0 | sort -z)
+
+    echo "$result"
+}
+```
+
+### Integration into `cmd_review()`
+
+Replace lines 2813-2824 (the `find specs/ ... cat` loop) with:
+
+```bash
+# Gather relevant specs (not all specs)
+local relevant_specs
+relevant_specs=$(_load_relevant_specs "$diff" "$spec_file")
+local spec_context=""
+while IFS= read -r sf; do
+    [[ -z "$sf" ]] && continue
+    local relpath="${sf#${PROJECT_ROOT}/}"
+    if [[ -n "$spec_file" ]] && [[ "$(realpath "$sf")" == "$(realpath "$spec_file")" ]]; then
+        spec_context+="
+### Product Specification (SOURCE OF TRUTH)
+$(cat "$sf")"
+    else
+        spec_context+=$'\n\n'"--- RELATED SPEC: ${relpath} ---"$'\n'"$(cat "$sf")"
+    fi
+done <<< "$relevant_specs"
+```
+
+## Reviewer: Diff Truncation
+
+### Problem
+
+`cmd_review()` sends the full `git diff` with no size limit. `DIFF_HEAD_LINES=500` exists in `config.sh` but is only applied by the Guardian.
+
+### Solution
+
+Apply `DIFF_HEAD_LINES` truncation in `cmd_review()` after fetching the diff:
+
+```bash
+# Truncate diff if too long
+local diff_lines
+diff_lines=$(echo "$diff" | wc -l)
+if [[ $diff_lines -gt $DIFF_HEAD_LINES ]]; then
+    diff=$(echo "$diff" | head -n "$DIFF_HEAD_LINES")
+    diff+=$'\n'"... (truncated at ${DIFF_HEAD_LINES} lines — full diff on branch ${branch})"
+fi
+```
+
+Inserted after line 2797 (where `diff` is fetched) and before line 2826 (where `agent_message` is built).
+
+Same pattern the Guardian uses at line ~1899. One config value `DIFF_HEAD_LINES=500` for both.
+
+## Token Budget and Rate Limit Handling
+
+### Problem
+
+SPEED has no awareness of Claude's API rate limits. It fires requests as fast as it can with no tracking or pacing. Claude Code CLI limits are TPM-based (200k-300k for 1-5 users) with a rolling 5-hour window.
+
+### Config additions (`config.sh`)
+
+```bash
+# ── Token Budget ────────────────────────────────────────────────
+TPM_BUDGET="${SPEED_TPM_BUDGET:-${TOML_RATE_TPM_BUDGET:-200000}}"  # tokens per minute
+RPM_BUDGET="${SPEED_RPM_BUDGET:-${TOML_RATE_RPM_BUDGET:-5}}"       # requests per minute
+RATE_LIMIT_MAX_RETRIES=3       # max retries on rate limit error
+RATE_LIMIT_BASE_DELAY=60       # base delay in seconds for backoff
+RATE_LIMIT_MAX_DELAY=300       # max delay cap (5 minutes)
+```
+
+Defaults are conservative (200k TPM, 5 RPM) — safe for the 1-5 user tier. Operators on higher tiers can increase via env vars or `speed.toml`.
+
+### Token estimation
+
+Claude Code CLI doesn't expose token counts in its output. We estimate from character count:
+
+```bash
+# ~4 characters per token (rough heuristic, errs on the high side)
+_estimate_tokens() {
+    local text="$1"
+    local chars=${#text}
+    echo $(( (chars + 3) / 4 ))
+}
+```
+
+This is intentionally imprecise. The goal is pacing, not exact accounting. We include 20% headroom in the budget check.
+
+### Token tracker (state file)
+
+Track cumulative usage in a temp file per pipeline run:
+
+```bash
+_TOKEN_TRACKER="${TMPDIR:-/tmp}/_speed_tokens_$$"
+
+_track_tokens() {
+    local estimated="$1"
+    local now
+    now=$(date +%s)
+    echo "${now} ${estimated}" >> "$_TOKEN_TRACKER"
+}
+
+_tokens_used_last_minute() {
+    local now cutoff total=0
+    now=$(date +%s)
+    cutoff=$((now - 60))
+    while IFS=' ' read -r ts tokens; do
+        [[ $ts -ge $cutoff ]] && total=$((total + tokens))
+    done < "$_TOKEN_TRACKER" 2>/dev/null
+    echo "$total"
+}
+
+_requests_last_minute() {
+    local now cutoff count=0
+    now=$(date +%s)
+    cutoff=$((now - 60))
+    while IFS=' ' read -r ts _; do
+        [[ $ts -ge $cutoff ]] && count=$((count + 1))
+    done < "$_TOKEN_TRACKER" 2>/dev/null
+    echo "$count"
+}
+```
+
+### Pre-flight check and pacing
+
+Before each API call, check if we have budget:
+
+```bash
+_pace_api_call() {
+    local estimated_tokens="$1"
+
+    while true; do
+        local used rpm
+        used=$(_tokens_used_last_minute)
+        rpm=$(_requests_last_minute)
+        local headroom=$(( TPM_BUDGET * 80 / 100 ))  # 80% threshold
+
+        if [[ $((used + estimated_tokens)) -lt $headroom ]] && [[ $rpm -lt $RPM_BUDGET ]]; then
+            return 0  # safe to proceed
+        fi
+
+        local wait_secs=15
+        log_dim "Pacing: ${used}/${TPM_BUDGET} TPM, ${rpm}/${RPM_BUDGET} RPM — waiting ${wait_secs}s"
+        sleep "$wait_secs"
+    done
+}
+```
+
+### Rate limit retry with backoff
+
+Wrap the `claude_run()` call with retry logic for rate limit errors:
+
+```bash
+_call_with_retry() {
+    # $@ = full claude_run argument list
+    local attempt=0
+    local delay=$RATE_LIMIT_BASE_DELAY
+
+    while [[ $attempt -lt $RATE_LIMIT_MAX_RETRIES ]]; do
+        local output=""
+        local rc=0
+        output=$("$@") || rc=$?
+
+        # Check for rate limit in output
+        if echo "$output" | grep -qi "rate limit" 2>/dev/null; then
+            attempt=$((attempt + 1))
+            if [[ $attempt -ge $RATE_LIMIT_MAX_RETRIES ]]; then
+                echo "$output"
+                return 1
+            fi
+            log_warn "Rate limit reached — waiting ${delay}s before retry (attempt ${attempt}/${RATE_LIMIT_MAX_RETRIES})"
+            sleep "$delay"
+            delay=$(( delay * 2 ))
+            [[ $delay -gt $RATE_LIMIT_MAX_DELAY ]] && delay=$RATE_LIMIT_MAX_DELAY
+            continue
+        fi
+
+        # Check for "prompt too long" — not retryable, fail immediately
+        if echo "$output" | grep -qi "prompt.*too long\|too long.*prompt" 2>/dev/null; then
+            log_error "Prompt too long — reduce context size"
+            echo "$output"
+            return 1
+        fi
+
+        echo "$output"
+        return $rc
+    done
+}
+```
+
+### Integration into `cmd_review()`
+
+```bash
+# Before the claude_run call:
+local prompt_text="${agent_message}"
+local estimated
+estimated=$(_estimate_tokens "$prompt_text")
+_pace_api_call "$estimated"
+
+# Replace direct claude_run with:
+review_output=$(_call_with_retry claude_run \
+    "${AGENTS_DIR}/reviewer.md" \
+    "$agent_message" \
+    "$MODEL_SUPPORT" \
+    "$AGENT_TOOLS_READONLY" \
+    "Reviewer")
+
+# After successful call:
+_track_tokens "$estimated"
+```
+
+### Where to put the functions
+
+- `_estimate_tokens`, `_tokens_used_last_minute`, `_requests_last_minute`, `_pace_api_call`, `_track_tokens` → `speed/lib/provider.sh` (next to the existing provider abstraction)
+- `_call_with_retry` → `speed/lib/provider.sh` (wraps `claude_run`)
+- Config constants → `speed/lib/config.sh`
+- `_load_relevant_specs` → `speed/speed` (local to the review flow)
+
 ## Command registration
 
 Add `gates` to the command dispatch in `speed/speed`:
@@ -552,10 +856,11 @@ gates       Run quality gates for a task (used by Developer Agent mid-task)
 
 | File | Change |
 |------|--------|
-| `speed/speed` | Add `cmd_gates()`. Rewrite `cmd_verify()`: use `parse_agent_json()`, add `_print_verify_report()`, add auto-fix loop with Fix Agent, add human escalation output. Update command dispatch and help text for `gates`. Update `agent_message` template in `cmd_run()` to include gate commands. |
+| `speed/speed` | Add `cmd_gates()`, `_load_relevant_specs()`. Rewrite `cmd_verify()`: use `parse_agent_json()`, add `_print_verify_report()`, add auto-fix loop with Fix Agent, add human escalation output. Rewrite `cmd_review()` spec loading (smart loader), diff truncation, paced API calls with retry. Update command dispatch and help text for `gates`. Update `agent_message` template in `cmd_run()` to include gate commands. |
 | `speed/agents/developer.md` | Replace vague "write tests" instruction with explicit "Quality Checks" section containing copy-pasteable `speed gates` commands |
 | `speed/lib/grounding.sh` | Add `grounding_check_test_coverage()`, `_test_coverage_excluded()`, `_test_file_exists_in_diff()`, `grounding_check_gate_evidence()`. Update `grounding_run()` to include checks 6 and 7. |
-| `speed/lib/config.sh` | Add `MAX_VERIFY_FIX_ITERATIONS=3` constant |
+| `speed/lib/config.sh` | Add `MAX_VERIFY_FIX_ITERATIONS=3`, `TPM_BUDGET`, `RPM_BUDGET`, `RATE_LIMIT_MAX_RETRIES`, `RATE_LIMIT_BASE_DELAY`, `RATE_LIMIT_MAX_DELAY` constants |
+| `speed/lib/provider.sh` | Add `_estimate_tokens()`, `_track_tokens()`, `_tokens_used_last_minute()`, `_requests_last_minute()`, `_pace_api_call()`, `_call_with_retry()` |
 
 No new files created. All changes are modifications to existing files.
 
@@ -566,5 +871,6 @@ No new files created. All changes are modifications to existing files.
 - `speed/lib/provider.sh` — `parse_agent_json()` (existing, used by new `cmd_verify()`), `claude_run()` (existing, used for Fix Agent)
 - `speed/agents/developer.md` — prompt text (modified)
 - `speed/agents/plan-verifier.md` — existing agent (no modifications; output consumed by new formatting logic)
-- `speed/lib/config.sh` — `TASKS_DIR`, `WORKTREES_DIR`, `LOGS_DIR`, `PROJECT_ROOT` (existing), `MAX_VERIFY_FIX_ITERATIONS` (new)
+- `speed/lib/config.sh` — `TASKS_DIR`, `WORKTREES_DIR`, `LOGS_DIR`, `PROJECT_ROOT` (existing), `MAX_VERIFY_FIX_ITERATIONS`, `TPM_BUDGET`, `RPM_BUDGET`, `RATE_LIMIT_*` (new)
+- `speed/providers/claude-code.sh` — `provider_run()` (existing, no modifications — retry wraps it from provider.sh)
 - `CLAUDE.md` — gate commands read by `gates_get_config()`, file organization conventions inform exclusion patterns (read only)
