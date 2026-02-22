@@ -449,7 +449,7 @@ The Fix Agent is not a new agent definition — it's an inline `claude_run()` ca
 
 **Model:** `MODEL_SUPPORT` (sonnet) — these are mechanical edits, not reasoning tasks.
 
-**Tools:** `Read`, `Write`, `Glob` — needs to read task files, write edits, find files.
+**Tools:** `AGENT_TOOLS_WRITE` (`Read Write Glob`) — needs to read task files, write edits, find files. No Bash or Edit access.
 
 **Prompt template:**
 
@@ -469,7 +469,7 @@ Apply ONLY the fixes described in the critical_failures and recommendations abov
 For each fix:
 1. Read the task JSON file
 2. Find the specific field that needs changing
-3. Edit it using jq-compatible JSON modifications
+3. Rewrite it using the Write tool
 4. Do NOT change anything else in the task file
 
 If a fix is ambiguous — multiple valid approaches, or the issue describes a design

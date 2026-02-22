@@ -79,6 +79,7 @@ ARCHITECT_MAX_TURNS=30         # architect needs many turns for large specs
 
 # ── Agent Tool Sets ──────────────────────────────────────────────
 AGENT_TOOLS_FULL="Bash Edit Read Write Glob Grep"
+AGENT_TOOLS_WRITE="Read Write Glob"
 AGENT_TOOLS_READONLY="Read Glob Grep"
 
 # ── Orchestration Tuning ─────────────────────────────────────────

@@ -1040,6 +1040,50 @@ _print_fix_summary() {
     echo ""
 }
 
+# Build the verification message from current task plan + spec + contract.
+# Sets variables: task_plan, contract_section, verify_message
+# Requires: spec_content (set by caller), TASKS_DIR, CONTRACT_FILE
+_build_verify_message() {
+    task_plan=""
+    for f in "${TASKS_DIR}"/*.json; do
+        [[ -f "$f" ]] || continue
+        local id title desc criteria deps files
+        id=$(jq -r '.id' "$f")
+        title=$(jq -r '.title' "$f")
+        desc=$(jq -r '.description' "$f")
+        criteria=$(jq -r '.acceptance_criteria' "$f")
+        deps=$(jq -r '.depends_on | join(", ")' "$f")
+        files=$(jq -r '.files_touched // [] | join(", ")' "$f")
+
+        task_plan+="### Task ${id}: ${title}
+Description: ${desc}
+Acceptance Criteria: ${criteria}
+Depends On: ${deps}
+Files: ${files}
+
+"
+    done
+
+    contract_section=""
+    if [[ -f "${CONTRACT_FILE}" ]]; then
+        contract_section="
+## Data Model Contract
+$(cat "${CONTRACT_FILE}")
+"
+    fi
+
+    verify_message="## Product Specification
+
+${spec_content}
+
+## Task Plan
+
+${task_plan}
+${contract_section}
+
+Verify this plan against the product specification. Read the spec FIRST, form your own understanding, THEN check the plan."
+}
+
 cmd_verify() {
     _require_feature "$GLOBAL_FEATURE"
     log_header "Verifying Plan Against Spec"
@@ -1063,48 +1107,10 @@ cmd_verify() {
     local spec_content
     spec_content=$(cat "$spec_file")
 
-    # Gather the task plan
+    # Build verification message from current task plan + spec + contract
     log_step "Gathering task plan (${total} tasks)..."
-    local task_plan=""
-    for f in "${TASKS_DIR}"/*.json; do
-        [[ -f "$f" ]] || continue
-        local id title desc criteria deps files
-        id=$(jq -r '.id' "$f")
-        title=$(jq -r '.title' "$f")
-        desc=$(jq -r '.description' "$f")
-        criteria=$(jq -r '.acceptance_criteria' "$f")
-        deps=$(jq -r '.depends_on | join(", ")' "$f")
-        files=$(jq -r '.files_touched // [] | join(", ")' "$f")
-
-        task_plan+="### Task ${id}: ${title}
-Description: ${desc}
-Acceptance Criteria: ${criteria}
-Depends On: ${deps}
-Files: ${files}
-
-"
-    done
-
-    # Gather contract if it exists
-    local contract_section=""
-    if [[ -f "${CONTRACT_FILE}" ]]; then
-        contract_section="
-## Data Model Contract
-$(cat "${CONTRACT_FILE}")
-"
-    fi
-
-    # Build verification message — spec and plan ONLY, no architect reasoning
-    local verify_message="## Product Specification
-
-${spec_content}
-
-## Task Plan
-
-${task_plan}
-${contract_section}
-
-Verify this plan against the product specification. Read the spec FIRST, form your own understanding, THEN check the plan."
+    local task_plan="" contract_section="" verify_message=""
+    _build_verify_message
 
     log_step "Sending to Plan Verifier agent (blind check)..."
     echo ""
@@ -1253,7 +1259,7 @@ Apply ONLY the fixes described above. Do NOT change anything else."
             "$fix_system_prompt" \
             "$fix_message" \
             "$MODEL_SUPPORT" \
-            "$AGENT_TOOLS_FULL" \
+            "$AGENT_TOOLS_WRITE" \
             "FixAgent"); then
             rm -f "$fix_system_prompt"
             log_error "Fix Agent failed — skipping auto-fix"
@@ -1310,46 +1316,8 @@ Apply ONLY the fixes described above. Do NOT change anything else."
         log_step "Re-verifying plan after fixes..."
         echo ""
 
-        # Re-gather task plan (files may have changed)
-        task_plan=""
-        for f in "${TASKS_DIR}"/*.json; do
-            [[ -f "$f" ]] || continue
-            local id title desc criteria deps files
-            id=$(jq -r '.id' "$f")
-            title=$(jq -r '.title' "$f")
-            desc=$(jq -r '.description' "$f")
-            criteria=$(jq -r '.acceptance_criteria' "$f")
-            deps=$(jq -r '.depends_on | join(", ")' "$f")
-            files=$(jq -r '.files_touched // [] | join(", ")' "$f")
-
-            task_plan+="### Task ${id}: ${title}
-Description: ${desc}
-Acceptance Criteria: ${criteria}
-Depends On: ${deps}
-Files: ${files}
-
-"
-        done
-
-        # Re-gather contract
-        contract_section=""
-        if [[ -f "${CONTRACT_FILE}" ]]; then
-            contract_section="
-## Data Model Contract
-$(cat "${CONTRACT_FILE}")
-"
-        fi
-
-        verify_message="## Product Specification
-
-${spec_content}
-
-## Task Plan
-
-${task_plan}
-${contract_section}
-
-Verify this plan against the product specification. Read the spec FIRST, form your own understanding, THEN check the plan."
+        # Re-build verification message (task files may have been edited by Fix Agent)
+        _build_verify_message
 
         if ! verify_output=$(claude_run \
             "${AGENTS_DIR}/plan-verifier.md" \
