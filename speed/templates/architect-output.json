@@ -55,15 +55,18 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name", "table", "created_by_task", "key_fields"],
+            "required": ["name", "type", "created_by_task", "key_fields"],
             "properties": {
-              "name": { "type": "string", "description": "Entity name (must match table name)" },
-              "table": { "type": "string", "description": "Database table name" },
+              "name": { "type": "string", "description": "Entity name" },
+              "type": { "type": "string", "enum": ["database", "file", "function"], "description": "Entity type: database (table), file (path on disk), or function (callable within a file)" },
+              "table": { "type": "string", "description": "Database table name (required for database type)" },
+              "path": { "type": "string", "description": "File path relative to project root (required for file and function types)" },
+              "function": { "type": "string", "description": "Function or class name within the file (required for function type)" },
               "created_by_task": { "type": "string", "description": "ID of the task that creates this entity" },
               "key_fields": {
                 "type": "array",
                 "items": { "type": "string" },
-                "description": "Important columns on this table"
+                "description": "For database: column names. For file: structural properties. For function: key behaviors."
               }
             }
           }

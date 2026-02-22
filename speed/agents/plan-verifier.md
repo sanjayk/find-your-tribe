@@ -51,11 +51,14 @@ If a task introduces a concept not present in the spec, ask: why? If there's no 
 
 ### 5. Contract Verification
 
-The Architect should produce a `contract.json` alongside the task plan. Verify:
-- Every table in the contract maps to a task that creates it
-- Every FK in the contract maps to a task that creates the relationship
-- Every core query in the contract can be satisfied by the planned schema
+The Architect should produce a `contract.json` alongside the task plan. Entities have a `type` field (`database`, `file`, or `function`). Verify by type:
+
+- **database entities**: Every table maps to a task that creates it. Every FK maps to a task that creates the relationship.
+- **file entities**: Every file path maps to a task that creates or modifies it (check `files_touched`).
+- **function entities**: Every function maps to a task that implements it (check `files_touched` includes the file).
+- Every core query in the contract can be satisfied by the planned entities
 - The contract's core queries actually answer the product spec's core question
+- **Empty entities is a red flag.** Every feature creates something. If entities is empty, check whether the plan creates files, CLI commands, or config — those should be declared as file or function entities.
 
 ### 6. File Coverage Verification
 

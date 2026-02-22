@@ -482,11 +482,10 @@ grounding_check_gate_evidence() {
     return 1
 }
 
-# ── Contract Check: verify schema matches contract.json ───────────
-# Uses AST parsing (speed/lib/contract_verify.py) instead of grep.
-# Structurally extracts __tablename__, Column(), ForeignKey(), and
-# op.create_table() from Python source — no false positives from
-# comments, docstrings, or substring matches.
+# ── Contract Check: verify artifacts declared in contract.json ────
+# Uses existence checks (speed/lib/contract_verify.py) — verifies
+# that declared files, symbols, and model classes exist on disk.
+# Semantic correctness is verified by LLM agents (reviewer, coherence).
 
 contract_check() {
     local contract_file="${CONTRACT_FILE:-${STATE_DIR}/contract.json}"
@@ -502,7 +501,7 @@ contract_check() {
         return 1
     fi
 
-    log_step "Verifying schema contract (AST-based)..."
+    log_step "Verifying contract artifacts..."
 
     local verify_output
     verify_output=$(python3 "$verify_script" "$contract_file" "$PROJECT_ROOT" 2>&1)
@@ -530,7 +529,7 @@ contract_check() {
 
     # Print each check result
     echo ""
-    echo -e "  ${BOLD}Contract Verification (AST):${RESET}"
+    echo -e "  ${BOLD}Contract Verification:${RESET}"
 
     local check_count
     check_count=$(echo "$results_json" | jq '.results | length')
@@ -549,20 +548,13 @@ contract_check() {
         ((i++))
     done
 
-    # Print schema summary
-    local model_tables migration_tables
-    model_tables=$(echo "$results_json" | jq -r '.schema_summary.model_tables | join(", ")')
-    migration_tables=$(echo "$results_json" | jq -r '.schema_summary.migration_tables | join(", ")')
-    echo ""
-    echo -e "  ${COLOR_DIM}Models: ${model_tables:-none}${RESET}"
-    echo -e "  ${COLOR_DIM}Migrations: ${migration_tables:-none}${RESET}"
     echo ""
 
     if [[ "$all_passed" == "true" ]]; then
-        log_success "Schema contract satisfied"
+        log_success "Contract satisfied — all declared artifacts exist"
         return 0
     else
-        log_error "Schema contract VIOLATED — implementation doesn't match plan"
+        log_error "Contract VIOLATED — declared artifacts missing from implementation"
         return 1
     fi
 }

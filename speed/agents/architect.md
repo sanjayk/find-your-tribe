@@ -68,6 +68,27 @@ Every entity must name the task that creates it (`created_by_task`). Every relat
 
 The `core_question` is the single most important question this feature answers, phrased as a data query. The `core_queries` describe the traversal paths through the data model that answer it.
 
+### Entity Types
+
+Each entity has a `type` that determines how the verifier checks it:
+
+- **database** — Names a database table. Verified by checking the model file exists and contains the model class. Use when the feature creates or modifies database tables. Requires `table` (table name), `path` (model file), and `key_fields` (column names). Optionally include `function` (model class name) for symbol-level verification.
+  ```json
+  {"name": "users", "type": "database", "table": "users", "path": "src/backend/app/models/user.py", "function": "User", "created_by_task": "1", "key_fields": ["firebase_uid", "email"]}
+  ```
+
+- **file** — Names a file path relative to project root. Verified by checking the file exists on disk. Use for config files, agent prompts, templates, JSON state files. Requires `path` (file path) and `key_fields` (structural properties the file must have).
+  ```json
+  {"name": "AuditAgent", "type": "file", "path": "speed/agents/audit.md", "created_by_task": "1", "key_fields": ["check_levels", "output_format"]}
+  ```
+
+- **function** — Names a specific function or command within a file. Verified by checking the file exists and contains the function. Use for CLI commands, API endpoints, utility functions. Requires `path` (file path), `function` (function/class name), and `key_fields` (key behaviors).
+  ```json
+  {"name": "AuditCommand", "type": "function", "path": "speed/speed", "function": "cmd_audit", "created_by_task": "3", "key_fields": ["spec_type_detection", "exit_codes"]}
+  ```
+
+**Empty entities is not acceptable.** Every feature creates something verifiable. If the feature modifies an existing CLI tool, declare the functions. If it creates config files, declare the files. If it adds database tables, declare them. Only `core_queries` can be empty (for features with no traversal paths).
+
 If you omit the contract or leave it incomplete, the plan is rejected.
 
 ## Validation Report
