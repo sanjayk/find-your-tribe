@@ -84,7 +84,7 @@ Runtime state tracking for the defect pipeline.
 
 ```json
 {
-  "status": "filed | triaging | triaged | reproducing | fixing | reviewing | integrating | resolved | rejected | escalated",
+  "status": "filed | triaging | triaged | reproducing | reproduced | fixing | fixed | reviewing | reviewed | integrating | resolved | rejected | escalated",
   "reported_severity": "P0 | P1 | P2 | P3",  // string enum — copied from report
   "defect_type": "logic | visual | data | null", // string enum | null — null before triage
   "complexity": "trivial | moderate | complex | null", // string enum | null — null before triage
@@ -100,8 +100,9 @@ Runtime state tracking for the defect pipeline.
 ### Valid transitions
 
 ```
-filed → triaging → triaged → reproducing → fixing → reviewing → integrating → resolved
+filed → triaging → triaged → reproducing → reproduced → fixing → fixed → reviewing → reviewed → integrating → resolved
                             → fixing (trivial skips reproduce)
+                                                                → integrating (trivial skips review)
                  → rejected
                  → escalated
 ```
