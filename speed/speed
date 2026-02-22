@@ -783,6 +783,13 @@ cmd_gates() {
         # Full mode: delegate entirely to gates_run (grounding + all quality gates)
         if gates_run "$task_id" "$worktree_path"; then
             log_success "All gates passed"
+            # Promote failed tasks to done when gates pass (e.g. after fixing gate blockers)
+            local task_status
+            task_status=$(jq -r '.status' "${TASKS_DIR}/${task_id}.json" 2>/dev/null)
+            if [[ "$task_status" == "failed" ]]; then
+                task_set_done "$task_id"
+                log_success "Task ${task_id}: promoted to done"
+            fi
             exit 0
         else
             log_error "One or more gates failed"
