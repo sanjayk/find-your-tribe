@@ -475,7 +475,7 @@ provider_spawn_bg() {
           echo '{"status":"error","reason":"Claude CLI exited with code '"$rc"'"}' >> "$output_file"
       fi
       touch "$done_marker"
-    ) >/dev/null 2>&1 &
+    ) >/dev/null 2>>"$output_file" &
 
     echo $!
 }
