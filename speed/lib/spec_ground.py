@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Pre-plan spec grounding: verify spec claims against actual codebase.
 
-Parses a spec markdown file for data model claims (tables, columns, file paths,
-code conventions) and compares them against the real codebase using AST parsing.
-This catches the kind of spec rot where docs say Column() but code uses
-mapped_column(), or specs reference UUID when the codebase uses ULID.
+Parses a spec markdown file for file paths and code conventions, then
+compares them against the real codebase. Technology-agnostic — uses text
+search and file existence checks, not AST parsing.
 
-Runs before the architect so discrepancies surface BEFORE they cascade into
-task descriptions and generated code.
+Runs before the architect so discrepancies surface BEFORE they cascade
+into task descriptions and generated code.
 
 Usage:
     python3 spec_ground.py <spec_file> <project_root>
@@ -20,10 +19,6 @@ import json
 import os
 import re
 import sys
-
-# Import shared AST extraction
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from contract_verify import extract_models, extract_migrations
 
 
 # ── Spec parsing ─────────────────────────────────────────────────
@@ -98,7 +93,7 @@ def parse_spec_file_paths(spec_content):
     paths = set()
 
     # Backtick-wrapped paths starting with known directories
-    for m in re.finditer(r"`((?:src|app|migrations)/[^`\s]+)`", spec_content):
+    for m in re.finditer(r"`((?:src|app|migrations|speed)/[^`\s]+)`", spec_content):
         paths.add(m.group(1))
 
     # Python comment paths: # app/models/foo.py
@@ -147,12 +142,50 @@ def detect_spec_code_patterns(spec_content):
     return patterns
 
 
-# ── Codebase detection ───────────────────────────────────────────
+# ── Codebase scanning ────────────────────────────────────────────
+
+
+def scan_project_files(project_root):
+    """Scan project for existing source files organized by directory.
+
+    Returns: {dir_label: [relative_paths]}
+    """
+    result = {}
+
+    # Directories likely to contain implementation artifacts
+    scan_dirs = [
+        ("backend/models", os.path.join("src", "backend", "app", "models")),
+        ("backend/db", os.path.join("src", "backend", "app", "db")),
+        ("backend/graphql", os.path.join("src", "backend", "app", "graphql")),
+        ("backend/migrations", os.path.join("src", "backend", "migrations", "versions")),
+        ("frontend/components", os.path.join("src", "frontend", "components")),
+        ("frontend/pages", os.path.join("src", "frontend", "app")),
+        ("speed/agents", os.path.join("speed", "agents")),
+        ("speed/lib", os.path.join("speed", "lib")),
+    ]
+
+    for label, rel_dir in scan_dirs:
+        full_dir = os.path.join(project_root, rel_dir)
+        if not os.path.isdir(full_dir):
+            continue
+
+        files = []
+        for root, _dirs, filenames in os.walk(full_dir):
+            for fname in sorted(filenames):
+                if fname.startswith(".") or fname == "__pycache__":
+                    continue
+                rel_path = os.path.relpath(os.path.join(root, fname), project_root)
+                files.append(rel_path)
+        if files:
+            result[label] = files
+
+    return result
 
 
 def detect_codebase_conventions(project_root):
-    """Scan model files to detect which conventions the codebase uses.
+    """Scan source files to detect which conventions the codebase uses.
 
+    Uses simple text search — no AST parsing, no technology assumptions.
     Returns: {column_style, id_type, has_mixins}
     """
     conventions = {
@@ -161,6 +194,7 @@ def detect_codebase_conventions(project_root):
         "has_mixins": False,
     }
 
+    # Scan Python files in backend for convention signals
     search_dirs = [
         os.path.join(project_root, "src", "backend", "app", "models"),
         os.path.join(project_root, "src", "backend", "app", "db"),
@@ -203,64 +237,19 @@ def detect_codebase_conventions(project_root):
 
 
 def compare_spec_with_codebase(
-    spec_tables, model_tables, migration_tables,
-    spec_patterns, conventions, spec_paths, project_root,
+    spec_tables, spec_patterns, conventions, spec_paths, project_root,
 ):
     """Compare spec claims against actual codebase. Returns list of warnings."""
     warnings = []
-    all_known = set(model_tables.keys()) | set(migration_tables.keys())
 
-    # ── 1. Table & column comparison ─────────────────────────────
-    for table_name, spec_info in spec_tables.items():
-        if table_name in model_tables:
-            model_cols = set(model_tables[table_name]["columns"].keys())
-            # Include DB column name overrides
-            for attr, info in model_tables[table_name]["columns"].items():
-                db_name = info.get("db_name")
-                if db_name:
-                    model_cols.add(db_name)
-
-            spec_cols = set(spec_info["columns"].keys())
-
-            # Columns in spec but not yet in model (to be added)
-            new_cols = spec_cols - model_cols
-            if new_cols:
-                warnings.append({
-                    "type": "new_columns",
-                    "severity": "info",
-                    "table": table_name,
-                    "columns": sorted(new_cols),
-                    "message": f"'{table_name}': columns to add: {sorted(new_cols)}",
-                })
-
-            # Columns in model but missing from spec
-            inherited = {"id", "created_at", "updated_at"}
-            undocumented = model_cols - spec_cols - inherited
-            if undocumented:
-                warnings.append({
-                    "type": "undocumented_columns",
-                    "severity": "info",
-                    "table": table_name,
-                    "columns": sorted(undocumented),
-                    "message": f"'{table_name}': existing columns not in spec: {sorted(undocumented)}",
-                })
-
-        elif table_name in migration_tables:
-            # In migrations but not as a mapped class — likely association Table()
-            warnings.append({
-                "type": "association_table",
-                "severity": "info",
-                "table": table_name,
-                "message": f"'{table_name}' exists in migrations as association Table() (not a mapped class)",
-            })
-        else:
-            # Genuinely new table to create
-            warnings.append({
-                "type": "new_table",
-                "severity": "info",
-                "table": table_name,
-                "message": f"'{table_name}' not in codebase yet — new table to create",
-            })
+    # ── 1. Spec table declarations (informational) ───────────────
+    for table_name in spec_tables:
+        warnings.append({
+            "type": "spec_table",
+            "severity": "info",
+            "table": table_name,
+            "message": f"Spec declares table '{table_name}' with {len(spec_tables[table_name]['columns'])} columns",
+        })
 
     # ── 2. Convention mismatches ─────────────────────────────────
     if spec_patterns["uses_Column"] and not spec_patterns["uses_mapped_column"]:
@@ -311,7 +300,7 @@ def compare_spec_with_codebase(
 # ── Context builder ──────────────────────────────────────────────
 
 
-def build_codebase_context(model_tables, migration_tables, conventions):
+def build_codebase_context(project_files, conventions):
     """Build a text block describing what actually exists in the codebase.
 
     This gets injected into the architect prompt so task decomposition
@@ -331,36 +320,20 @@ def build_codebase_context(model_tables, migration_tables, conventions):
         + (" (via `ULIDMixin` — provides `id: Mapped[str]`)" if conventions["id_type"] == "ULID" else ""),
         f"- Mixins: {'`ULIDMixin`, `TimestampMixin` (provides `created_at`, `updated_at`)' if conventions['has_mixins'] else 'None detected'}",
         "",
-        "### Existing Tables (mapped classes)",
+        "### Existing Files",
         "",
     ]
 
-    for table_name in sorted(model_tables.keys()):
-        info = model_tables[table_name]
-        cols = info["columns"]
-        class_name = info.get("class_name", "?")
-        file_path = info.get("file", "?")
-        col_names = sorted(cols.keys())
-        fks = [f"{k} -> {v['fk']}" for k, v in cols.items() if v.get("fk")]
-
-        lines.append(f"**{table_name}** (`{class_name}` in `{file_path}`)")
-        lines.append(f"  Columns: {', '.join(col_names)}")
-        if fks:
-            lines.append(f"  FKs: {', '.join(fks)}")
+    for label in sorted(project_files.keys()):
+        files = project_files[label]
+        lines.append(f"**{label}/** ({len(files)} files)")
+        for f in files:
+            lines.append(f"  - `{f}`")
         lines.append("")
 
-    # Add migration-only tables (association tables, etc.)
-    migration_only = set(migration_tables.keys()) - set(model_tables.keys())
-    if migration_only:
-        lines.append("### Association Tables (not mapped classes)")
+    if not project_files:
+        lines.append("(no source files found in standard directories)")
         lines.append("")
-        for table_name in sorted(migration_only):
-            info = migration_tables[table_name]
-            col_names = sorted(info.get("columns", set()))
-            lines.append(f"**{table_name}** (migration: `{info.get('file', '?')}`)")
-            if col_names:
-                lines.append(f"  Columns: {', '.join(col_names)}")
-            lines.append("")
 
     return "\n".join(lines)
 
@@ -383,12 +356,8 @@ def main():
         print(json.dumps({"error": f"Cannot read spec: {e}"}))
         sys.exit(2)
 
-    # ── Extract codebase state ───────────────────────────────────
-    models_dir = os.path.join(project_root, "src", "backend", "app", "models")
-    migrations_dir = os.path.join(project_root, "src", "backend", "migrations", "versions")
-
-    model_tables = extract_models(models_dir)
-    migration_tables = extract_migrations(migrations_dir)
+    # ── Scan codebase ────────────────────────────────────────────
+    project_files = scan_project_files(project_root)
     conventions = detect_codebase_conventions(project_root)
 
     # ── Parse spec claims ────────────────────────────────────────
@@ -398,12 +367,11 @@ def main():
 
     # ── Compare ──────────────────────────────────────────────────
     warnings = compare_spec_with_codebase(
-        spec_tables, model_tables, migration_tables,
-        spec_patterns, conventions, spec_paths, project_root,
+        spec_tables, spec_patterns, conventions, spec_paths, project_root,
     )
 
     # ── Build context ────────────────────────────────────────────
-    codebase_context = build_codebase_context(model_tables, migration_tables, conventions)
+    codebase_context = build_codebase_context(project_files, conventions)
 
     # ── Output ───────────────────────────────────────────────────
     errors = len([w for w in warnings if w["severity"] == "error"])
@@ -415,8 +383,7 @@ def main():
         "codebase_context": codebase_context,
         "stats": {
             "spec_tables": len(spec_tables),
-            "codebase_tables": len(model_tables),
-            "migration_tables": len(migration_tables),
+            "codebase_tables": len(project_files.get("backend/models", [])),
             "errors": errors,
             "warnings": warns,
             "infos": infos,

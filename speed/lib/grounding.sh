@@ -660,7 +660,7 @@ grounding_check_file_conflicts() {
 # ── Spec Grounding: verify spec claims against codebase ───────────
 # Runs BEFORE the architect to catch spec-codebase discrepancies.
 # Parses spec markdown for table/column claims, code patterns, and
-# file paths, then compares against the actual codebase via AST.
+# file paths, then compares against the actual codebase.
 #
 # Always returns 0 (warnings don't block planning).
 # Sets SPEC_CODEBASE_CONTEXT with a text block for the architect.
@@ -677,7 +677,7 @@ spec_grounding_check() {
         return 0
     fi
 
-    log_step "Grounding spec against codebase (AST)..."
+    log_step "Grounding spec against codebase..."
 
     local output
     output=$(python3 "$ground_script" "$spec_file" "$PROJECT_ROOT" 2>&1)
