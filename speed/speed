@@ -846,6 +846,107 @@ cmd_gates() {
 
 # ── Verify: blind plan verification against product spec ─────
 
+# Format structured verification JSON into a human-readable report.
+# Uses the same visual style as gates_run() output.
+# Usage: _print_verify_report "$verify_json"
+_print_verify_report() {
+    local json="$1"
+
+    echo ""
+    echo -e "  ${BOLD}Verification Report:${RESET}"
+
+    # 1. Core question
+    local answerable
+    answerable=$(echo "$json" | jq -r '.core_question_answerable // empty' 2>/dev/null)
+    if [[ "$answerable" == "true" ]]; then
+        echo -e "    ${COLOR_SUCCESS}${SYM_CHECK} Core question: answerable${RESET}"
+    elif [[ "$answerable" == "false" ]]; then
+        echo -e "    ${COLOR_ERROR}${SYM_CROSS} Core question: not answerable${RESET}"
+    fi
+
+    # 2. Spec requirements
+    local total_reqs covered_reqs
+    total_reqs=$(echo "$json" | jq '[.spec_requirements // [] | .[] ] | length' 2>/dev/null) || total_reqs=0
+    covered_reqs=$(echo "$json" | jq '[.spec_requirements // [] | .[] | select(.status == "covered")] | length' 2>/dev/null) || covered_reqs=0
+
+    if [[ "$total_reqs" -gt 0 ]]; then
+        echo -e "    ${BOLD}Spec requirements:${RESET} ${covered_reqs} of ${total_reqs} covered"
+
+        # Print non-covered requirements
+        local non_covered
+        non_covered=$(echo "$json" | jq -c '.spec_requirements // [] | .[] | select(.status == "covered" | not)' 2>/dev/null)
+        while IFS= read -r req; do
+            [[ -z "$req" ]] && continue
+            local req_text req_status spec_says plan_says task_id
+            req_text=$(echo "$req" | jq -r '.requirement // "unknown"')
+            req_status=$(echo "$req" | jq -r '.status // "unknown"')
+            spec_says=$(echo "$req" | jq -r '.spec_says // empty')
+            plan_says=$(echo "$req" | jq -r '.plan_says // empty')
+            task_id=$(echo "$req" | jq -r '.task // empty')
+
+            echo -e "    ${COLOR_ERROR}${SYM_CROSS} ${req_text} ${COLOR_DIM}(status: ${req_status})${RESET}"
+            if [[ -n "$spec_says" ]] || [[ -n "$plan_says" ]] || [[ -n "$task_id" ]]; then
+                local detail=""
+                [[ -n "$spec_says" ]] && detail+="Spec says: ${spec_says}"
+                [[ -n "$plan_says" ]] && { [[ -n "$detail" ]] && detail+=" | "; detail+="Plan says: ${plan_says}"; }
+                [[ -n "$task_id" ]] && { [[ -n "$detail" ]] && detail+=" | "; detail+="Task: ${task_id}"; }
+                echo -e "      ${COLOR_DIM}${detail}${RESET}"
+            fi
+        done <<< "$non_covered"
+    fi
+
+    # 3. Semantic drift
+    local drift_count
+    drift_count=$(echo "$json" | jq '[.semantic_drift // [] | .[]] | length' 2>/dev/null) || drift_count=0
+    if [[ "$drift_count" -gt 0 ]]; then
+        echo "$json" | jq -c '.semantic_drift[] ' 2>/dev/null | while IFS= read -r drift; do
+            [[ -z "$drift" ]] && continue
+            local spec_term plan_term risk
+            spec_term=$(echo "$drift" | jq -r '.spec_term // "?"')
+            plan_term=$(echo "$drift" | jq -r '.plan_term // "?"')
+            risk=$(echo "$drift" | jq -r '.risk // ""')
+            echo -e "    ${COLOR_WARN}${SYM_WARN} \"${spec_term}\" ${SYM_ARROW} \"${plan_term}\": ${risk}${RESET}"
+        done
+    fi
+
+    # 4. Critical failures
+    local failure_count
+    failure_count=$(echo "$json" | jq '[.critical_failures // [] | .[]] | length' 2>/dev/null) || failure_count=0
+    if [[ "$failure_count" -gt 0 ]]; then
+        echo "$json" | jq -c '.critical_failures[]' 2>/dev/null | while IFS= read -r failure; do
+            [[ -z "$failure" ]] && continue
+            local desc spec_ref plan_gap
+            desc=$(echo "$failure" | jq -r '.description // "unknown"')
+            spec_ref=$(echo "$failure" | jq -r '.spec_reference // empty')
+            plan_gap=$(echo "$failure" | jq -r '.plan_gap // empty')
+
+            echo -e "    ${COLOR_ERROR}${SYM_CROSS} ${desc}${RESET}"
+            if [[ -n "$spec_ref" ]] || [[ -n "$plan_gap" ]]; then
+                local detail=""
+                [[ -n "$spec_ref" ]] && detail+="Spec: ${spec_ref}"
+                [[ -n "$plan_gap" ]] && { [[ -n "$detail" ]] && detail+=" | "; detail+="Gap: ${plan_gap}"; }
+                echo -e "      ${COLOR_DIM}${detail}${RESET}"
+            fi
+        done
+    fi
+
+    # 5. Recommendations
+    local rec_count
+    rec_count=$(echo "$json" | jq '[.recommendations // [] | .[]] | length' 2>/dev/null) || rec_count=0
+    if [[ "$rec_count" -gt 0 ]]; then
+        echo "$json" | jq -r '.recommendations[]' 2>/dev/null | while IFS= read -r rec; do
+            [[ -z "$rec" ]] && continue
+            echo -e "    ${COLOR_INFO}${SYM_ARROW} ${rec}${RESET}"
+        done
+    fi
+
+    # 6. Summary line
+    local warn_count="$drift_count"
+    echo ""
+    echo -e "  ${BOLD}Summary:${RESET} ${failure_count} critical, ${warn_count} warnings, ${rec_count} recommendations"
+    echo ""
+}
+
 cmd_verify() {
     _require_feature "$GLOBAL_FEATURE"
     log_header "Verifying Plan Against Spec"
@@ -931,42 +1032,39 @@ Verify this plan against the product specification. Read the spec FIRST, form yo
         exit 1
     fi
 
-    echo "$verify_output"
-    echo ""
-
-    # Save verification report
+    # Save raw output to log
     echo "$verify_output" > "${LOGS_DIR}/plan-verification.log"
     log_success "Verification report saved to ${LOGS_DIR}/plan-verification.log"
 
-    # Check status
-    if ! _require_json "Plan Verifier" "$verify_output"; then
+    # Parse JSON from agent output (handles markdown, code fences, prose)
+    local verify_json
+    verify_json=$(parse_agent_json "$verify_output") || {
+        log_error "Plan Verifier returned unparseable output"
         log_error "Review raw output: ${LOGS_DIR}/plan-verification.log"
         exit 1
-    fi
+    }
 
+    # Print human-readable report
+    _print_verify_report "$verify_json"
+
+    # Extract status and act on it
     local status
-    status=$(echo "$verify_output" | jq -r '.status // "unknown"')
+    status=$(echo "$verify_json" | jq -r '.status // "unknown"')
 
     if [[ "$status" == "fail" ]]; then
-        echo ""
-        log_error "Plan verification FAILED — the plan may not deliver what the spec requires"
         local failure_count
-        failure_count=$(echo "$verify_output" | jq '.critical_failures | length')
-        echo ""
-        echo -e "Options:"
-        echo -e "  1. Fix the spec or re-run ${COLOR_STEP}speed plan${RESET} with adjustments"
-        echo -e "  2. Review the failures and proceed if they're false positives"
+        failure_count=$(echo "$verify_json" | jq '[.critical_failures // [] | .[]] | length' 2>/dev/null) || failure_count=0
+        log_error "Plan verification FAILED — ${failure_count} critical issue(s) found"
         echo ""
         exit 1
     elif [[ "$status" == "pass" ]]; then
-        echo ""
         log_success "Plan verification PASSED"
         echo -e "Next: ${COLOR_STEP}./speed/speed run${RESET} to execute tasks"
+        echo ""
     else
         log_warn "Could not parse verification status. Review the report manually."
+        echo ""
     fi
-
-    echo ""
 }
 
 cmd_run() {
