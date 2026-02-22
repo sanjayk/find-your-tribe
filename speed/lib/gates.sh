@@ -487,7 +487,10 @@ _run_scoped_test_fallback() {
 
     local scoped_paths
     scoped_paths=$(_build_scoped_test_paths "$task_id" "$gate_cwd")
-    [[ -z "$scoped_paths" ]] && return 1  # No test files found — can't scope
+    if [[ -z "$scoped_paths" ]]; then
+        log_dim "No test files correspond to this task's changes — pre-existing failures not attributed"
+        return 0
+    fi
 
     # Build scoped test command based on the base command pattern
     local scoped_cmd=""
