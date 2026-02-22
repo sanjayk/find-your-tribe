@@ -791,19 +791,22 @@ cmd_audit() {
     log_header "Spec Audit"
 
     # ── Spec type detection ────────────────────────────────────
+    # Strip everything up to "specs/" so both specs/tech/foo.md
+    # and speed/specs/tech/foo.md resolve to the same type.
     local spec_type="" template_file=""
     local rel_path="${spec_file#${PROJECT_ROOT}/}"
+    local after_specs="${rel_path#*specs/}"
 
-    case "$rel_path" in
-        specs/product/*)  spec_type="prd";    template_file="${TEMPLATES_DIR}/prd.md" ;;
-        specs/tech/*)     spec_type="rfc";    template_file="${TEMPLATES_DIR}/rfc.md" ;;
-        specs/design/*)   spec_type="design"; template_file="${TEMPLATES_DIR}/design.md" ;;
-        specs/defects/*)  spec_type="defect"; template_file="${TEMPLATES_DIR}/defect.md" ;;
+    case "$after_specs" in
+        product/*)  spec_type="prd";    template_file="${TEMPLATES_DIR}/prd.md" ;;
+        tech/*)     spec_type="rfc";    template_file="${TEMPLATES_DIR}/rfc.md" ;;
+        design/*)   spec_type="design"; template_file="${TEMPLATES_DIR}/design.md" ;;
+        defects/*)  spec_type="defect"; template_file="${TEMPLATES_DIR}/defect.md" ;;
         *)
             log_error_block \
                 "Unrecognized spec path: ${rel_path}" \
                 "Cannot determine spec type from file location" \
-                "Spec must be in specs/product/, specs/tech/, specs/design/, or specs/defects/"
+                "Spec must be under a specs/ directory with product/, tech/, design/, or defects/ subdirs"
             exit $EXIT_CONFIG_ERROR
             ;;
     esac

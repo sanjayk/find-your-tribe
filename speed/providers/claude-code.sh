@@ -369,9 +369,9 @@ provider_run_json() {
         --max-turns "$max_turns"
     )
 
-    # --tools: only passed if 6th arg was explicitly provided and non-empty.
-    # Empty string means "default tools, no restriction" (skip the flag).
-    if [[ $arg_count -ge 6 && -n "${6}" ]]; then
+    # --tools: passed whenever the caller provides a 6th arg.
+    # Empty string sends --tools "" which disables all tools.
+    if [[ $arg_count -ge 6 ]]; then
         cli_args+=(--tools "${6}")
     fi
 
