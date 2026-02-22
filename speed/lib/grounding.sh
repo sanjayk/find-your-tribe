@@ -62,6 +62,23 @@ grounding_run() {
         all_passed=false
     fi
 
+    # Check 6: Test file coverage
+    if grounding_check_test_coverage "$task_id"; then
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Test file coverage${RESET}")
+    else
+        results+=("${COLOR_ERROR}${SYM_CROSS} Missing test files for new source files${RESET}")
+        all_passed=false
+    fi
+
+    # Check 7: Gate invocation evidence
+    # TODO: Promote to hard failure after rollout stabilizes
+    if grounding_check_gate_evidence "$task_id"; then
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Gate evidence (agent ran quality gates)${RESET}")
+    else
+        results+=("${COLOR_WARN}${SYM_WARN} No gate invocation evidence in agent output${RESET}")
+        # Warning only — does not set all_passed=false
+    fi
+
     # Print results
     echo ""
     echo -e "  ${BOLD}Grounding Checks:${RESET}"
@@ -267,6 +284,197 @@ grounding_check_not_blocked() {
     fi
 
     return 0
+}
+
+# ── Check: test file coverage ─────────────────────────────────────
+
+# Helper: returns 0 (exclude/skip) if the file does not require a test counterpart.
+# Returns 1 (include) if a test file is required.
+_test_coverage_excluded() {
+    local file="$1"
+    local basename
+    basename=$(basename "$file")
+    local dir
+    dir=$(dirname "$file")
+
+    # Test files themselves never require a test-of-test
+    case "$basename" in
+        *.test.ts|*.test.tsx|*.spec.ts|*.spec.tsx|*_test.py|test_*.py) return 0 ;;
+    esac
+
+    # Config and setup files
+    case "$basename" in
+        vitest.config.*|next.config.*|jest.config.*|tailwind.config.*|postcss.config.*|\
+        eslint.config.*|prettier.config.*|tsconfig*.json|*.config.ts|*.config.js|\
+        *.config.mjs|*.config.cjs|setup.ts|setup.js) return 0 ;;
+    esac
+
+    # Type definitions
+    case "$basename" in
+        *.d.ts) return 0 ;;
+    esac
+    if [[ "$basename" == "types.ts" ]] || [[ "$basename" == "types.tsx" ]]; then
+        return 0
+    fi
+
+    # Barrel exports
+    if [[ "$basename" == "index.ts" ]] || [[ "$basename" == "index.tsx" ]]; then
+        return 0
+    fi
+
+    # CSS / static assets
+    case "$basename" in
+        *.css|*.scss|*.sass|*.less|*.svg|*.png|*.jpg|*.jpeg|*.gif|*.ico|\
+        *.woff|*.woff2|*.ttf|*.eot|*.webp|*.avif) return 0 ;;
+    esac
+
+    # Migrations (alembic or generic migrations directory)
+    if [[ "$file" == alembic/* ]] || [[ "$file" == */alembic/* ]] || \
+       [[ "$file" == migrations/* ]] || [[ "$file" == */migrations/* ]]; then
+        return 0
+    fi
+
+    # Seed data (src/backend/app/seed/ or any seed directory)
+    if [[ "$file" == */seed/* ]]; then
+        return 0
+    fi
+
+    # Next.js layout and route segments (no logic to test independently)
+    case "$basename" in
+        page.tsx|page.ts|layout.tsx|layout.ts|route.tsx|route.ts|\
+        middleware.ts|loading.tsx|error.tsx|not-found.tsx|template.tsx|\
+        global-error.tsx|default.tsx) return 0 ;;
+    esac
+
+    # Test directories — all files within test/, tests/, __tests__/ are utilities, not tested
+    if [[ "$file" == */test/* ]] || [[ "$file" == */tests/* ]] || \
+       [[ "$file" == */__tests__/* ]]; then
+        return 0
+    fi
+
+    # Test utility mocks
+    if [[ "$file" == */__mocks__/* ]] || \
+       [[ "$basename" == *.mock.ts ]] || [[ "$basename" == *.mock.tsx ]]; then
+        return 0
+    fi
+
+    # shadcn/ui components (generated primitives, not product logic)
+    if [[ "$file" == src/frontend/components/ui/* ]]; then
+        return 0
+    fi
+
+    # GraphQL type definitions
+    if [[ "$file" == */graphql/types/* ]] || [[ "$file" == */graphql/types.ts ]] || \
+       [[ "$file" == */graphql/types.tsx ]]; then
+        return 0
+    fi
+
+    # types/ directory anywhere in path
+    if [[ "$dir" == */types ]] || [[ "$file" == */types/* ]]; then
+        return 0
+    fi
+
+    return 1  # File requires a corresponding test
+}
+
+# Helper: returns 0 if a test file corresponding to $file exists in $diff_files.
+# $diff_files is a newline-separated list of all files changed on the branch.
+_test_file_exists_in_diff() {
+    local file="$1"
+    local diff_files="$2"
+    local basename dir stem ext
+
+    basename=$(basename "$file")
+    dir=$(dirname "$file")
+
+    if [[ "$file" == *.py ]]; then
+        # Backend: co-located {stem}_test.py OR any tests/test_{stem}.py in the diff
+        stem="${basename%.py}"
+        local colocated_test="${dir}/${stem}_test.py"
+        # Use suffix match so tests/ at any level (e.g. src/backend/tests/) is found
+        if echo "$diff_files" | grep -qF "$colocated_test" || \
+           echo "$diff_files" | grep -qF "tests/test_${stem}.py"; then
+            return 0
+        fi
+    else
+        # Frontend: same directory, {stem}.test.{tsx|ts}
+        ext="${basename##*.}"
+        stem="${basename%.*}"
+        local test_tsx="${dir}/${stem}.test.tsx"
+        local test_ts="${dir}/${stem}.test.ts"
+        local test_same="${dir}/${stem}.test.${ext}"
+        if echo "$diff_files" | grep -qF "$test_tsx" || \
+           echo "$diff_files" | grep -qF "$test_ts" || \
+           echo "$diff_files" | grep -qF "$test_same"; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+grounding_check_test_coverage() {
+    local task_id="$1"
+    local task_json="${TASKS_DIR}/${task_id}.json"
+    local branch
+    branch=$(jq -r '.branch // empty' "$task_json")
+
+    if [[ -z "$branch" ]] || [[ "$branch" == "null" ]]; then
+        return 1
+    fi
+
+    # Only examine newly added files (not modified/deleted)
+    local new_files
+    new_files=$(_git diff "$(git_main_branch)...${branch}" --diff-filter=A --name-only 2>/dev/null || true)
+
+    if [[ -z "$new_files" ]]; then
+        return 0  # No new files — nothing to check
+    fi
+
+    # All files in the branch diff (for test lookup)
+    local diff_files
+    diff_files=$(_git diff "$(git_main_branch)...${branch}" --name-only 2>/dev/null || true)
+
+    local missing_tests=()
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        # Skip excluded file types
+        if _test_coverage_excluded "$file"; then
+            continue
+        fi
+        # Require a corresponding test file in the diff
+        if ! _test_file_exists_in_diff "$file" "$diff_files"; then
+            missing_tests+=("$file")
+        fi
+    done <<< "$new_files"
+
+    if [[ ${#missing_tests[@]} -gt 0 ]]; then
+        log_error "New source files missing test coverage:"
+        for f in "${missing_tests[@]}"; do
+            log_error "  ${f}"
+        done
+        return 1
+    fi
+
+    return 0
+}
+
+# ── Check: gate invocation evidence ───────────────────────────────
+
+grounding_check_gate_evidence() {
+    local task_id="$1"
+    local output_file="${LOGS_DIR}/${task_id}.log"
+
+    if [[ ! -f "$output_file" ]]; then
+        return 1  # No log file — no evidence
+    fi
+
+    # Look for markers indicating the agent ran quality gates
+    if grep -qE 'Quality Gates:|Running quality gates for task|speed gates' "$output_file" 2>/dev/null; then
+        return 0
+    fi
+
+    return 1
 }
 
 # ── Contract Check: verify schema matches contract.json ───────────
