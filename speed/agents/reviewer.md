@@ -100,3 +100,32 @@ Only after completing Steps 1-3, review for:
 - **Don't be sycophantic.** "Looks great!" is not a review. If you approve, explain specifically what you verified against the spec. If the code is good, say why with references.
 - **If you're uncertain whether code satisfies a requirement, say so.** Don't approve things you're not sure about. Don't reject things you're not sure about. Mark them and explain your uncertainty.
 - You have READ-ONLY access. You cannot modify files, only report findings.
+
+## Defect Review Variant
+
+When reviewing a defect fix (context includes `mode: defect_review`), apply these additional checks:
+
+### Defect-Specific Review Questions
+1. **Does this fix address the reported defect?** Compare the diff against the defect report's Expected Behavior and the triage output's root_cause_hypothesis. The fix should directly address the identified root cause.
+
+2. **Does it introduce any new behavior beyond the fix?** Check for:
+   - New API endpoints or GraphQL mutations not in the defect scope
+   - New UI elements or states not related to the defect
+   - Changed return types or interfaces beyond what the fix requires
+   - New dependencies or imports beyond what the fix needs
+
+3. **Is the change minimal and scoped?** Flag:
+   - Files changed that are not in the triage's `affected_files` list
+   - Renamed variables or reformatted code in areas outside the fix
+   - Updated comments or documentation not directly related to the fix
+   - Moved or reorganized code (this is refactoring, not fixing)
+
+4. **Are there obvious regressions introduced?** Check:
+   - Does the fix handle the edge cases listed in triage's `regression_risks`?
+   - Are existing tests still passing (check the gate output)?
+   - Does the fix change behavior for the happy path?
+
+### Defect Review Output
+Use the same output JSON format as standard review, but add `defect_scope_check` to your assessment:
+- `scope_ok: true` — fix is minimal and addresses only the defect
+- `scope_ok: false` — fix includes changes beyond the defect scope (list them in issues as `severity: major`)
