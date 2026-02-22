@@ -117,6 +117,23 @@ sys.exit(1)
     return 1
 }
 
+# Validate that a string is valid JSON. Logs an error with the agent
+# name and a preview of the raw output if not.
+# Usage: _require_json "Guardian" "$output" || return 1
+_require_json() {
+    local label="$1" json="$2"
+    if [[ -z "$json" ]]; then
+        log_error "${label} returned empty output"
+        return 1
+    fi
+    if ! echo "$json" | jq empty 2>/dev/null; then
+        log_error "${label} returned invalid JSON"
+        log_verbose "  First 300 chars: ${json:0:300}"
+        return 1
+    fi
+    return 0
+}
+
 # ── Resolve and load provider ────────────────────────────────────
 # Priority: SPEED_PROVIDER env var > speed.toml [agent].provider > "claude-code"
 

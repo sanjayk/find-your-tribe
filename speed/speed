@@ -257,14 +257,19 @@ cmd_validate() {
     log_success "Validation report saved to ${LOGS_DIR}/validation.log"
 
     # Check status
+    if ! _require_json "Validator" "$validator_output"; then
+        log_error "Review raw output: ${LOGS_DIR}/validation.log"
+        exit 1
+    fi
+
     local status
-    status=$(echo "$validator_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+    status=$(echo "$validator_output" | jq -r '.status // "unknown"')
 
     if [[ "$status" == "fail" ]]; then
         echo ""
         log_error "Validation FAILED — fix critical gaps before running 'speed plan'"
         local gap_count
-        gap_count=$(echo "$validator_output" | jq '.critical_gaps | length' 2>/dev/null || echo "?")
+        gap_count=$(echo "$validator_output" | jq '.critical_gaps | length')
         log_error "${gap_count} critical gap(s) found"
         exit 1
     elif [[ "$status" == "pass" ]]; then
@@ -809,15 +814,19 @@ Verify this plan against the product specification. Read the spec FIRST, form yo
     log_success "Verification report saved to ${LOGS_DIR}/plan-verification.log"
 
     # Check status
+    if ! _require_json "Plan Verifier" "$verify_output"; then
+        log_error "Review raw output: ${LOGS_DIR}/plan-verification.log"
+        exit 1
+    fi
+
     local status
-    status=$(echo "$verify_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+    status=$(echo "$verify_output" | jq -r '.status // "unknown"')
 
     if [[ "$status" == "fail" ]]; then
         echo ""
         log_error "Plan verification FAILED — the plan may not deliver what the spec requires"
         local failure_count
-        failure_count=$(echo "$verify_output" | jq '.critical_failures | length' 2>/dev/null || echo "?")
-        log_error "${failure_count} critical failure(s) found"
+        failure_count=$(echo "$verify_output" | jq '.critical_failures | length')
         echo ""
         echo -e "Options:"
         echo -e "  1. Fix the spec or re-run ${COLOR_STEP}speed plan${RESET} with adjustments"
@@ -1741,9 +1750,16 @@ _handle_support_completion() {
         echo "$parsed" > "$supervisor_log"
         _prune_logs "supervisor-${for_task_id}-" ".json"
 
+        if ! _require_json "Supervisor" "$parsed"; then
+            log_warn "Skipping supervisor analysis — see ${supervisor_log}"
+            echo ""
+            log_step "Full analysis: ${supervisor_log}"
+            return 0
+        fi
+
         # Surface diagnosis
         local diagnosis
-        diagnosis=$(echo "$parsed" | jq -r '.diagnosis // empty' 2>/dev/null)
+        diagnosis=$(echo "$parsed" | jq -r '.diagnosis // empty')
         if [[ -n "$diagnosis" ]]; then
             echo ""
             echo -e "${BOLD}Supervisor Diagnosis:${RESET}"
@@ -1752,11 +1768,11 @@ _handle_support_completion() {
 
         # Surface pattern detection
         local pattern_desc
-        pattern_desc=$(echo "$parsed" | jq -r '.pattern_detected.description // empty' 2>/dev/null)
+        pattern_desc=$(echo "$parsed" | jq -r '.pattern_detected.description // empty')
         if [[ -n "$pattern_desc" ]]; then
             local root_cause affected
-            root_cause=$(echo "$parsed" | jq -r '.pattern_detected.root_cause // "Unknown"' 2>/dev/null)
-            affected=$(echo "$parsed" | jq -r '.pattern_detected.affected_tasks // [] | join(", ")' 2>/dev/null)
+            root_cause=$(echo "$parsed" | jq -r '.pattern_detected.root_cause // "Unknown"')
+            affected=$(echo "$parsed" | jq -r '.pattern_detected.affected_tasks // [] | join(", ")')
             echo ""
             echo -e "${COLOR_ERROR}${BOLD}PATTERN DETECTED:${RESET} ${pattern_desc}"
             echo -e "  ${BOLD}Root cause:${RESET} ${root_cause}"
@@ -1765,7 +1781,7 @@ _handle_support_completion() {
 
         # Surface recommendations
         local action_count
-        action_count=$(echo "$parsed" | jq '[.actions // [] | .[]] | length' 2>/dev/null || echo "0")
+        action_count=$(echo "$parsed" | jq '[.actions // [] | .[]] | length')
         if [[ "$action_count" -gt 0 ]]; then
             echo ""
             echo -e "${BOLD}Supervisor Recommendations:${RESET}"
@@ -1774,23 +1790,23 @@ _handle_support_completion() {
                 "  \(.action) task \(.task_id // "?"): \(.reason // "no reason given")" +
                 if .human_question then "\n    → HUMAN INPUT: \(.human_question)" else "" end +
                 if .additional_context then "\n    → Context: \(.additional_context)" else "" end
-            ' 2>/dev/null
+            '
         fi
 
         local rec_count
-        rec_count=$(echo "$parsed" | jq '[.recommendations // [] | .[]] | length' 2>/dev/null || echo "0")
+        rec_count=$(echo "$parsed" | jq '[.recommendations // [] | .[]] | length')
         if [[ "$rec_count" -gt 0 ]]; then
             echo ""
             echo -e "${BOLD}Suggestions:${RESET}"
-            echo "$parsed" | jq -r '.recommendations[]? | "  • \(.)"' 2>/dev/null
+            echo "$parsed" | jq -r '.recommendations[]? | "  • \(.)"'
         fi
 
         # Check halt recommendation
         local should_halt
-        should_halt=$(echo "$parsed" | jq -r '.should_halt' 2>/dev/null || echo "false")
+        should_halt=$(echo "$parsed" | jq -r '.should_halt // false')
         if [[ "$should_halt" == "true" ]]; then
             local halt_reason
-            halt_reason=$(echo "$parsed" | jq -r '.halt_reason' 2>/dev/null || echo "Unknown")
+            halt_reason=$(echo "$parsed" | jq -r '.halt_reason // "Unknown"')
             echo ""
             log_error "Supervisor recommends HALTING: ${halt_reason}"
         fi
@@ -1855,11 +1871,15 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
     echo "$guardian_output" > "$log_file"
     _prune_logs "guardian-${check_type}-" ".json"
 
-    # Parse status
+    # Parse status — if invalid JSON, falls through to the * case
+    if ! _require_json "Guardian" "$guardian_output"; then
+        log_warn "Review raw output: ${log_file}"
+    fi
+
     local status
-    status=$(echo "$guardian_output" | jq -r '.status' 2>/dev/null || echo "unknown")
+    status=$(echo "$guardian_output" | jq -r '.status // "unknown"' 2>/dev/null || echo "unknown")
     local summary
-    summary=$(echo "$guardian_output" | jq -r '.summary' 2>/dev/null || echo "No summary")
+    summary=$(echo "$guardian_output" | jq -r '.summary // "No summary"' 2>/dev/null || echo "No summary")
 
     case "$status" in
         aligned)
@@ -1873,11 +1893,11 @@ Evaluate this ${check_type} input against the product vision. Respond with JSON.
 
             # Print flags
             local flag_count
-            flag_count=$(echo "$guardian_output" | jq '.flags | length' 2>/dev/null || echo "0")
+            flag_count=$(echo "$guardian_output" | jq '.flags | length')
             if [[ "$flag_count" -gt 0 ]]; then
                 echo ""
                 echo -e "  ${BOLD}Vision Flags:${RESET}"
-                echo "$guardian_output" | jq -r '.flags[] | "    \(.severity): \(.description)"' 2>/dev/null
+                echo "$guardian_output" | jq -r '.flags[] | "    \(.severity): \(.description)"'
                 echo ""
             fi
             return 2
@@ -2268,14 +2288,19 @@ Check that all these task implementations compose correctly. Focus on interfaces
     echo "$parsed_coherence" > "${LOGS_DIR}/coherence.log"
     log_success "Coherence report saved to ${LOGS_DIR}/coherence.log"
 
+    if ! _require_json "Coherence Checker" "$parsed_coherence"; then
+        log_error "Review raw output: ${LOGS_DIR}/coherence.log"
+        exit 1
+    fi
+
     local status
-    status=$(echo "$parsed_coherence" | jq -r '.status' 2>/dev/null || echo "unknown")
+    status=$(echo "$parsed_coherence" | jq -r '.status // "unknown"')
 
     if [[ "$status" == "fail" ]]; then
         echo ""
         log_error "Coherence check FAILED — tasks have compatibility issues"
         local issue_count
-        issue_count=$(echo "$parsed_coherence" | jq '.critical_issues | length' 2>/dev/null || echo "?")
+        issue_count=$(echo "$parsed_coherence" | jq '.critical_issues | length')
         log_error "${issue_count} critical issue(s) found"
         echo ""
         echo -e "Fix issues before integrating. Options:"
@@ -2583,8 +2608,13 @@ Respond with your review as JSON."
         echo "$parsed_review" > "${LOGS_DIR}/review-${tid}.json"
 
         # Check verdict
+        if ! _require_json "Reviewer" "$parsed_review"; then
+            log_warn "Skipping review for task ${tid} — see ${LOGS_DIR}/review-${tid}.json"
+            continue
+        fi
+
         local verdict
-        verdict=$(echo "$parsed_review" | jq -r '.verdict' 2>/dev/null || echo "unknown")
+        verdict=$(echo "$parsed_review" | jq -r '.verdict // "unknown"')
         if [[ "$verdict" == "request_changes" ]]; then
             log_warn "Task ${tid}: changes requested"
             # Atomic: status + review_feedback in one write
