@@ -183,7 +183,21 @@ task_request_changes() {
     [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
     local tmp; tmp=$(mktemp)
     jq --arg fb "$feedback" \
-        '.status = "pending" | .review_feedback = $fb' \
+        '.status = "pending" | .review_feedback = $fb | .review_verdict = "request_changes"' \
+        "$task_file" > "$tmp" && mv "$tmp" "$task_file"
+}
+
+# Transition: done → reviewed (set review verdict without changing status)
+task_set_reviewed() {
+    local id="$1"
+    local verdict="$2"  # "approve" or "request_changes"
+    _ensure_jq
+    local task_file="${TASKS_DIR}/${id}.json"
+    [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
+    local tmp; tmp=$(mktemp)
+    local now; now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    jq --arg v "$verdict" --arg t "$now" \
+        '.review_verdict = $v | .reviewed_at = $t' \
         "$task_file" > "$tmp" && mv "$tmp" "$task_file"
 }
 
@@ -210,7 +224,7 @@ task_reset_pending() {
     local task_file="${TASKS_DIR}/${id}.json"
     [[ -f "$task_file" ]] || { log_error "Task ${id} not found"; return 1; }
     local tmp; tmp=$(mktemp)
-    jq '.status = "pending" | .error = null | .agent_pid = null | .started_at = null | .completed_at = null | .retry_count = ((.retry_count // 0) + 1)' \
+    jq '.status = "pending" | .error = null | .agent_pid = null | .started_at = null | .completed_at = null | .review_verdict = null | .retry_count = ((.retry_count // 0) + 1)' \
         "$task_file" > "$tmp" && mv "$tmp" "$task_file"
 }
 

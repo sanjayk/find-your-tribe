@@ -725,6 +725,17 @@ cmd_plan() {
 # ── Gates: run quality gates for a task ──────────────────────
 
 cmd_gates() {
+    # Support -f/--feature as local flag so copy-pasteable commands work
+    # regardless of flag position (before or after the subcommand)
+    local local_args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -f|--feature) GLOBAL_FEATURE="$2"; shift 2 ;;
+            *) local_args+=("$1"); shift ;;
+        esac
+    done
+    set -- "${local_args[@]+"${local_args[@]}"}"
+
     _require_feature "$GLOBAL_FEATURE"
 
     local task_id=""
@@ -1807,16 +1818,17 @@ cmd_run() {
         local ready_tasks
         ready_tasks=$(_get_ready_tasks)
 
-        if [[ -z "$ready_tasks" ]] && [[ $running_count -eq 0 ]] && [[ $support_count -eq 0 ]]; then
+        if [[ -z "$ready_tasks" ]] && [[ $running_count -eq 0 ]]; then
             # Nothing ready and nothing running — check if blocked tasks exist
             local blocked_count
             blocked_count=$(task_count_by_status "blocked")
             if [[ "$blocked_count" -gt 0 ]]; then
                 log_warn "${blocked_count} task(s) blocked — awaiting human input"
                 log_warn "Run ${COLOR_STEP}speed status${RESET} for supervisor analysis"
-                break
             fi
-            # Otherwise we're done
+            if [[ $support_count -gt 0 ]]; then
+                log_dim "${support_count} support agent(s) finishing in background — output in ${LOGS_DIR}/"
+            fi
             break
         fi
 
@@ -3291,6 +3303,27 @@ cmd_review() {
         return
     fi
 
+    # Filter out tasks that were already approved (prevent re-review)
+    local filtered_tasks=""
+    while IFS= read -r tid; do
+        [[ -z "$tid" ]] && continue
+        local rv
+        rv=$(jq -r '.review_verdict // empty' "${TASKS_DIR}/${tid}.json" 2>/dev/null)
+        if [[ "$rv" == "approve" ]]; then
+            log_dim "Task ${tid}: already approved, skipping"
+        else
+            filtered_tasks+="${tid}"$'\n'
+        fi
+    done <<< "$tasks_to_review"
+    # Trim trailing newline
+    filtered_tasks=$(echo "$filtered_tasks" | sed '/^$/d')
+
+    if [[ -z "$filtered_tasks" ]]; then
+        log_info "All completed tasks already reviewed."
+        return
+    fi
+    tasks_to_review="$filtered_tasks"
+
     local all_nits="[]"
 
     while IFS= read -r tid; do
@@ -3403,6 +3436,7 @@ Respond with your review as JSON."
             task_request_changes "$tid" "$parsed_review"
         elif [[ "$verdict" == "approve" ]]; then
             log_success "Task ${tid}: approved by Reviewer"
+            task_set_reviewed "$tid" "approve"
 
             # ── Collect nits from approved tasks ──────────────────
             local task_nits
