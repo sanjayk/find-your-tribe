@@ -4,72 +4,128 @@
 > Depends on: [Phase 1: Spec Templates](speed-templates.md), [Phase 2: Audit Agent](speed-audit.md)
 > Parent RFC: [Unified Intake & Defect Pipeline](../unified-intake.md)
 
-## Triage Agent
+## Basic Example
 
-### Agent definition
+A CLI session showing the defect pipeline end-to-end:
 
-**File:** `speed/agents/triage.md`
-**Model:** `support_model` (sonnet by default)
-**Access:** Full codebase read, no write. Investigative — finds code, doesn't change it.
+```bash
+# 1. File a defect report
+cat > specs/defects/invite-failure.md <<'EOF'
+# Defect: Invite Failure
+Severity: P1
+Related Feature: f4-tribes
+Observed: Invite sent to users without GitHub connected
+Expected: Guard clause prevents invite to unconnected users
+Repro: Call send_invite() for user with github_connected=false
+EOF
 
-### System prompt context
+# 2. Triage — agent investigates codebase, classifies defect
+./speed/speed defect specs/defects/invite-failure.md
+# ✓ Triage complete: moderate complexity, logic defect
+# → Affected: src/backend/app/graphql/mutations/tribe.py
+# → Hypothesis: resolve_invite missing github_connected guard
+# → Human review required before proceeding
 
-The Triage Agent receives:
-- The defect report markdown
-- Related feature spec (auto-resolved from `Related Feature` field in the defect report)
-- Related tech spec (auto-derived: `specs/tech/<feature-name>.md`)
-- Full codebase read access
-- Project conventions from `CLAUDE.md`
+# 3. Execute fix (reproduce → fix → review)
+./speed/speed run --defect invite-failure
+# ✓ Failing test committed (reproduce)
+# ✓ Fix applied — test passes
+# ✓ Quality gates passed
 
-### Output format
+# 4. Integrate
+./speed/speed integrate --defect invite-failure
+# ✓ Merged to main, branch cleaned up
+```
+
+## Data Model
+
+### Directory structure
+
+Each defect gets a state directory under `.speed/defects/`:
+
+```
+.speed/defects/<name>/
+  report.md              # Copy of the defect spec (snapshot)
+  triage.json            # Triage Agent output
+  state.json             # Runtime state
+  logs/
+    triage.log           # Triage agent conversation
+    reproduce.log        # Reproduce agent conversation (moderate)
+    fix.log              # Fix agent conversation
+    review.log           # Review agent output (moderate)
+```
+
+### `triage.json` schema
+
+Produced by the Triage Agent's classification phase. Consumed by all downstream stages.
 
 ```json
 {
-  "is_defect": true,
-  "reported_severity": "P0 | P1 | P2 | P3",
-  "defect_type": "logic | visual | data",
-  "complexity": "trivial | moderate | complex",
-  "root_cause_hypothesis": "Invite resolver doesn't check github_connected before sending invite email",
-  "affected_files": ["src/backend/app/graphql/mutations/tribe.py"],
-  "blast_radius": "low | medium | high",
-  "blast_radius_detail": "Isolated to invite flow, no other callers of send_invite()",
-  "test_coverage": "existing | none",
-  "test_coverage_detail": "Existing tests in tests/test_tribe_mutations.py using async fixtures",
-  "related_spec": "specs/product/f4-tribes.md",
-  "suggested_approach": "Add guard clause in resolve_invite checking user.github_connected before calling send_invite()",
-  "regression_risks": ["invite happy path", "tribe membership count"],
-  "escalation_reason": null
+  "is_defect": true,                       // boolean — false triggers rejection
+  "reported_severity": "P0 | P1 | P2 | P3", // string enum — from defect report
+  "defect_type": "logic | visual | data",  // string enum — informs test strategy
+  "complexity": "trivial | moderate | complex", // string enum — determines routing
+  "root_cause_hypothesis": "string",       // free-text — Triage Agent's best guess
+  "affected_files": ["string"],            // string[] — non-empty for trivial/moderate
+  "blast_radius": "low | medium | high",   // string enum
+  "blast_radius_detail": "string",         // free-text explanation
+  "test_coverage": "existing | none",      // string enum — existing tests in area?
+  "test_coverage_detail": "string",        // free-text — which test files, fixtures
+  "related_spec": "string",               // path to related product spec
+  "suggested_approach": "string",          // free-text — proposed fix strategy
+  "regression_risks": ["string"],          // string[] — areas to watch
+  "escalation_reason": "string | null"     // non-null when complexity=complex
 }
 ```
 
-### Complexity classification criteria
+### `state.json` schema
 
-| Complexity | Criteria | Pipeline path |
-|------------|----------|---------------|
-| **Trivial** | 1 file affected, obvious fix, low blast radius, Triage has high confidence in approach | Fix → Gates → Integrate |
-| **Moderate** | 2-4 files, non-obvious fix or medium blast radius, Triage has a hypothesis but wants test confirmation, existing tests in affected area | Reproduce → Fix → Gates → Review → Integrate |
-| **Complex** | 5+ files, requires schema change or migration, high blast radius, Triage can't isolate root cause, OR no existing test coverage in affected area (reproduce stage can't follow patterns) | Escalate to feature pipeline |
+Runtime state tracking for the defect pipeline.
+
+```json
+{
+  "status": "filed | triaging | triaged | reproducing | fixing | reviewing | integrating | resolved | rejected | escalated",
+  "reported_severity": "P0 | P1 | P2 | P3",  // string enum — copied from report
+  "defect_type": "logic | visual | data | null", // string enum | null — null before triage
+  "complexity": "trivial | moderate | complex | null", // string enum | null — null before triage
+  "branch": "string | null",              // git branch name, null before fix stage
+  "created_at": "ISO 8601 timestamp",     // set on filing
+  "updated_at": "ISO 8601 timestamp",     // updated on every state transition
+  "source_spec": "string"                 // path to original defect spec
+}
+```
+
+## State Machine
+
+### Valid transitions
+
+```
+filed → triaging → triaged → reproducing → fixing → reviewing → integrating → resolved
+                            → fixing (trivial skips reproduce)
+                 → rejected
+                 → escalated
+```
+
+Transitions are one-way. There is no path from `resolved` back to any earlier state — a regression is a new defect. `rejected` and `escalated` are terminal within the defect pipeline.
 
 ### Severity × Complexity interaction
 
-Severity (P0-P3) is reported by the human. Complexity (trivial/moderate/complex) is determined by the Triage Agent. They are orthogonal:
+Severity (P0–P3) is reported by the human. Complexity (trivial/moderate/complex) is determined by the Triage Agent. They are orthogonal:
 
 - A **P0-critical** defect with **trivial** complexity: fix proceeds immediately with no human gate (urgency overrides ceremony)
 - A **P0-critical** defect with **moderate** complexity: Triage still stops for human review, but the output is flagged as urgent
 - A **P3-low** defect with **complex** complexity: still escalates to feature pipeline — low urgency doesn't justify a risky hack
 - Severity does not change the pipeline path. Complexity alone determines routing. Severity is metadata for human prioritization of what to triage next.
 
-### Defect type classification
+### Complexity classification criteria
 
-The Triage Agent classifies the defect type to inform the reproduce stage's test strategy:
+| Complexity | Criteria | Pipeline path |
+|------------|----------|---------------|
+| **Trivial** | 1 file affected, obvious fix, low blast radius, Triage has high confidence in approach | Fix → Gates → Integrate |
+| **Moderate** | 2–4 files, non-obvious fix or medium blast radius, Triage has a hypothesis but wants test confirmation, existing tests in affected area | Reproduce → Fix → Gates → Review → Integrate |
+| **Complex** | 5+ files, requires schema change or migration, high blast radius, Triage can't isolate root cause, OR no existing test coverage in affected area (reproduce stage can't follow patterns) | Escalate to feature pipeline |
 
-| Type | Description | Test strategy |
-|------|-------------|---------------|
-| **logic** | Backend or frontend logic error — wrong return value, missing guard, bad state transition | Backend: pytest with existing fixtures. Frontend: vitest + testing-library (render component, assert behavior). |
-| **visual** | Wrong design tokens, broken layout, missing component states, responsive breakpoint issues | vitest + testing-library for component state assertions. Playwright for layout/visual regression (screenshot comparison, element positioning). |
-| **data** | Wrong query, missing join, stale cache, incorrect aggregation, migration issue | pytest against test database with seed data that triggers the defect. |
-
-## Defect Pipeline Stages
+## API Surface
 
 ### CLI commands
 
@@ -89,6 +145,29 @@ The Triage Agent classifies the defect type to inform the reproduce stage's test
 # Check defect status
 ./speed/speed status --defects
 ```
+
+### Triage Agent
+
+**File:** `speed/agents/triage.md`
+**Model:** `support_model` (sonnet by default)
+**Access:** Full codebase read, no write. Investigative — finds code, doesn't change it.
+
+The Triage Agent receives:
+- The defect report markdown
+- Related feature spec (auto-resolved from `Related Feature` field in the defect report)
+- Related tech spec (auto-derived: `specs/tech/<feature-name>.md`)
+- Full codebase read access
+- Project conventions from `CLAUDE.md`
+
+### Defect type classification
+
+The Triage Agent classifies the defect type to inform the reproduce stage's test strategy:
+
+| Type | Description | Test strategy |
+|------|-------------|---------------|
+| **logic** | Backend or frontend logic error — wrong return value, missing guard, bad state transition | Backend: pytest with existing fixtures. Frontend: vitest + testing-library (render component, assert behavior). |
+| **visual** | Wrong design tokens, broken layout, missing component states, responsive breakpoint issues | vitest + testing-library for component state assertions. Playwright for layout/visual regression (screenshot comparison, element positioning). |
+| **data** | Wrong query, missing join, stale cache, incorrect aggregation, migration issue | pytest against test database with seed data that triggers the defect. |
 
 ### Stage 1: Triage (`speed defect`)
 
@@ -110,6 +189,11 @@ Implementation in `cmd_defect()`:
    - `complex`: pre-populate PRD, update state to `escalated`, stop
 10. If `is_defect` is false: update state to `rejected`, print explanation, stop
 
+**Error cases:**
+- Defect spec path does not exist → exit with "Defect spec not found: <path>"
+- `Related Feature` field missing or unresolvable → warn, proceed without spec context
+- Triage Agent returns malformed JSON → exit with "Triage output parse error", log raw output
+
 ### Stage 2: Reproduce (`speed run --defect`, moderate only)
 
 Implementation: reuse `cmd_run()` with defect-specific developer prompt.
@@ -128,6 +212,10 @@ Implementation: reuse `cmd_run()` with defect-specific developer prompt.
 4. Run quality gates: lint + typecheck only (test gate skipped — the new test is expected to fail)
 5. Commit the failing test
 6. Update state: `triaged → reproducing → reproduced`
+
+**Error cases:**
+- Branch already exists → exit with "Branch speed/defect-<name> already exists. Clean up or use a different name."
+- Quality gates fail (lint/typecheck) → exit with gate output, state stays at `reproducing`
 
 ### Stage 3: Fix (`speed run --defect`)
 
@@ -148,6 +236,11 @@ Implementation: reuse `cmd_run()` with defect-specific developer prompt.
 5. Grounding gates: non-empty diff, files touched within declared scope
 6. Update state: `fixing → fixed`
 
+**Error cases:**
+- Quality gates fail → exit with gate output, state stays at `fixing`
+- Grounding gate: empty diff → exit with "No changes produced"
+- Grounding gate: files outside declared scope → exit with "Files modified outside affected scope: <list>"
+
 ### Stage 4: Review (moderate only)
 
 Implementation: reuse the Reviewer agent with defect-specific prompt.
@@ -159,7 +252,10 @@ Implementation: reuse the Reviewer agent with defect-specific prompt.
    - "Are there obvious regressions introduced?"
 2. Input: the diff, the defect report, the triage output
 3. If review passes → update state: `fixed → reviewed`
-4. If review flags issues → log issues, update state remains `fixed` (human decides)
+4. If review flags issues → log issues, state remains `fixed` (human decides)
+
+**Error cases:**
+- Reviewer agent fails to produce structured output → log raw output, state remains `fixed`, human reviews manually
 
 **Product Guardian (conditional):** If diff > 100 lines changed or > 3 files touched, run the Product Guardian. Same prompt as feature pipeline Guardian but scoped to "is this fix staying in scope?"
 
@@ -171,6 +267,10 @@ Implementation: reuse `cmd_integrate()`.
 2. Run regression tests
 3. Update state: `reviewed → integrating → resolved`
 4. Clean up branch
+
+**Error cases:**
+- Merge conflict → exit with conflict details, state stays at `integrating`
+- Regression tests fail → exit with test output, state stays at `integrating`
 
 ### Escalation: Complex → Feature Pipeline
 
@@ -186,45 +286,6 @@ When Triage classifies as `complex`:
 4. Print: "Escalated to feature pipeline. Draft PRD: specs/product/<name>.md"
 5. Update defect state to `escalated`
 
-## Defect State
-
-### Directory structure
-
-```
-.speed/defects/<name>/
-  report.md              # Copy of the defect spec (snapshot)
-  triage.json            # Triage Agent output
-  state.json             # Runtime state
-  logs/
-    triage.log           # Triage agent conversation
-    reproduce.log        # Reproduce agent conversation (moderate)
-    fix.log              # Fix agent conversation
-    review.log           # Review agent output (moderate)
-```
-
-### State machine
-
-```json
-{
-  "status": "filed | triaging | triaged | reproducing | fixing | reviewing | integrating | resolved | rejected | escalated",
-  "reported_severity": "P0 | P1 | P2 | P3",
-  "defect_type": "logic | visual | data | null",
-  "complexity": "trivial | moderate | complex | null",
-  "branch": "speed/defect-invite-failure",
-  "created_at": "2026-02-21T10:30:00Z",
-  "updated_at": "2026-02-21T10:35:00Z",
-  "source_spec": "specs/defects/invite-failure.md"
-}
-```
-
-Valid transitions:
-```
-filed → triaging → triaged → reproducing → fixing → reviewing → integrating → resolved
-                            → fixing (trivial skips reproduce)
-                 → rejected
-                 → escalated
-```
-
 ### `speed status --defects`
 
 Add defect summary to `cmd_status()` output:
@@ -236,7 +297,48 @@ Defects:
   tribe-count        P0   complex    escalated  → specs/product/tribe-count.md
 ```
 
-## Files changed
+## Validation Rules
+
+| Field | Constraints |
+|-------|-------------|
+| `severity` (defect report) | Required. One of: `P0`, `P1`, `P2`, `P3`. |
+| `Related Feature` (defect report) | Required. Must resolve to an existing spec in `specs/product/`. |
+| `Observed Behavior` (defect report) | Required. Non-empty string. |
+| `Expected Behavior` (defect report) | Required. Non-empty string. |
+| `Reproduction Steps` (defect report) | Required. Non-empty string. |
+| `affected_files` (triage output) | Must be non-empty array for `trivial` and `moderate` complexity. May be empty for `complex` (Triage couldn't isolate). |
+| `complexity` (triage output) | One of: `trivial`, `moderate`, `complex`. |
+| `defect_type` (triage output) | One of: `logic`, `visual`, `data`. |
+| State transitions | Only valid transitions allowed (see State Machine). Invalid transition → error. |
+| Grounding: diff scope | Files touched by fix must be within `affected_files` scope. Violations block integration. |
+
+## Security & Controls
+
+- **Triage Agent access:** Read-only codebase access. No file writes, no shell commands, no network calls. Investigation only.
+- **Input sanitization:** Spec file paths passed to shell commands are validated against `specs/` directory prefix. No path traversal outside project root.
+- **Human gate for moderate/complex:** No auto-merge. Moderate requires human review of triage before `speed run`. Complex escalates to feature pipeline entirely.
+- **Product Guardian trigger:** Activated when diff exceeds 100 lines changed or touches more than 3 files. Ensures fix stays in scope and doesn't become a stealth feature.
+- **Branch isolation:** All defect work happens on `speed/defect-<name>` branches. No direct commits to main.
+
+## Key Decisions
+
+| Decision | Choice | Alternatives Considered | Rationale |
+|----------|--------|------------------------|-----------|
+| Two-phase triage | Investigate first (multi-turn with tools), then classify (structured JSON) | Single-pass classification from report text alone | Investigation phase gives the agent codebase context — root cause hypothesis and affected files are grounded in actual code, not guesses from the report. |
+| Complexity-based routing | Complexity determines pipeline path (trivial/moderate/complex) | Severity-based routing (P0 gets fast path, P3 gets slow path) | Severity is subjective (human-reported). Complexity is objective (how much code changes). A P0 in 1 file is still trivial to fix; a P3 touching 10 files is still risky. |
+| No human gate for trivial | Trivial fixes proceed automatically: fix → gates → integrate | Always require human review regardless of complexity | Trivial = 1 file, obvious fix, low blast radius, high confidence. Quality gates catch regressions. Human review for every typo fix adds friction without proportional safety. |
+| Reuse existing agents | Developer and Reviewer agents with defect-specific prompts | Dedicated defect-fix and defect-review agents | Avoids agent sprawl. The agents are the same capability (write code, review code) — only the prompts differ. Defect-specific prompts are injected at runtime. |
+| File-based state in `.speed/defects/` | Separate directory tree from features | Extend `.speed/features/` with a `type: defect` flag | Defects have different state machines, different artifacts (triage.json vs plan), and different lifecycles. Mixing them in one directory makes status queries and cleanup harder. |
+
+## Drawbacks
+
+- **Trivial auto-fix has no human review.** A bad Triage classification (marking something trivial that isn't) could merge a broken fix. Mitigated by quality gates, but gates don't catch semantic correctness.
+- **Two-phase triage doubles agent cost.** Every defect pays for two LLM calls (investigation + classification). For high-volume defect filing, this adds up. Could be optimized to single-pass for obviously-trivial reports.
+- **Complex escalation loses triage context.** When a defect escalates to the feature pipeline, the triage investigation transcript is not carried forward into the PRD. The feature pipeline re-discovers context that triage already found.
+- **80% triage accuracy target has no measurement mechanism.** The product spec sets a success criterion of "80% correct triage on first pass" but there's no instrumentation to track whether triage classifications were correct after the fact.
+- **Reproduce stage test may not be meaningful.** For some defects, the "failing test" may pass trivially or test the wrong thing. The Developer Agent writing a test for a bug it hasn't debugged may produce a test that doesn't actually exercise the defect path.
+
+## File Impact
 
 | File | Change |
 |------|--------|
@@ -252,3 +354,10 @@ Defects:
 - Existing infrastructure: Developer Agent, Reviewer Agent, Integrator, quality gates, grounding gates
 - `provider_run()` for Triage Agent investigation phase (multi-turn with tools)
 - `provider_run_json()` for Triage Agent classification phase (structured output)
+
+## Unresolved Questions
+
+- **Subsystem detection:** How is subsystem detection from `affected_files` configured? Glob patterns in `speed.toml`? Currently the fix stage says "determined from `affected_files` glob matching against `[subsystems]` config" but `[subsystems]` doesn't exist yet.
+- **Retry context passing:** How is `--context "hint"` text passed to the Triage Agent during `speed retry`? Appended to the original report? Injected as a separate system prompt section?
+- **Product Guardian thresholds:** Is the 100-line / 3-file Product Guardian threshold hardcoded or configurable? Should it be in `speed.toml`?
+- **Triage accuracy measurement:** How do we measure the "80% correct triage" success criterion from the product spec? Post-hoc labeling? Comparing triage classification against actual fix complexity?
