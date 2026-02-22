@@ -116,3 +116,77 @@ Do NOT skip these checks. Your output log is audited for gate invocations.
 - Consistent style with the rest of the codebase
 - Error messages that help diagnose problems
 - Test coverage for new functionality
+
+---
+
+## Defect: Reproduce
+
+> **This section is injected at runtime for moderate-complexity defects during the reproduce stage.**
+
+Your only job is to **write a failing test that demonstrates this defect. Do NOT fix the bug.**
+
+The test must fail with the current code. If it passes, you have not reproduced the defect — go back and investigate why.
+
+### How to approach this
+
+1. **Read `test_coverage_detail` from the triage output.** It tells you which test files exist near the affected code, what fixtures are available, and what patterns are already in use. Follow those patterns exactly — don't invent new helpers or test utilities.
+
+2. **Look at the tests near the affected files** before writing anything. Your test should look like it belongs next to the existing tests — same import style, same fixture conventions, same assertion patterns.
+
+3. **Apply the test strategy for this defect's type** (from `defect_type` in the triage output):
+   - **`logic`**: Use pytest (backend) or vitest + testing-library (frontend) to assert the correct behavior that currently fails. Test the specific function or component path identified in the triage root cause.
+   - **`visual`**: Use vitest + testing-library for component state assertions, or Playwright for layout/visual regression if the bug is about positioning, spacing, or responsive behavior.
+   - **`data`**: Use pytest with test database fixtures that reproduce the data conditions described in the defect report. The fixture must reflect the exact data state that triggers the defect.
+
+4. **Write the minimum test** that exercises the failing path. One focused test is better than multiple broad ones. The test name should clearly describe the defect scenario.
+
+5. **Run the test and confirm it fails.** Do not commit a test that passes — a passing test does not reproduce the defect.
+
+### Input context you receive
+
+- **Triage output** (`triage.json`): root cause hypothesis, `affected_files`, `defect_type`, `test_coverage_detail`
+- **Defect report**: reproduction steps, observed vs expected behavior
+- **Related specs**: feature spec and tech spec for intended behavior
+
+### What you produce
+
+A single committed failing test. Nothing else. No code changes, no bug fixes, no "while I'm here" improvements.
+
+---
+
+## Defect: Fix
+
+> **This section is injected at runtime during the fix stage (both trivial and moderate defects).**
+
+**Minimal change. Fix the defect described in the triage output.**
+
+Do not refactor. Do not improve surrounding code. Do not add features. The change must be the smallest modification that makes the defect go away.
+
+### Scope
+
+**Only modify files listed in `affected_files` from the triage output.** If you find yourself editing a file not in that list, stop — you are out of scope. If an out-of-scope change is genuinely required for correctness (not convenience), surface it as a concern in your output instead of making the change.
+
+**For moderate defects:** The failing test on this branch defines "done" — make it pass. Do not change the test. Do not work around the test. Fix the code so the test passes with the correct behavior.
+
+### What NOT to do
+
+These are explicit prohibitions. None of the following are acceptable as part of a defect fix:
+
+- **No variable renaming.** Not even to "improve clarity." If it wasn't wrong before, it stays as-is.
+- **No formatting changes.** No reformatting lines, no adjusting indentation in untouched code, no removing trailing whitespace outside the fix location.
+- **No comment additions to unrelated code.** Do not add, edit, or remove comments in code you didn't have to change to fix the defect.
+- **No dependency upgrades.** Do not bump package versions, update lock files, or change import paths as part of a fix unless the triage output explicitly identifies a dependency version as the root cause.
+- **No "while I'm here" changes.** If you notice something unrelated that looks wrong, note it in your output's `concerns` field and leave the code alone.
+
+### How to approach this
+
+1. Read the triage output carefully: `root_cause_hypothesis`, `affected_files`, `suggested_approach`.
+2. Read the affected files. Understand the specific code path described in the root cause.
+3. Make the targeted change. Stay on the exact lines and functions implicated by the root cause.
+4. Run quality gates. For moderate defects, confirm the failing test now passes.
+5. Verify no other tests broke.
+
+### Input context you receive
+
+- **Triage output** (`triage.json`): `root_cause_hypothesis`, `affected_files`, `suggested_approach`, `defect_type`, `regression_risks`
+- **Defect report**: observed vs expected behavior, reproduction steps
