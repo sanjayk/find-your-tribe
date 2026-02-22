@@ -1028,6 +1028,9 @@ cmd_run() {
         fi
     }
 
+    # ── Status line tracking ─────────────────────────────────────
+    local _prev_status_counts=""
+
     # ── Main orchestration loop ──────────────────────────────────
     while true; do
         # Check for completed agents
@@ -1451,7 +1454,17 @@ ${worktree_path}"
         local elapsed_fmt
         elapsed_fmt=$(format_duration "$elapsed")
         if [[ "${VERBOSITY:-1}" -ge 1 ]]; then
-            echo -ne "\r${COLOR_DIM}[$(_log_timestamp)]${RESET} ${COLOR_STEP}${SYM_ARROW}${RESET} Running: ${running_count} of ${total} tasks  |  ${COLOR_SUCCESS}${SYM_CHECK}${RESET} ${done_count} done  ${SYM_PENDING} ${pending_count} pending  ${COLOR_ERROR}${SYM_CROSS}${RESET} ${failed_count} failed  ${COLOR_DIM}[${elapsed_fmt}]${RESET}  "
+            local status_line="${COLOR_STEP}${SYM_ARROW}${RESET} Running: ${running_count} of ${total} tasks  |  ${COLOR_SUCCESS}${SYM_CHECK}${RESET} ${done_count} done  ${SYM_PENDING} ${pending_count} pending  ${COLOR_ERROR}${SYM_CROSS}${RESET} ${failed_count} failed  ${COLOR_DIM}[${elapsed_fmt}]${RESET}"
+            local status_counts="${running_count}:${done_count}:${pending_count}:${failed_count}"
+
+            if [[ -t 2 ]]; then
+                # TTY: overwrite in place on stderr, clear to end of line
+                echo -ne "\r\033[K${COLOR_DIM}[$(_log_timestamp)]${RESET} ${status_line}" >&2
+            elif [[ "$status_counts" != "$_prev_status_counts" ]]; then
+                # Non-TTY: print only when counts change, with newline
+                echo -e "${COLOR_DIM}[$(_log_timestamp)]${RESET} ${status_line}" >&2
+            fi
+            _prev_status_counts="$status_counts"
         fi
 
         # Check halt threshold
@@ -1472,7 +1485,10 @@ ${worktree_path}"
         sleep "$POLL_INTERVAL"
     done
 
-    echo ""
+    # Clear the status line before final output
+    if [[ -t 2 ]]; then
+        echo -ne "\r\033[K" >&2
+    fi
     echo ""
 
     # Clean up
