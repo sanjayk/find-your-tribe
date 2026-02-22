@@ -949,14 +949,14 @@ _print_human_escalation() {
 
     echo "$fix_json" | jq -c '.needs_human // [] | .[]' 2>/dev/null | while IFS= read -r item; do
         [[ -z "$item" ]] && continue
-        local task_id task_file issue spec_says plan_says
+        local task_id file issue spec_says plan_says
         task_id=$(echo "$item" | jq -r '.task_id // "?"')
-        task_file=$(echo "$item" | jq -r '.task_file // "?"')
+        file=$(echo "$item" | jq -r '.file // "?"')
         issue=$(echo "$item" | jq -r '.issue // "unknown"')
         spec_says=$(echo "$item" | jq -r '.spec_says // empty')
         plan_says=$(echo "$item" | jq -r '.plan_says // empty')
 
-        echo -e "  Task ${task_id} (${COLOR_DIM}${task_file}${RESET}):"
+        echo -e "  Task ${task_id} (${COLOR_DIM}${file}${RESET}):"
         echo -e "    ${COLOR_DIM}Issue: ${issue}${RESET}"
         [[ -n "$spec_says" ]] && echo -e "    ${COLOR_DIM}Spec says: ${spec_says}${RESET}"
         [[ -n "$plan_says" ]] && echo -e "    ${COLOR_DIM}Plan says: ${plan_says}${RESET}"
@@ -1048,6 +1048,10 @@ _print_fix_summary() {
 }
 
 # Build the verification message from current task plan + spec + contract.
+# IMPORTANT (load-bearing): This function intentionally sets variables in caller scope — no 'local'
+# inside. The caller MUST declare these as local before calling, e.g.:
+#   local task_plan="" contract_section="" verify_message=""
+#   _build_verify_message
 # Sets variables: task_plan, contract_section, verify_message
 # Requires: spec_content (set by caller), TASKS_DIR, CONTRACT_FILE
 _build_verify_message() {
@@ -1239,7 +1243,7 @@ You are a mechanical fix agent. You receive a verification report listing issues
   "fixes_applied": [
     {
       "task_id": "1",
-      "task_file": "path/to/task-1.json",
+      "file": "path/to/task-1.json",
       "field": "field_name",
       "before": "old value",
       "after": "new value",
@@ -1249,7 +1253,7 @@ You are a mechanical fix agent. You receive a verification report listing issues
   "needs_human": [
     {
       "task_id": "1",
-      "task_file": "path/to/task-1.json",
+      "file": "path/to/task-1.json",
       "issue": "description of the issue",
       "spec_says": "what the spec requires",
       "plan_says": "what the plan currently has",
@@ -1335,6 +1339,9 @@ Apply ONLY the fixes described above. Do NOT change anything else."
         # Re-build verification message (task files may have been edited by Fix Agent)
         _build_verify_message
 
+        # Intentionally reuses verify_output (same local declared at top of function),
+        # overwriting the initial verification result — correct, as only the latest
+        # verification result matters within this loop.
         if ! verify_output=$(claude_run \
             "${AGENTS_DIR}/plan-verifier.md" \
             "$verify_message" \
