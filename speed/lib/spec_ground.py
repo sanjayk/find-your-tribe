@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Pre-plan spec grounding: verify spec claims against actual codebase.
 
-Parses a spec markdown file for file paths and code conventions, then
-compares them against the real codebase. Technology-agnostic — uses text
-search and file existence checks, not AST parsing.
+Parses a spec markdown file for file paths and table definitions, then
+compares them against the real codebase. Extracts structural context
+(class names, fields, function signatures) from directories declared in
+CLAUDE.md so the architect gets grounded context without full file reads.
 
 Runs before the architect so discrepancies surface BEFORE they cascade
 into task descriptions and generated code.
@@ -103,76 +104,189 @@ def parse_spec_file_paths(spec_content):
     return paths
 
 
-def detect_spec_code_patterns(spec_content):
-    """Detect code patterns used in spec's Python code blocks.
+# ── CLAUDE.md directory parsing ──────────────────────────────────
 
-    Returns dict of boolean flags for Column/mapped_column/UUID/ULID usage.
+
+def parse_claude_md_dirs(project_root):
+    """Parse CLAUDE.md's File Organization section for declared directories.
+
+    Reads {project_root}/CLAUDE.md, finds ### File Organization section
+    (bounded by next ##/### heading), extracts backtick-wrapped paths
+    ending with '/'.
+
+    Frontend path fallback: if a path starting with src/frontend/ doesn't
+    exist, tries src/frontend/src/{suffix}.
+
+    Returns: [(label, resolved_abs_path)] in declaration order.
+    Only paths that resolve to existing directories.
+    Returns [] if CLAUDE.md missing or section absent.
     """
-    patterns = {
-        "uses_Column": False,
-        "uses_mapped_column": False,
-        "mentions_UUID_only": False,
-        "mentions_ULID": False,
-    }
+    claude_md = os.path.join(project_root, "CLAUDE.md")
+    try:
+        with open(claude_md) as f:
+            content = f.read()
+    except OSError:
+        return []
 
-    in_python = False
-    for line in spec_content.split("\n"):
-        if line.strip().startswith("```python"):
-            in_python = True
-            continue
-        if line.strip() == "```":
-            in_python = False
-            continue
-        if in_python:
-            # Strip inline comments before checking
-            code = line.split("#")[0]
-            if "Column(" in code:
-                patterns["uses_Column"] = True
-            if "mapped_column(" in code:
-                patterns["uses_mapped_column"] = True
+    # Find ### File Organization section
+    section_match = re.search(
+        r"^### File Organization\s*\n(.*?)(?=^##|\Z)",
+        content,
+        re.MULTILINE | re.DOTALL,
+    )
+    if not section_match:
+        return []
 
-    # Check entire spec for UUID-only vs ULID mentions
-    has_uuid = bool(re.search(r"\bUUID\b", spec_content))
-    has_ulid = bool(re.search(r"\bULID\b", spec_content))
-    if has_uuid and not has_ulid:
-        patterns["mentions_UUID_only"] = True
-    if has_ulid:
-        patterns["mentions_ULID"] = True
+    section = section_match.group(1)
 
-    return patterns
+    dirs = []
+    for m in re.finditer(r"`([^`]+/)`", section):
+        rel_path = m.group(1)
+        abs_path = os.path.join(project_root, rel_path)
+
+        if os.path.isdir(abs_path):
+            dirs.append((rel_path, abs_path))
+        elif rel_path.startswith("src/frontend/"):
+            # Fallback: src/frontend/X/ -> src/frontend/src/X/
+            suffix = rel_path[len("src/frontend/"):]
+            fallback = os.path.join(project_root, "src", "frontend", "src", suffix)
+            if os.path.isdir(fallback):
+                dirs.append((rel_path, fallback))
+
+    return dirs
+
+
+# ── Structural extraction ────────────────────────────────────────
+
+
+# Python structural patterns
+_PY_PATTERNS = [
+    re.compile(r"^from\s"),
+    re.compile(r"^import\s"),
+    re.compile(r"^class \w+"),
+    re.compile(r"^\s+__tablename__"),
+    re.compile(r"^\s+\w+: Mapped\["),
+    re.compile(r"^\s+\w+:\s+\S"),
+    re.compile(r"^\s+def \w+\("),
+    re.compile(r"^\w+\s*=\s*Table\("),
+    re.compile(r"^@strawberry\.(type|input|enum)"),
+]
+
+# TypeScript structural patterns
+_TS_PATTERNS = [
+    re.compile(r"^import\s"),
+    re.compile(r"""^['"]use (client|server)"""),
+    re.compile(r"^export\s"),
+    re.compile(r"""^\s+\w+\??\s*:\s*[\w\["']"""),
+]
+
+
+def extract_structural_lines(filepath):
+    """Extract structural lines from a single file based on extension.
+
+    Returns only lines that match language-aware structural patterns
+    (class names, fields, function signatures, imports, exports).
+    Returns [] for unrecognized extensions or read errors.
+    """
+    ext = os.path.splitext(filepath)[1].lower()
+
+    if ext == ".py":
+        patterns = _PY_PATTERNS
+    elif ext in (".ts", ".tsx"):
+        patterns = _TS_PATTERNS
+    else:
+        return []
+
+    try:
+        with open(filepath) as f:
+            lines = f.readlines()
+    except OSError:
+        return []
+
+    result = []
+    for line in lines:
+        stripped = line.rstrip("\n")
+        for pat in patterns:
+            if pat.search(stripped):
+                result.append(stripped)
+                break
+
+    return result
+
+
+# ── Project tree ─────────────────────────────────────────────────
+
+_TREE_EXCLUDE = {
+    ".git", "node_modules", "__pycache__", "dist", ".next",
+    "venv", ".venv", ".speed", ".claude", ".ruff_cache",
+    ".pytest_cache", ".egg-info",
+}
+
+
+def build_project_tree(project_root, max_depth=3):
+    """Build an indented tree of the project structure.
+
+    Excludes common non-source directories. Dirs listed before files,
+    alphabetical within each group. ~300-500 tokens.
+    """
+    lines = []
+
+    def _walk(path, depth, prefix=""):
+        if depth > max_depth:
+            return
+
+        try:
+            entries = sorted(os.listdir(path))
+        except OSError:
+            return
+
+        dirs = []
+        files = []
+        for e in entries:
+            if e.startswith("."):
+                continue
+            if e in _TREE_EXCLUDE:
+                continue
+            if e.endswith(".egg-info"):
+                continue
+            full = os.path.join(path, e)
+            if os.path.isdir(full):
+                dirs.append(e)
+            else:
+                files.append(e)
+
+        for d in dirs:
+            lines.append(f"{prefix}{d}/")
+            _walk(os.path.join(path, d), depth + 1, prefix + "  ")
+
+        for f in files:
+            lines.append(f"{prefix}{f}")
+
+    _walk(project_root, 0)
+    return "\n".join(lines)
 
 
 # ── Codebase scanning ────────────────────────────────────────────
 
 
-def scan_project_files(project_root):
-    """Scan project for existing source files organized by directory.
+def scan_declared_dirs(project_root, declared_dirs):
+    """Walk each declared directory and return files organized by label.
 
-    Returns: {dir_label: [relative_paths]}
+    Args:
+        project_root: project root path
+        declared_dirs: [(label, abs_path)] from parse_claude_md_dirs
+
+    Returns: {label: [relative_paths]}
     """
     result = {}
 
-    # Directories likely to contain implementation artifacts
-    scan_dirs = [
-        ("backend/models", os.path.join("src", "backend", "app", "models")),
-        ("backend/db", os.path.join("src", "backend", "app", "db")),
-        ("backend/graphql", os.path.join("src", "backend", "app", "graphql")),
-        ("backend/migrations", os.path.join("src", "backend", "migrations", "versions")),
-        ("frontend/components", os.path.join("src", "frontend", "components")),
-        ("frontend/pages", os.path.join("src", "frontend", "app")),
-        ("speed/agents", os.path.join("speed", "agents")),
-        ("speed/lib", os.path.join("speed", "lib")),
-    ]
-
-    for label, rel_dir in scan_dirs:
-        full_dir = os.path.join(project_root, rel_dir)
-        if not os.path.isdir(full_dir):
-            continue
-
+    for label, abs_dir in declared_dirs:
         files = []
-        for root, dirs, filenames in os.walk(full_dir):
-            # Skip __pycache__ and hidden directories
-            dirs[:] = [d for d in dirs if d != "__pycache__" and not d.startswith(".")]
+        for root, dirs, filenames in os.walk(abs_dir, followlinks=False):
+            dirs[:] = [
+                d for d in dirs
+                if d not in _TREE_EXCLUDE and not d.startswith(".")
+            ]
             for fname in sorted(filenames):
                 if fname.startswith(".") or fname.endswith(".pyc"):
                     continue
@@ -184,63 +298,10 @@ def scan_project_files(project_root):
     return result
 
 
-def detect_codebase_conventions(project_root):
-    """Scan source files to detect which conventions the codebase uses.
-
-    Uses simple text search — no AST parsing, no technology assumptions.
-    Returns: {column_style, id_type, has_mixins}
-    """
-    conventions = {
-        "column_style": "unknown",
-        "id_type": "unknown",
-        "has_mixins": False,
-    }
-
-    # Scan Python files in backend for convention signals
-    search_dirs = [
-        os.path.join(project_root, "src", "backend", "app", "models"),
-        os.path.join(project_root, "src", "backend", "app", "db"),
-    ]
-
-    mapped_column_count = 0
-    old_column_count = 0
-
-    for search_dir in search_dirs:
-        if not os.path.isdir(search_dir):
-            continue
-        for root, _dirs, files in os.walk(search_dir):
-            for fname in files:
-                if not fname.endswith(".py"):
-                    continue
-                try:
-                    source = open(os.path.join(root, fname)).read()
-                except OSError:
-                    continue
-
-                mapped_column_count += source.count("mapped_column(")
-                old_column_count += source.count("Column(")
-
-                if "ULIDMixin" in source:
-                    conventions["has_mixins"] = True
-                    conventions["id_type"] = "ULID"
-
-                if "TimestampMixin" in source:
-                    conventions["has_mixins"] = True
-
-    if mapped_column_count > old_column_count:
-        conventions["column_style"] = "mapped_column"
-    elif old_column_count > 0:
-        conventions["column_style"] = "Column"
-
-    return conventions
-
-
 # ── Comparison ───────────────────────────────────────────────────
 
 
-def compare_spec_with_codebase(
-    spec_tables, spec_patterns, conventions, spec_paths, project_root,
-):
+def compare_spec_with_codebase(spec_tables, spec_paths, project_root):
     """Compare spec claims against actual codebase. Returns list of warnings."""
     warnings = []
 
@@ -253,30 +314,7 @@ def compare_spec_with_codebase(
             "message": f"Spec declares table '{table_name}' with {len(spec_tables[table_name]['columns'])} columns",
         })
 
-    # ── 2. Convention mismatches ─────────────────────────────────
-    if spec_patterns["uses_Column"] and not spec_patterns["uses_mapped_column"]:
-        if conventions["column_style"] == "mapped_column":
-            warnings.append({
-                "type": "convention_mismatch",
-                "severity": "error",
-                "message": (
-                    "Spec uses Column() but codebase uses mapped_column() "
-                    "with Mapped[] type annotations — spec code will mislead the architect"
-                ),
-            })
-
-    if spec_patterns["mentions_UUID_only"]:
-        if conventions["id_type"] == "ULID":
-            warnings.append({
-                "type": "convention_mismatch",
-                "severity": "error",
-                "message": (
-                    "Spec references UUID for IDs but codebase uses ULID "
-                    "(via ULIDMixin) — generated migrations would use wrong type"
-                ),
-            })
-
-    # ── 3. File path checks ─────────────────────────────────────
+    # ── 2. File path checks ─────────────────────────────────────
     for path in sorted(spec_paths):
         found = False
         for base in [
@@ -302,11 +340,12 @@ def compare_spec_with_codebase(
 # ── Context builder ──────────────────────────────────────────────
 
 
-def build_codebase_context(project_files, conventions):
+def build_codebase_context(project_root, project_files, token_budget=10000):
     """Build a text block describing what actually exists in the codebase.
 
-    This gets injected into the architect prompt so task decomposition
-    is grounded in reality, not spec assumptions.
+    Includes a project tree and structural extracts from declared dirs.
+    Token budget controls how much structural detail is included before
+    degrading to filename-only listings.
     """
     lines = [
         "## Codebase Reality (auto-generated by spec grounding)",
@@ -314,27 +353,43 @@ def build_codebase_context(project_files, conventions):
         "Use this as the source of truth for what already exists. "
         "If the spec contradicts this section, trust this section.",
         "",
-        "### Conventions",
-        "",
-        f"- Column definitions: `{conventions['column_style']}()` "
-        + ("with `Mapped[]` type annotations" if conventions["column_style"] == "mapped_column" else ""),
-        f"- ID type: {conventions['id_type']}"
-        + (" (via `ULIDMixin` — provides `id: Mapped[str]`)" if conventions["id_type"] == "ULID" else ""),
-        f"- Mixins: {'`ULIDMixin`, `TimestampMixin` (provides `created_at`, `updated_at`)' if conventions['has_mixins'] else 'None detected'}",
-        "",
-        "### Existing Files",
-        "",
     ]
 
-    for label in sorted(project_files.keys()):
-        files = project_files[label]
-        lines.append(f"**{label}/** ({len(files)} files)")
-        for f in files:
-            lines.append(f"  - `{f}`")
-        lines.append("")
+    # Project tree
+    tree = build_project_tree(project_root)
+    tree_section = ["### Project Structure", "", tree, ""]
+    tree_text = "\n".join(tree_section)
+    tree_cost = len(tree_text) // 4
+    remaining = token_budget - tree_cost
+
+    lines.extend(tree_section)
+    lines.append("### Source Files by Directory")
+    lines.append("")
 
     if not project_files:
-        lines.append("(no source files found in standard directories)")
+        lines.append("(no source directories declared in CLAUDE.md)")
+        lines.append("")
+        return "\n".join(lines)
+
+    # Emit directories in insertion order (CLAUDE.md declaration order)
+    for label, files in project_files.items():
+        lines.append(f"**{label}** ({len(files)} files)")
+
+        for fpath in files:
+            abs_path = os.path.join(project_root, fpath)
+            structural = extract_structural_lines(abs_path)
+            file_block = [f"--- {fpath} ---"]
+            file_block.extend(structural)
+            file_text = "\n".join(file_block)
+            file_cost = len(file_text) // 4
+
+            if structural and remaining >= file_cost:
+                lines.extend(file_block)
+                remaining -= file_cost
+            else:
+                # Degrade to filename-only
+                lines.append(f"  - `{fpath}`")
+
         lines.append("")
 
     return "\n".join(lines)
@@ -359,21 +414,23 @@ def main():
         sys.exit(2)
 
     # ── Scan codebase ────────────────────────────────────────────
-    project_files = scan_project_files(project_root)
-    conventions = detect_codebase_conventions(project_root)
+    declared_dirs = parse_claude_md_dirs(project_root)
+    project_files = scan_declared_dirs(project_root, declared_dirs)
 
     # ── Parse spec claims ────────────────────────────────────────
     spec_tables = parse_spec_tables(spec_content)
     spec_paths = parse_spec_file_paths(spec_content)
-    spec_patterns = detect_spec_code_patterns(spec_content)
 
     # ── Compare ──────────────────────────────────────────────────
-    warnings = compare_spec_with_codebase(
-        spec_tables, spec_patterns, conventions, spec_paths, project_root,
-    )
+    warnings = compare_spec_with_codebase(spec_tables, spec_paths, project_root)
 
     # ── Build context ────────────────────────────────────────────
-    codebase_context = build_codebase_context(project_files, conventions)
+    try:
+        token_budget = int(os.environ.get("SPEC_GROUND_TOKEN_BUDGET", "10000"))
+    except (ValueError, TypeError):
+        token_budget = 10000
+
+    codebase_context = build_codebase_context(project_root, project_files, token_budget)
 
     # ── Output ───────────────────────────────────────────────────
     errors = len([w for w in warnings if w["severity"] == "error"])
@@ -385,7 +442,7 @@ def main():
         "codebase_context": codebase_context,
         "stats": {
             "spec_tables": len(spec_tables),
-            "codebase_tables": len(project_files.get("backend/models", [])),
+            "declared_dirs": len(declared_dirs),
             "errors": errors,
             "warnings": warns,
             "infos": infos,

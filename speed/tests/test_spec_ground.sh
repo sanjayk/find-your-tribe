@@ -158,61 +158,71 @@ test_missing_path_warns() {
     assert_json_contains "$output" "any(w['type'] == 'path_not_found' for w in d['warnings'])" "should warn about missing path"
 }
 
-# ── Tests: convention detection ───────────────────────────────────
+# ── Tests: structural extraction ──────────────────────────────────
 
-test_detects_mapped_column_convention() {
+test_structural_extraction_in_context() {
     mkdir -p "${TEST_DIR}/src/backend/app/models"
     cat > "${TEST_DIR}/src/backend/app/models/user.py" <<'PYEOF'
 from sqlalchemy.orm import Mapped, mapped_column
-class User:
+class User(Base, ULIDMixin):
+    __tablename__ = "users"
     name: Mapped[str] = mapped_column()
     email: Mapped[str] = mapped_column()
+    def get_display_name(self):
+        return self.name
 PYEOF
+
+    # CLAUDE.md declaring the models dir
+    cat > "${TEST_DIR}/CLAUDE.md" <<'MDEOF'
+## Conventions
+
+### File Organization
+- Models: `src/backend/app/models/`
+MDEOF
 
     local spec="${TEST_DIR}/spec.md"
     echo "# Spec" > "$spec"
 
     local output
     output=$(run_ground "$spec" "$TEST_DIR")
-    assert_json_contains "$output" "'mapped_column' in d['codebase_context']" "context should mention mapped_column"
+    assert_json_contains "$output" "'Mapped[str]' in d['codebase_context']" "context should contain Mapped[str]"
+    assert_json_contains "$output" "'class User' in d['codebase_context']" "context should contain class User"
 }
 
-test_convention_mismatch_warns() {
+test_project_tree_in_context() {
     mkdir -p "${TEST_DIR}/src/backend/app/models"
-    cat > "${TEST_DIR}/src/backend/app/models/user.py" <<'PYEOF'
-from sqlalchemy.orm import Mapped, mapped_column
-class User:
-    name: Mapped[str] = mapped_column()
-    email: Mapped[str] = mapped_column()
-PYEOF
+    echo "class User: pass" > "${TEST_DIR}/src/backend/app/models/user.py"
 
     local spec="${TEST_DIR}/spec.md"
-    cat > "$spec" <<'EOF'
-```python
-name = Column(String)
-```
-EOF
+    echo "# Spec" > "$spec"
 
     local output
     output=$(run_ground "$spec" "$TEST_DIR")
-    assert_json_contains "$output" "any(w['type'] == 'convention_mismatch' for w in d['warnings'])" "should warn about Column vs mapped_column"
-    assert_json_field "$output" "['stats']['errors']" "1" "error count"
+    assert_json_contains "$output" "'Project Structure' in d['codebase_context']" "context should contain Project Structure"
 }
 
 # ── Tests: codebase context ───────────────────────────────────────
 
-test_context_lists_existing_files() {
-    mkdir -p "${TEST_DIR}/speed/agents"
-    echo "# Agent" > "${TEST_DIR}/speed/agents/audit.md"
-    echo "# Reviewer" > "${TEST_DIR}/speed/agents/reviewer.md"
+test_context_lists_declared_dir_files() {
+    mkdir -p "${TEST_DIR}/src/backend/app/models"
+    echo "class User: pass" > "${TEST_DIR}/src/backend/app/models/user.py"
+    echo "class Project: pass" > "${TEST_DIR}/src/backend/app/models/project.py"
+
+    # CLAUDE.md declaring the models dir
+    cat > "${TEST_DIR}/CLAUDE.md" <<'MDEOF'
+## Conventions
+
+### File Organization
+- Models: `src/backend/app/models/`
+MDEOF
 
     local spec="${TEST_DIR}/spec.md"
     echo "# Spec" > "$spec"
 
     local output
     output=$(run_ground "$spec" "$TEST_DIR")
-    assert_json_contains "$output" "'speed/agents/audit.md' in d['codebase_context']" "context should list audit.md"
-    assert_json_contains "$output" "'speed/agents/reviewer.md' in d['codebase_context']" "context should list reviewer.md"
+    assert_json_contains "$output" "'models/user.py' in d['codebase_context']" "context should list user.py"
+    assert_json_contains "$output" "'models/project.py' in d['codebase_context']" "context should list project.py"
 }
 
 test_context_empty_project() {
@@ -221,7 +231,8 @@ test_context_empty_project() {
 
     local output
     output=$(run_ground "$spec" "$TEST_DIR")
-    assert_json_contains "$output" "'no source files found' in d['codebase_context']" "context should note empty project"
+    assert_json_contains "$output" "'no source directories declared' in d['codebase_context']" "context should note no declared dirs"
+    assert_json_contains "$output" "'Project Structure' in d['codebase_context']" "tree should still be present"
 }
 
 # ── Tests: no import of deleted functions ─────────────────────────
@@ -285,12 +296,12 @@ run_test test_multiple_spec_tables
 run_test test_existing_path_no_warning
 run_test test_missing_path_warns
 
-# Conventions
-run_test test_detects_mapped_column_convention
-run_test test_convention_mismatch_warns
+# Structural extraction
+run_test test_structural_extraction_in_context
+run_test test_project_tree_in_context
 
 # Codebase context
-run_test test_context_lists_existing_files
+run_test test_context_lists_declared_dir_files
 run_test test_context_empty_project
 
 # No stale imports
