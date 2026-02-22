@@ -322,6 +322,11 @@ _test_coverage_excluded() {
         return 0
     fi
 
+    # Markdown and documentation files (agent definitions, specs, docs — no test coupling)
+    case "$basename" in
+        *.md|*.mdx) return 0 ;;
+    esac
+
     # CSS / static assets
     case "$basename" in
         *.css|*.scss|*.sass|*.less|*.svg|*.png|*.jpg|*.jpeg|*.gif|*.ico|\
