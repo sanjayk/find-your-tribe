@@ -202,10 +202,25 @@ gate_run_command() {
         _prune_logs "gate-${name}-" ".log"
         return 0
     else
-        log_error "${name} failed. Last 20 lines:"
-        tail -20 "$log_file" | while IFS= read -r line; do
-            echo -e "    ${COLOR_DIM}${line}${RESET}" >&2
-        done
+        local total_lines
+        total_lines=$(wc -l < "$log_file" | tr -d ' ')
+
+        if [[ "$total_lines" -le 20 ]]; then
+            log_error "${name} failed (${total_lines} lines):"
+            while IFS= read -r line; do
+                echo -e "    ${COLOR_DIM}${line}${RESET}" >&2
+            done < "$log_file"
+        else
+            log_error "${name} failed (${total_lines} lines):"
+            head -10 "$log_file" | while IFS= read -r line; do
+                echo -e "    ${COLOR_DIM}${line}${RESET}" >&2
+            done
+            echo -e "    ${COLOR_DIM}... $(( total_lines - 20 )) lines omitted ...${RESET}" >&2
+            tail -10 "$log_file" | while IFS= read -r line; do
+                echo -e "    ${COLOR_DIM}${line}${RESET}" >&2
+            done
+        fi
+        log_error "Full log: ${log_file}"
         _prune_logs "gate-${name}-" ".log"
         return 1
     fi
