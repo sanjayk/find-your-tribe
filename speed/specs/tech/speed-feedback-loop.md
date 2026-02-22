@@ -837,6 +837,71 @@ _track_tokens "$estimated"
 - Config constants → `speed/lib/config.sh`
 - `_load_relevant_specs` → `speed/speed` (local to the review flow)
 
+## Reviewer: Nit Summary and Aggregation
+
+### Problem
+
+When the reviewer approves a task, it may still include `nit` or `minor` severity issues in its structured output. These findings are written to the review log JSON but never surfaced to the operator. The operator sees "Task 3: approved by Reviewer" and moves on. Across a batch of 5 tasks, 10-15 minor issues accumulate silently.
+
+### Solution
+
+Collect nit/minor issues from all approved tasks during `cmd_review()` and print an aggregated summary at the end.
+
+### `_print_review_nits()` function
+
+Added before `cmd_review()` in `speed/speed`:
+
+```bash
+_print_review_nits() {
+    local nits_json="$1"
+    local count
+    count=$(echo "$nits_json" | jq 'length' 2>/dev/null) || count=0
+
+    [[ "$count" == "0" ]] || [[ -z "$count" ]] && return 0
+
+    # Save to file
+    echo "$nits_json" | jq '.' > "${LOGS_DIR}/review-nits.json"
+
+    # Print summary
+    echo ""
+    echo -e "  ${BOLD}Review Nits (${count} items across approved tasks):${RESET}"
+    echo ""
+
+    echo "$nits_json" | jq -r '.[] | "\(.task_id): \(.severity) — \(.message // .description // "no message") (\(.file // "?"):\(.line // "?"))"' 2>/dev/null | while IFS= read -r line; do
+        echo -e "    ${COLOR_WARN}${SYM_WARN}${RESET} ${line}"
+    done
+
+    echo ""
+    echo -e "  ${COLOR_DIM}Full details: ${LOGS_DIR}/review-nits.json${RESET}"
+}
+```
+
+### Integration into `cmd_review()`
+
+1. Initialize `local all_nits="[]"` before the review loop
+2. After each approved task, extract nit/minor issues and append:
+   ```bash
+   local task_nits
+   task_nits=$(echo "$parsed_review" | jq -c --arg tid "$tid" --arg title "$title" \
+       '[.issues[]? | select(.severity == "nit" or .severity == "minor") | . + {task_id: $tid, task_title: $title}]' 2>/dev/null) || task_nits="[]"
+   if [[ "$task_nits" != "[]" ]] && [[ -n "$task_nits" ]]; then
+       all_nits=$(echo "$all_nits" "$task_nits" | jq -s 'add')
+   fi
+   ```
+3. After the review loop, call `_print_review_nits "$all_nits"`
+
+### Output example
+
+```
+  Review Nits (3 items across approved tasks):
+
+    ⚠ 1: nit — Unused import 'os' (speed/lib/gates.sh:14)
+    ⚠ 3: minor — Consider extracting helper for repeated pattern (speed/speed:892)
+    ⚠ 3: nit — Inconsistent quoting style (speed/speed:901)
+
+  Full details: .speed/features/my-feature/logs/review-nits.json
+```
+
 ## Command registration
 
 Add `gates` to the command dispatch in `speed/speed`:

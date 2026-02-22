@@ -245,7 +245,7 @@ _call_with_retry() {
     while true; do
         local output=""
         local rc=0
-        output=$("$@" 2>&1) || rc=$?
+        output=$("$@") || rc=$?
 
         # Check for rate limit in output
         if echo "$output" | grep -qi "rate limit" 2>/dev/null; then

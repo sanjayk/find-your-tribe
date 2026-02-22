@@ -723,17 +723,6 @@ cmd_plan() {
 # ── Gates: run quality gates for a task ──────────────────────
 
 cmd_gates() {
-    # Support -f/--feature as local flag so copy-pasteable commands work
-    # regardless of flag position (before or after the subcommand)
-    local local_args=()
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -f|--feature) GLOBAL_FEATURE="$2"; shift 2 ;;
-            *) local_args+=("$1"); shift ;;
-        esac
-    done
-    set -- "${local_args[@]+"${local_args[@]}"}"
-
     _require_feature "$GLOBAL_FEATURE"
 
     local task_id=""
@@ -818,10 +807,10 @@ cmd_gates() {
     if [[ -n "$cmds" ]]; then
         while IFS= read -r cmd; do
             [[ -z "$cmd" ]] && continue
-            if gate_run_command "Type check" "$cmd" "$worktree_path"; then
-                results+=("${COLOR_SUCCESS}${SYM_CHECK} Type check: ${COLOR_DIM}${cmd}${RESET}")
+            if gate_run_command "Typecheck" "$cmd" "$worktree_path"; then
+                results+=("${COLOR_SUCCESS}${SYM_CHECK} Typecheck: ${COLOR_DIM}${cmd}${RESET}")
             else
-                results+=("${COLOR_ERROR}${SYM_CROSS} Type check: ${COLOR_DIM}${cmd}${RESET}")
+                results+=("${COLOR_ERROR}${SYM_CROSS} Typecheck: ${COLOR_DIM}${cmd}${RESET}")
                 all_passed=false
             fi
         done <<< "$cmds"
@@ -2815,6 +2804,29 @@ _load_relevant_specs() {
     echo "$result"
 }
 
+_print_review_nits() {
+    local nits_json="$1"
+    local count
+    count=$(echo "$nits_json" | jq 'length' 2>/dev/null) || count=0
+
+    [[ "$count" == "0" ]] || [[ -z "$count" ]] && return 0
+
+    # Save to file
+    echo "$nits_json" | jq '.' > "${LOGS_DIR}/review-nits.json"
+
+    # Print summary
+    echo ""
+    echo -e "  ${BOLD}Review Nits (${count} items across approved tasks):${RESET}"
+    echo ""
+
+    echo "$nits_json" | jq -r '.[] | "\(.task_id): \(.severity) — \(.message // .description // "no message") (\(.file // "?"):\(.line // "?"))"' 2>/dev/null | while IFS= read -r line; do
+        echo -e "    ${COLOR_WARN}${SYM_WARN}${RESET} ${line}"
+    done
+
+    echo ""
+    echo -e "  ${COLOR_DIM}Full details: ${LOGS_DIR}/review-nits.json${RESET}"
+}
+
 cmd_review() {
     _require_feature "$GLOBAL_FEATURE"
     local task_id=""
@@ -2840,6 +2852,8 @@ cmd_review() {
         log_info "No completed tasks to review."
         return
     fi
+
+    local all_nits="[]"
 
     while IFS= read -r tid; do
         local task_json
@@ -2952,6 +2966,14 @@ Respond with your review as JSON."
         elif [[ "$verdict" == "approve" ]]; then
             log_success "Task ${tid}: approved by Reviewer"
 
+            # ── Collect nits from approved tasks ──────────────────
+            local task_nits
+            task_nits=$(echo "$parsed_review" | jq -c --arg tid "$tid" --arg title "$title" \
+                '[.issues[]? | select(.severity == "nit" or .severity == "minor") | . + {task_id: $tid, task_title: $title}]' 2>/dev/null) || task_nits="[]"
+            if [[ "$task_nits" != "[]" ]] && [[ -n "$task_nits" ]]; then
+                all_nits=$(echo "$all_nits" "$task_nits" | jq -s 'add')
+            fi
+
             # ── Post-Review Guardian Gate ──────────────────────────
             # Check: did the implementation drift from the vision?
             if [[ "${SKIP_GUARDIAN:-}" != "true" ]]; then
@@ -2983,6 +3005,8 @@ ${criteria}"
         fi
 
     done <<< "$tasks_to_review"
+
+    _print_review_nits "$all_nits"
 
     echo ""
 }

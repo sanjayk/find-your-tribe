@@ -5,7 +5,7 @@
 
 ## Problem
 
-SPEED has two broken feedback loops:
+SPEED has four broken feedback loops:
 
 ### 1. Developer Agent: no mid-task self-correction
 
@@ -43,6 +43,15 @@ This causes two failures:
 
 3. **Unbounded diff size.** `cmd_review()` sends the full `git diff` with no truncation. `DIFF_HEAD_LINES=500` exists in config but is only applied by the Guardian, not the reviewer. Large diffs compound the context problem.
 
+### 4. Reviewer nits: approved and forgotten
+
+The reviewer produces structured findings with severity levels (`critical`, `major`, `minor`, `nit`). When the verdict is `request_changes`, findings drive a retry. But when the verdict is `approve`, all findings — including actionable nits and minor issues — are written to a log file and never seen again.
+
+This means:
+1. **Nits accumulate silently.** Each approved task may carry 2-3 minor issues. Across 5 tasks, that's 10-15 items nobody tracks.
+2. **The operator can't act on what they can't see.** The review log JSON is structured but not surfaced. The operator sees "Task 3: approved by Reviewer" and moves on.
+3. **No summary across tasks.** Even if the operator reads individual review logs, there's no aggregated view of all nits from a review run.
+
 ## Users
 
 ### Engineering (Operator)
@@ -73,6 +82,8 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 | S13 | As an operator, I want `speed review` to truncate large diffs so individual reviews don't exceed context limits | Must |
 | S14 | As an operator, I want SPEED to track token usage and pace API calls so I don't hit rate limits mid-pipeline | Must |
 | S15 | As an operator, I want SPEED to retry on rate limit errors with backoff instead of failing immediately | Must |
+| S16 | As an operator, I want to see a summary of all reviewer nits and minor issues at the end of `speed review`, not just pass/fail per task | Must |
+| S17 | As an operator, I want reviewer nits saved to a structured file I can act on later | Should |
 
 ## User Flows
 
@@ -217,6 +228,8 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - [ ] SPEED paces API calls when approaching TPM/RPM budget limits
 - [ ] SPEED retries rate-limited API calls with exponential backoff (3 attempts max)
 - [ ] Token budget config: `TPM_BUDGET`, `RPM_BUDGET` in `config.sh` with sensible defaults
+- [ ] `speed review` prints a nit/minor summary at the end of the run for all approved tasks
+- [ ] `speed review` saves aggregated nits to `${LOGS_DIR}/review-nits.json`
 
 ## Scope
 
@@ -236,6 +249,8 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - Token budget tracking and pacing (`TPM_BUDGET`, `RPM_BUDGET` in config)
 - Rate limit retry with exponential backoff in provider layer
 - Pre-flight token estimation before API calls
+- Reviewer nit summary at end of `speed review` run
+- Aggregated nit output file (`review-nits.json`)
 
 ### Out of Scope (and why)
 - Mid-agent injection (pausing the agent to force gate runs) — architecturally invasive, Claude Code doesn't support it

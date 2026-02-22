@@ -57,6 +57,14 @@ The Architect should produce a `contract.json` alongside the task plan. Verify:
 - Every core query in the contract can be satisfied by the planned schema
 - The contract's core queries actually answer the product spec's core question
 
+### 6. File Coverage Verification
+
+If the tech spec (RFC) includes a **Files Changed** table, cross-reference it against every task's `files_touched` array. For each file listed in the RFC:
+- At least one task must include that file in its `files_touched`
+- If a file appears in the RFC but no task touches it, that is a **CRITICAL** failure — the plan promises a change that no task delivers
+
+This catches a common gap: the RFC says "modify `developer.md`" but no task actually owns that file change.
+
 ## Output Format
 
 ```json
