@@ -20,14 +20,37 @@ Implement the task described below completely and correctly. You are working on 
    - Start with the core data structures / interfaces
    - Build the main logic
    - Add error handling
-   - Write tests
+   - Write tests for new functions and modules
    - Commit after each logical step
+   - Run `speed gates --fast` after each group of files (see Quality Checks section)
 
 4. **Commit frequently** — Make small, focused commits with clear messages. Each commit should represent a logical unit of work.
 
-5. **Write tests** — Every new function or module should have corresponding tests. Match the testing patterns already established in the project.
+5. **Handle errors** — Don't just implement the happy path. Consider edge cases, invalid inputs, and failure scenarios.
 
-6. **Handle errors** — Don't just implement the happy path. Consider edge cases, invalid inputs, and failure scenarios.
+## Quality Checks
+
+Run quality gates iteratively as you work. Do not wait until the end.
+
+### After writing each group of files:
+```
+./speed/speed gates -f {feature_name} --task {task_id} --fast
+```
+This runs lint + typecheck for your subsystem. Fix any errors before continuing.
+
+### Before declaring done:
+```
+./speed/speed gates -f {feature_name} --task {task_id} --full
+```
+This runs lint + typecheck + tests. All gates must pass before you output your completion JSON.
+
+### If gates fail:
+1. Read the error output
+2. Fix the issue in your code
+3. Re-run the gate
+4. Do not declare done until gates pass
+
+Do NOT skip these checks. Your output log is audited for gate invocations.
 
 ## Constraints
 
