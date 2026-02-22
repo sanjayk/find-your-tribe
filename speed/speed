@@ -73,6 +73,7 @@ speed_help() {
     echo -e "    ${COLOR_STEP}recover${RESET}                      Recover from crashed/stale SPEED state"
     echo -e "    ${COLOR_STEP}clean${RESET}   [logs|all]            Remove logs or entire .speed/ state"
     echo -e "    ${COLOR_STEP}guardian${RESET} [spec-file]           Run Product Guardian vision check"
+    echo -e "    ${COLOR_STEP}gates${RESET}   --task ID             Run quality gates for a task (used by Developer Agent mid-task)"
     echo -e "    ${COLOR_STEP}help${RESET}                         Show this help message"
     echo ""
     echo -e "${BOLD}GLOBAL OPTIONS${RESET}"
@@ -717,6 +718,130 @@ cmd_plan() {
     echo -e "${COLOR_DIM}Review tasks in ${TASKS_DIR}/${RESET}"
     echo -e "${COLOR_DIM}Next: ${COLOR_STEP}./speed/speed verify${RESET} to validate the plan against the spec${RESET}"
     echo ""
+}
+
+# ── Gates: run quality gates for a task ──────────────────────
+
+cmd_gates() {
+    # Support -f/--feature as local flag so copy-pasteable commands work
+    # regardless of flag position (before or after the subcommand)
+    local local_args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -f|--feature) GLOBAL_FEATURE="$2"; shift 2 ;;
+            *) local_args+=("$1"); shift ;;
+        esac
+    done
+    set -- "${local_args[@]+"${local_args[@]}"}"
+
+    _require_feature "$GLOBAL_FEATURE"
+
+    local task_id=""
+    local mode="fast"
+    local worktree_flag=""
+
+    # Parse local flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --task)      task_id="$2"; shift 2 ;;
+            --fast)      mode="fast"; shift ;;
+            --full)      mode="full"; shift ;;
+            --worktree)  worktree_flag="$2"; shift 2 ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    # Validate required flags
+    if [[ -z "$task_id" ]]; then
+        log_error "Required: --task ID"
+        echo "Usage: ./speed/speed gates -f <feature> --task <id> [--fast|--full] [--worktree <path>]"
+        exit 1
+    fi
+
+    # Resolve worktree path
+    local worktree_path
+    if [[ -n "$worktree_flag" ]]; then
+        worktree_path="$worktree_flag"
+    elif [[ -d "${WORKTREES_DIR}/task-${task_id}" ]]; then
+        worktree_path="${WORKTREES_DIR}/task-${task_id}"
+    else
+        worktree_path="${PROJECT_ROOT}"
+    fi
+
+    log_header "Quality Gates (${mode})"
+    log_info "Task: ${task_id} | Worktree: ${worktree_path}"
+
+    if [[ "$mode" == "full" ]]; then
+        # Full mode: delegate entirely to gates_run (grounding + all quality gates)
+        if gates_run "$task_id" "$worktree_path"; then
+            log_success "All gates passed"
+            exit 0
+        else
+            log_error "One or more gates failed"
+            exit 1
+        fi
+    fi
+
+    # Fast mode: syntax check + lint + typecheck only (no grounding, no tests)
+    local subsystem
+    subsystem=$(_detect_subsystem "$task_id")
+    log_step "Subsystem: ${subsystem}"
+
+    local results=()
+    local all_passed=true
+
+    # Syntax check
+    if gate_syntax_check "$task_id" "$worktree_path"; then
+        results+=("${COLOR_SUCCESS}${SYM_CHECK} Syntax check${RESET}")
+    else
+        results+=("${COLOR_ERROR}${SYM_CROSS} Syntax check${RESET}")
+        all_passed=false
+    fi
+
+    # Lint
+    local cmds
+    cmds=$(gates_get_config "lint" "$subsystem")
+    if [[ -n "$cmds" ]]; then
+        while IFS= read -r cmd; do
+            [[ -z "$cmd" ]] && continue
+            if gate_run_command "Lint" "$cmd" "$worktree_path"; then
+                results+=("${COLOR_SUCCESS}${SYM_CHECK} Lint: ${COLOR_DIM}${cmd}${RESET}")
+            else
+                results+=("${COLOR_ERROR}${SYM_CROSS} Lint: ${COLOR_DIM}${cmd}${RESET}")
+                all_passed=false
+            fi
+        done <<< "$cmds"
+    fi
+
+    # Typecheck
+    cmds=$(gates_get_config "typecheck" "$subsystem")
+    if [[ -n "$cmds" ]]; then
+        while IFS= read -r cmd; do
+            [[ -z "$cmd" ]] && continue
+            if gate_run_command "Type check" "$cmd" "$worktree_path"; then
+                results+=("${COLOR_SUCCESS}${SYM_CHECK} Type check: ${COLOR_DIM}${cmd}${RESET}")
+            else
+                results+=("${COLOR_ERROR}${SYM_CROSS} Type check: ${COLOR_DIM}${cmd}${RESET}")
+                all_passed=false
+            fi
+        done <<< "$cmds"
+    fi
+
+    # Print results
+    echo ""
+    echo -e "  ${BOLD}Quality Gates (fast):${RESET}"
+    for r in "${results[@]}"; do
+        echo -e "    $r"
+    done
+    echo ""
+
+    if $all_passed; then
+        log_success "All fast gates passed"
+        exit 0
+    else
+        log_error "One or more gates failed"
+        exit 1
+    fi
 }
 
 # ── Verify: blind plan verification against product spec ─────
@@ -1412,6 +1537,12 @@ ${files_section}
 You are working on branch: \`${branch}\`
 You are already on this branch in an isolated worktree. Do NOT run git checkout.
 Commit your work to this branch.${extra_context}
+
+### Quality Checks
+Run gates iteratively as you work:
+- After each group of files: \`./speed/speed gates -f ${FEATURE_NAME} --task ${task_id} --fast\`
+- Before declaring done: \`./speed/speed gates -f ${FEATURE_NAME} --task ${task_id} --full\`
+All gates must pass before you output your completion JSON.
 
 ### Working Directory
 ${worktree_path}"
@@ -3112,6 +3243,7 @@ main() {
         retry)     cmd_retry "$@" ;;
         recover)   cmd_recover "$@" ;;
         guardian)   cmd_guardian "$@" ;;
+        gates)     cmd_gates "$@" ;;
         clean)     cmd_clean "$@" ;;
         help|--help|-h) speed_help ;;
         *)
