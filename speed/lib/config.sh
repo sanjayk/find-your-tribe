@@ -79,6 +79,7 @@ ARCHITECT_MAX_TURNS=30         # architect needs many turns for large specs
 
 # ── Agent Tool Sets ──────────────────────────────────────────────
 AGENT_TOOLS_FULL="Bash Edit Read Write Glob Grep"
+AGENT_TOOLS_WRITE="Read Write Glob"
 AGENT_TOOLS_READONLY="Read Glob Grep"
 
 # ── Orchestration Tuning ─────────────────────────────────────────
@@ -87,6 +88,7 @@ COMPLETION_FLUSH_WAIT=1        # seconds to wait for file writes after completio
 STALE_STATE_PAUSE=3            # seconds to pause on stale state warning
 HALT_FAILURE_PCT=30            # halt SPEED if this % of tasks fail
 PATTERN_FAILURE_THRESHOLD=3    # invoke supervisor after this many failures
+MAX_VERIFY_FIX_ITERATIONS=3    # max fix → re-verify cycles in speed verify
 
 # ── Context Limits ───────────────────────────────────────────────
 AGENT_OUTPUT_TAIL=1000         # lines of agent output to send to debugger
