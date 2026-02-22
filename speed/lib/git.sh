@@ -249,16 +249,28 @@ git_safe_merge() {
     local branch="$1"
     local target="${2:-main}"
 
-    if ! _git checkout "$target" 2>/dev/null; then
-        log_error "Cannot checkout '${target}' for merge — is HEAD detached or are there uncommitted changes?"
+    local checkout_err
+    if ! checkout_err=$(_git checkout "$target" 2>&1); then
+        log_error "Cannot checkout '${target}' for merge"
+        log_verbose "  git: ${checkout_err}"
         return 1
     fi
 
-    if _git merge --no-ff "$branch" -m "Merge ${branch} into ${target}" 2>/dev/null; then
+    local merge_output
+    if merge_output=$(_git merge --no-ff "$branch" -m "Merge ${branch} into ${target}" 2>&1); then
         log_success "Merged ${branch} into ${target}"
         return 0
     else
         log_error "Merge conflict: ${branch} into ${target}"
+        # Show conflicting files
+        local conflicting
+        conflicting=$(_git diff --name-only --diff-filter=U 2>/dev/null)
+        if [[ -n "$conflicting" ]]; then
+            log_error "Conflicting files:"
+            echo "$conflicting" | while IFS= read -r f; do
+                echo "  - $f" >&2
+            done
+        fi
         _git merge --abort 2>/dev/null || true
         return 1
     fi

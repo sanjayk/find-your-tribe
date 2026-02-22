@@ -89,7 +89,7 @@ HALT_FAILURE_PCT=30            # halt SPEED if this % of tasks fail
 PATTERN_FAILURE_THRESHOLD=3    # invoke supervisor after this many failures
 
 # ── Context Limits ───────────────────────────────────────────────
-AGENT_OUTPUT_TAIL=200          # lines of agent output to send to debugger
+AGENT_OUTPUT_TAIL=1000         # lines of agent output to send to debugger
 DIFF_HEAD_LINES=500            # lines of diff to send to debugger/reviewer
 
 # ── Vision File ──────────────────────────────────────────────────

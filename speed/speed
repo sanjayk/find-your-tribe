@@ -999,7 +999,8 @@ cmd_run() {
 
         echo "$pid" > "${support_dir}/${agent_type}-${for_task_id}.pid"
         echo "$for_task_id" > "${support_dir}/${agent_type}-${for_task_id}.task"
-        log_verbose "Spawned ${agent_type} in background for task ${for_task_id} (PID: ${pid})"
+        log_step "Spawned ${COLOR_STEP}${agent_type}${RESET} for task ${for_task_id}"
+        log_verbose "  PID: ${pid} | log: ${output_file}"
     }
 
     # ── Merge-conflict tracking (bash 3 compatible, file-based) ──
@@ -1454,8 +1455,12 @@ ${worktree_path}"
         local elapsed_fmt
         elapsed_fmt=$(format_duration "$elapsed")
         if [[ "${VERBOSITY:-1}" -ge 1 ]]; then
-            local status_line="${COLOR_STEP}${SYM_ARROW}${RESET} Running: ${running_count} of ${total} tasks  |  ${COLOR_SUCCESS}${SYM_CHECK}${RESET} ${done_count} done  ${SYM_PENDING} ${pending_count} pending  ${COLOR_ERROR}${SYM_CROSS}${RESET} ${failed_count} failed  ${COLOR_DIM}[${elapsed_fmt}]${RESET}"
-            local status_counts="${running_count}:${done_count}:${pending_count}:${failed_count}"
+            local support_suffix=""
+            if [[ "$support_count" -gt 0 ]]; then
+                support_suffix="  ${COLOR_DIM}(+${support_count} support)${RESET}"
+            fi
+            local status_line="${COLOR_STEP}${SYM_ARROW}${RESET} Running: ${running_count} of ${total} tasks  |  ${COLOR_SUCCESS}${SYM_CHECK}${RESET} ${done_count} done  ${SYM_PENDING} ${pending_count} pending  ${COLOR_ERROR}${SYM_CROSS}${RESET} ${failed_count} failed${support_suffix}  ${COLOR_DIM}[${elapsed_fmt}]${RESET}"
+            local status_counts="${running_count}:${done_count}:${pending_count}:${failed_count}:${support_count}"
 
             if [[ -t 2 ]]; then
                 # TTY: overwrite in place on stderr, clear to end of line
@@ -1647,8 +1652,17 @@ _invoke_debugger() {
     local output_file="${LOGS_DIR}/${task_id}.log"
     local agent_output=""
     if [[ -f "$output_file" ]]; then
-        # Tail last 200 lines to keep context manageable
-        agent_output=$(tail -"$AGENT_OUTPUT_TAIL" "$output_file")
+        local total_lines
+        total_lines=$(wc -l < "$output_file" | tr -d ' ')
+        if [[ "$total_lines" -le "$AGENT_OUTPUT_TAIL" ]]; then
+            agent_output=$(cat "$output_file")
+        else
+            local half=$(( AGENT_OUTPUT_TAIL / 2 ))
+            local omitted=$(( total_lines - AGENT_OUTPUT_TAIL ))
+            agent_output=$(head -"$half" "$output_file")
+            agent_output+=$'\n'"... ${omitted} lines omitted ..."$'\n'
+            agent_output+=$(tail -"$half" "$output_file")
+        fi
     fi
 
     local diff=""
@@ -1664,7 +1678,7 @@ ${description}
 ### Acceptance Criteria
 ${criteria}
 
-### Agent Output (last 200 lines)
+### Agent Output
 ${agent_output}
 
 ### Git Diff (first 500 lines)
