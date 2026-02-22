@@ -234,6 +234,11 @@ Writes specs that become tasks. Wants assurance that agent-written code is actua
 - [ ] `speed fix-nits` reads `review-nits.json` and creates a single aggregate task with all nits as numbered fix instructions
 - [ ] `speed fix-nits --task-id ID` filters nits to a specific original task
 - [ ] The generated task goes through the normal `run → review` cycle with no special-casing
+- [ ] `speed coherence` on re-run shows a delta summary comparing against the previous run's critical issues
+- [ ] Delta shows fixed, remaining, and new issues with distinct visual indicators
+- [ ] Count transition header shows `"Critical issues: N → M"`
+- [ ] Previous report is cleaned up after a passing coherence check
+- [ ] No delta shown on first run (no previous report exists)
 
 ## Scope
 

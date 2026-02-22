@@ -2446,9 +2446,87 @@ cmd_status() {
 
 # ── Coherence: cross-task consistency check ──────────────────
 
+_print_coherence_delta() {
+    local prev_file="$1"
+    local new_json="$2"
+
+    # Graceful no-op if prev file missing or unreadable
+    [[ -f "$prev_file" ]] || return 0
+
+    local prev_json
+    prev_json=$(cat "$prev_file") || return 0
+
+    # Validate both are JSON with critical_issues arrays
+    local prev_issues new_issues
+    prev_issues=$(echo "$prev_json" | jq -r '.critical_issues[]?' 2>/dev/null) || return 0
+    new_issues=$(echo "$new_json" | jq -r '.critical_issues[]?' 2>/dev/null) || return 0
+
+    # Handle empty arrays — if both empty, nothing to show
+    [[ -z "$prev_issues" ]] && [[ -z "$new_issues" ]] && return 0
+    # If no previous issues but new ones appeared, skip delta (first meaningful failure)
+    [[ -z "$prev_issues" ]] && return 0
+
+    # Compute sets: fixed, remaining, new
+    local fixed=() remaining=() new_found=()
+
+    # Check each previous issue
+    while IFS= read -r issue; do
+        [[ -z "$issue" ]] && continue
+        if echo "$new_issues" | grep -qxF "$issue"; then
+            remaining+=("$issue")
+        else
+            fixed+=("$issue")
+        fi
+    done <<< "$prev_issues"
+
+    # Check for new issues (in new but not in prev)
+    while IFS= read -r issue; do
+        [[ -z "$issue" ]] && continue
+        if ! echo "$prev_issues" | grep -qxF "$issue"; then
+            new_found+=("$issue")
+        fi
+    done <<< "$new_issues"
+
+    # Count transition
+    local prev_count new_count
+    prev_count=$(echo "$prev_json" | jq '.critical_issues | length' 2>/dev/null) || prev_count=0
+    new_count=$(echo "$new_json" | jq '.critical_issues | length' 2>/dev/null) || new_count=0
+
+    echo ""
+    echo -e "  ${BOLD}Delta (vs. previous run):${RESET}"
+    echo -e "  Critical issues: ${prev_count} ${SYM_ARROW} ${new_count}"
+
+    for issue in "${fixed[@]}"; do
+        echo -e "    ${COLOR_SUCCESS}${SYM_CHECK} Fixed:${RESET} ${issue}"
+    done
+    for issue in "${remaining[@]}"; do
+        echo -e "    ${COLOR_WARN}${SYM_WARN} Remains:${RESET} ${issue}"
+    done
+    for issue in "${new_found[@]}"; do
+        echo -e "    ${COLOR_ERROR}${SYM_CROSS} New:${RESET} ${issue}"
+    done
+
+    echo ""
+    echo -e "  ${#fixed[@]} issue(s) fixed, ${#remaining[@]} remaining, ${#new_found[@]} new"
+
+    # Celebratory message if all previous issues resolved and no new ones
+    if [[ ${#remaining[@]} -eq 0 ]] && [[ ${#new_found[@]} -eq 0 ]]; then
+        echo -e "  ${COLOR_SUCCESS}All previous issues resolved!${RESET}"
+    fi
+
+    echo ""
+}
+
 cmd_coherence() {
     _require_feature "$GLOBAL_FEATURE"
     log_header "Coherence Check"
+
+    # Archive previous report for delta comparison
+    local prev_report=""
+    if [[ -f "${LOGS_DIR}/coherence.log" ]]; then
+        cp "${LOGS_DIR}/coherence.log" "${LOGS_DIR}/coherence-prev.json"
+        prev_report="${LOGS_DIR}/coherence-prev.json"
+    fi
 
     local done_tasks
     done_tasks=$(task_list_by_status "done")
@@ -2543,6 +2621,11 @@ Check that all these task implementations compose correctly. Focus on interfaces
         exit 1
     fi
 
+    # Show delta if a previous report exists
+    if [[ -n "$prev_report" ]] && [[ -f "$prev_report" ]]; then
+        _print_coherence_delta "$prev_report" "$parsed_coherence"
+    fi
+
     local status
     status=$(echo "$parsed_coherence" | jq -r '.status // "unknown"')
 
@@ -2560,6 +2643,7 @@ Check that all these task implementations compose correctly. Focus on interfaces
     elif [[ "$status" == "pass" ]]; then
         echo ""
         log_success "Coherence check PASSED — tasks are compatible"
+        rm -f "${LOGS_DIR}/coherence-prev.json"
         echo -e "Next: ${COLOR_STEP}./speed/speed integrate${RESET}"
     else
         log_warn "Could not parse coherence status. Review the report manually."

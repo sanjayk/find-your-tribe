@@ -999,6 +999,41 @@ gates       Run quality gates for a task (used by Developer Agent mid-task)
 fix-nits    Create a task to fix reviewer nits
 ```
 
+## Coherence Re-Check Delta
+
+### Problem
+
+`speed coherence` finds cross-task compatibility issues, the operator fixes them, then re-runs coherence. The second run gives no indication of progress — the operator sees the full report fresh with no context about whether their fixes landed.
+
+### Design
+
+Automatic delta summary when `speed coherence` detects a previous report. No new commands, no new flags — just smarter output on re-runs.
+
+**`_print_coherence_delta(prev_file, new_json)`** (~50 lines in `speed/speed`, placed before `cmd_coherence()`):
+
+1. Reads previous report from `coherence-prev.json`
+2. Extracts `critical_issues[]` from both reports
+3. Uses `grep -qxF` for exact string matching to compute three sets:
+   - **Fixed**: in prev but not in new → `SYM_CHECK`/green
+   - **Remaining**: in both → `SYM_WARN`/yellow
+   - **New**: in new but not in prev → `SYM_CROSS`/red
+4. Prints count transition: `"Critical issues: 3 → 1"`
+5. Celebratory message if all previous issues resolved
+6. Graceful no-op if prev file missing or invalid JSON
+
+### Flow
+
+1. `cmd_coherence()` starts → copies `coherence.log` to `coherence-prev.json` (if exists)
+2. Agent runs, produces new report → saved to `coherence.log`
+3. If `coherence-prev.json` exists: `_print_coherence_delta()` prints delta
+4. On pass: `coherence-prev.json` is cleaned up (prevents stale delta on next run)
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `speed/speed` | Add `_print_coherence_delta()`, modify `cmd_coherence()` (3 insertion points: archive prev, call delta, clean up on pass) |
+
 ## Files Changed
 
 | File | Change |
