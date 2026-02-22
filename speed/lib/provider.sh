@@ -232,7 +232,7 @@ _pace_api_call() {
         fi
 
         local wait_secs=15
-        log_dim "Pacing: ${used}/${TPM_BUDGET} TPM, ${rpm}/${RPM_BUDGET} RPM — waiting ${wait_secs}s"
+        log_info "Pacing: ${used}/${TPM_BUDGET} TPM, ${rpm}/${RPM_BUDGET} RPM — waiting ${wait_secs}s"
         sleep "$wait_secs"
     done
 }

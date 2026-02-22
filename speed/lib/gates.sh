@@ -488,7 +488,7 @@ _run_scoped_test_fallback() {
     local scoped_paths
     scoped_paths=$(_build_scoped_test_paths "$task_id" "$gate_cwd")
     if [[ -z "$scoped_paths" ]]; then
-        log_dim "No test files correspond to this task's changes — pre-existing failures not attributed"
+        log_info "No test files correspond to this task's changes — pre-existing failures not attributed"
         return 0
     fi
 

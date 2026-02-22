@@ -1837,7 +1837,7 @@ cmd_run() {
                 log_warn "Run ${COLOR_STEP}speed status${RESET} for supervisor analysis"
             fi
             if [[ $support_count -gt 0 ]]; then
-                log_dim "${support_count} support agent(s) finishing in background — output in ${LOGS_DIR}/"
+                log_info "${support_count} support agent(s) finishing in background — output in ${LOGS_DIR}/"
             fi
             break
         fi
@@ -3140,7 +3140,7 @@ ${PROJECT_ROOT}
     log_header "Post-Integration Verification"
 
     if [[ "$skip_tests" == true ]]; then
-        log_dim "Regression tests skipped (--skip-tests)"
+        log_info "Regression tests skipped (--skip-tests)"
     elif regression_run; then
         log_success "Regression tests passed"
     else
@@ -3331,7 +3331,7 @@ cmd_review() {
         local rv
         rv=$(jq -r '.review_verdict // empty' "${TASKS_DIR}/${tid}.json" 2>/dev/null)
         if [[ "$rv" == "approve" ]]; then
-            log_dim "Task ${tid}: already approved, skipping"
+            log_info "Task ${tid}: already approved, skipping"
         else
             filtered_tasks+="${tid}"$'\n'
         fi
