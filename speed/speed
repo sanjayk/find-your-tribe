@@ -382,12 +382,14 @@ cmd_plan() {
     shift || true
     local specs_dir=""
     local force_plan=false
+    local skip_audit=false
 
     # Parse options
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --specs-dir) specs_dir="$2"; shift 2 ;;
             --force) force_plan=true; shift ;;
+            --skip-audit) skip_audit=true; shift ;;
             *) log_error "Unknown option: $1"; exit 1 ;;
         esac
     done
@@ -479,6 +481,28 @@ cmd_plan() {
     # ── Spec hash for stage caching ───────────────────────────────
     local spec_hash
     spec_hash=$(printf '%s' "${tech_spec_content}${product_spec_content}${design_spec_content}" | shasum -a 256 | cut -d' ' -f1)
+
+    # ── Pre-Plan Audit Gate ─────────────────────────────────────
+    if [[ "$skip_audit" != "true" ]]; then
+        log_step "Running pre-plan audit..."
+        local audit_rc=0
+        _run_audit "$spec_file" || audit_rc=$?
+        if [[ $audit_rc -eq 2 ]]; then
+            log_error "Audit failed — fix spec issues before planning"
+            exit $EXIT_GATE_FAILURE
+        fi
+        if [[ -n "$product_spec_file" ]]; then
+            local prd_audit_rc=0
+            _run_audit "$product_spec_file" || prd_audit_rc=$?
+            if [[ $prd_audit_rc -eq 2 ]]; then
+                log_error "PRD audit failed — fix product spec issues before planning"
+                exit $EXIT_GATE_FAILURE
+            fi
+        fi
+    else
+        log_step "Skipping audit ${COLOR_DIM}(--skip-audit)${RESET}"
+    fi
+    echo ""
 
     # ── Pre-Plan Guardian Gate ─────────────────────────────────────
     # Check: does this spec belong in the product?
@@ -730,29 +754,11 @@ cmd_plan() {
     echo ""
 }
 
-# ── Audit: structural quality check for a single spec ────────
-
-cmd_audit() {
-    local spec_file="${1:-}"
-
-    # ── Argument validation ────────────────────────────────────
-    if [[ -z "$spec_file" ]]; then
-        log_error "Usage: speed audit <spec-file>"
-        exit 1
-    fi
-
-    # Resolve file path (PROJECT_ROOT fallback)
-    if [[ ! -f "$spec_file" ]]; then
-        if [[ -f "${PROJECT_ROOT}/${spec_file}" ]]; then
-            spec_file="${PROJECT_ROOT}/${spec_file}"
-        else
-            log_error_block \
-                "Spec file not found: ${spec_file}" \
-                "The audit command requires a spec file" \
-                "Create the spec or check the path"
-            exit $EXIT_CONFIG_ERROR
-        fi
-    fi
+# ── Audit helper: reusable by cmd_audit() and cmd_plan() gate ──
+# Returns: 0 = pass, 1 = warn, 2 = fail
+# Prints audit report to stdout. Does NOT exit.
+_run_audit() {
+    local spec_file="$1"
 
     log_header "Spec Audit"
 
@@ -770,7 +776,7 @@ cmd_audit() {
                 "Unrecognized spec path: ${rel_path}" \
                 "Cannot determine spec type from file location" \
                 "Spec must be in specs/product/, specs/tech/, specs/design/, or specs/defects/"
-            exit $EXIT_CONFIG_ERROR
+            return 2
             ;;
     esac
 
@@ -780,7 +786,7 @@ cmd_audit() {
             "Template not found: ${template_file}" \
             "Cannot load structural template for ${spec_type} spec" \
             "Ensure SPEED templates are installed"
-        exit $EXIT_CONFIG_ERROR
+        return 2
     fi
 
     local template_content
@@ -901,12 +907,12 @@ cmd_audit() {
         "$AGENT_TOOLS_READONLY" \
         "Audit"); then
         log_error "Audit agent failed — check Claude CLI connection"
-        exit 1
+        return 2
     fi
 
     if [[ -z "$raw_audit_output" ]]; then
         log_error "Audit agent returned empty output"
-        exit 1
+        return 2
     fi
 
     # Save raw output
@@ -921,12 +927,12 @@ cmd_audit() {
     audit_output=$(parse_agent_json "$raw_audit_output") || {
         log_error "Could not extract valid JSON from audit output"
         log_error "Raw output saved to ${log_file}"
-        exit 1
+        return 2
     }
 
     if ! _require_json "Audit" "$audit_output"; then
         log_error "Review raw output: ${log_file}"
-        exit 1
+        return 2
     fi
 
     # ── Report formatting ──────────────────────────────────────
@@ -994,21 +1000,51 @@ cmd_audit() {
     case "$status" in
         pass)
             log_success "Audit: PASS"
-            exit $EXIT_OK
+            return 0
             ;;
         warn)
             log_warn "Audit: WARN (${warn_count} warning(s))"
-            exit $EXIT_OK
+            return 1
             ;;
         fail)
             log_error "Audit: FAIL (${error_count} error(s), ${warn_count} warning(s))"
-            exit $EXIT_GATE_FAILURE
+            return 2
             ;;
         *)
             log_warn "Audit returned unknown status: ${status}"
-            exit $EXIT_OK
+            return 0
             ;;
     esac
+}
+
+cmd_audit() {
+    local spec_file="${1:-}"
+
+    # ── Argument validation ────────────────────────────────────
+    if [[ -z "$spec_file" ]]; then
+        log_error "Usage: speed audit <spec-file>"
+        exit 1
+    fi
+
+    # Resolve file path (PROJECT_ROOT fallback)
+    if [[ ! -f "$spec_file" ]]; then
+        if [[ -f "${PROJECT_ROOT}/${spec_file}" ]]; then
+            spec_file="${PROJECT_ROOT}/${spec_file}"
+        else
+            log_error_block \
+                "Spec file not found: ${spec_file}" \
+                "The audit command requires a spec file" \
+                "Create the spec or check the path"
+            exit $EXIT_CONFIG_ERROR
+        fi
+    fi
+
+    local rc=0
+    _run_audit "$spec_file" || rc=$?
+    if [[ $rc -eq 2 ]]; then
+        exit $EXIT_GATE_FAILURE
+    fi
+    exit $EXIT_OK
 }
 
 # ── Gates: run quality gates for a task ──────────────────────
