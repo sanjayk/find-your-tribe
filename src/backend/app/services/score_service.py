@@ -48,9 +48,28 @@ COMPLETENESS_FIELDS: dict[str, str] = {
 }
 
 
+def _field_filled(label: str, value: object) -> bool:
+    """Check whether a completeness field value counts as filled.
+
+    Dispatch by label:
+      - role: ENUM(UserRole) nullable — filled when non-null
+      - contact_links: JSONB dict — filled when non-empty dict
+      - avatar, headline, bio, timezone: string — filled when non-blank
+    """
+    if label == "role":
+        return value is not None
+    if label == "contact_links":
+        return isinstance(value, dict) and len(value) > 0
+    # string fields: avatar, headline, bio, timezone
+    return bool(value and str(value).strip())
+
+
 def calculate_profile_completeness(user: User) -> float:
     """Calculate fraction of profile fields filled out."""
-    filled = sum(bool(getattr(user, attr)) for attr in COMPLETENESS_FIELDS.values())
+    filled = sum(
+        _field_filled(label, getattr(user, attr))
+        for label, attr in COMPLETENESS_FIELDS.items()
+    )
     return filled / len(COMPLETENESS_FIELDS)
 
 

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from app.graphql.types.user import UserType
-from app.models.enums import ProjectStatus, UserRole
+from app.models.enums import AvailabilityStatus, ProjectStatus, UserRole
 from app.models.project import Project
 from app.models.user import User
 from app.services.score_service import (
@@ -314,6 +314,49 @@ class TestCompletenessFields:
                 f"Dropping '{label}' should reduce completeness by 1/6"
             )
 
+    def test_whitespace_string_not_filled(self):
+        """Whitespace-only strings are treated as empty by both implementations."""
+        now = datetime.now(UTC)
+
+        # calculate_profile_completeness via MagicMock
+        user = MagicMock(spec=User)
+        user.avatar_url = "https://example.com/avatar.jpg"
+        user.headline = "   "  # whitespace only — should not count
+        user.bio = "I build things"
+        user.primary_role = UserRole.ENGINEER
+        user.timezone = "America/New_York"
+        user.contact_links = {"github": "test"}
+        score_service_result = calculate_profile_completeness(user)
+        assert abs(score_service_result - 5 / 6) < 1e-9
+
+        # UserType resolver must agree
+        user_type = UserType(
+            id="01HQZXYZ123456789ABCDEFGH",
+            email="test@example.com",
+            username="testuser",
+            display_name="Test User",
+            avatar_url="https://example.com/avatar.jpg",
+            headline="   ",
+            primary_role=UserRole.ENGINEER,
+            timezone="America/New_York",
+            availability_status=AvailabilityStatus.JUST_BROWSING,
+            builder_score=0.0,
+            bio="I build things",
+            contact_links={"github": "test"},
+            preferences={},
+            github_username=None,
+            onboarding_completed=False,
+            agent_tools=[],
+            agent_workflow_style=None,
+            human_agent_ratio=None,
+            created_at=now,
+            _skills=[],
+            _owned_projects=[],
+            _tribes=[],
+        )
+        assert abs(user_type.profile_completeness() - 5 / 6) < 1e-9
+        assert "headline" in user_type.missing_profile_fields()
+
 
 # ---------------------------------------------------------------------------
 # UserType resolver tests
@@ -338,7 +381,7 @@ class TestProfileCompletenessResolver:
             headline="Builder",
             primary_role=UserRole.ENGINEER,
             timezone="America/New_York",
-            availability_status="just_browsing",
+            availability_status=AvailabilityStatus.JUST_BROWSING,
             builder_score=0.0,
             bio="I build things",
             contact_links={"github": "test"},
@@ -368,7 +411,7 @@ class TestProfileCompletenessResolver:
             headline="Builder",
             primary_role=None,
             timezone="America/New_York",
-            availability_status="just_browsing",
+            availability_status=AvailabilityStatus.JUST_BROWSING,
             builder_score=0.0,
             bio="I build things",
             contact_links={},
@@ -398,7 +441,7 @@ class TestProfileCompletenessResolver:
             headline=None,
             primary_role=None,
             timezone=None,
-            availability_status="just_browsing",
+            availability_status=AvailabilityStatus.JUST_BROWSING,
             builder_score=0.0,
             bio=None,
             contact_links={},

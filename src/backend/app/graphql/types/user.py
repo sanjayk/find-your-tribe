@@ -6,21 +6,13 @@ from typing import TYPE_CHECKING
 import strawberry
 
 from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
-from app.services.score_service import COMPLETENESS_FIELDS
+from app.services.score_service import COMPLETENESS_FIELDS, _field_filled
 
 if TYPE_CHECKING:
     from app.graphql.types.project import ProjectType
     from app.graphql.types.skill import SkillType
     from app.graphql.types.tribe import TribeType
     from app.models.user import User
-
-
-def _field_filled(label: str, value: object) -> bool:
-    if label == "role":
-        return value is not None
-    if label == "contact_links":
-        return isinstance(value, dict) and len(value) > 0
-    return bool(value and str(value).strip())
 
 
 @strawberry.type
