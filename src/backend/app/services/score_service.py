@@ -38,17 +38,20 @@ def calculate_builder_score(
     return round(min(100, max(0, total)), 1)
 
 
+COMPLETENESS_FIELDS: dict[str, str] = {
+    "avatar": "avatar_url",
+    "headline": "headline",
+    "bio": "bio",
+    "role": "primary_role",
+    "timezone": "timezone",
+    "contact_links": "contact_links",
+}
+
+
 def calculate_profile_completeness(user: User) -> float:
     """Calculate fraction of profile fields filled out."""
-    fields = {
-        "avatar_url": bool(user.avatar_url),
-        "headline": bool(user.headline),
-        "bio": bool(user.bio),
-        "primary_role": bool(user.primary_role),
-        "timezone": bool(user.timezone),
-        "contact_links": bool(user.contact_links),
-    }
-    return sum(fields.values()) / len(fields)
+    filled = sum(bool(getattr(user, attr)) for attr in COMPLETENESS_FIELDS.values())
+    return filled / len(COMPLETENESS_FIELDS)
 
 
 async def recalculate(session: AsyncSession, user_id: str) -> float:
