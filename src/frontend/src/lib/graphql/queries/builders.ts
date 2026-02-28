@@ -20,6 +20,8 @@ export const GET_BUILDER = gql`
       humanAgentRatio
       preferences
       createdAt
+      profileCompleteness
+      missingProfileFields
       skills {
         id
         name
