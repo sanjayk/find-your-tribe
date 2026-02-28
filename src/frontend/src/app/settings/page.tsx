@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client/react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { CompletenessSection } from '@/components/features/completeness-section';
 import { GET_BUILDER } from '@/lib/graphql/queries/builders';
 import { MY_API_TOKENS } from '@/lib/graphql/queries/tokens';
 import { UPDATE_PROFILE } from '@/lib/graphql/mutations/profile';
@@ -481,6 +482,16 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Profile Completeness */}
+          {data?.user && (
+            <div className="mb-8">
+              <CompletenessSection
+                completeness={data.user.profileCompleteness}
+                missingFields={data.user.missingProfileFields}
+              />
+            </div>
+          )}
+
           {/* Sidebar + Content */}
           <div className="flex flex-col sm:flex-row gap-8">
             {/* Sidebar Nav */}
@@ -509,6 +520,8 @@ export default function SettingsPage() {
                     Profile
                   </h2>
 
+                  <div id="field-avatar" />
+
                   <div>
                     <label
                       htmlFor="displayName"
@@ -529,13 +542,13 @@ export default function SettingsPage() {
 
                   <div>
                     <label
-                      htmlFor="headline"
+                      htmlFor="field-headline"
                       className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
                     >
                       Headline
                     </label>
                     <input
-                      id="headline"
+                      id="field-headline"
                       type="text"
                       value={headline}
                       onChange={(e) => setHeadline(e.target.value)}
@@ -550,13 +563,13 @@ export default function SettingsPage() {
 
                   <div>
                     <label
-                      htmlFor="bio"
+                      htmlFor="field-bio"
                       className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
                     >
                       Bio
                     </label>
                     <textarea
-                      id="bio"
+                      id="field-bio"
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       placeholder="Tell people about yourself and what you're building"
@@ -571,13 +584,13 @@ export default function SettingsPage() {
 
                   <div>
                     <label
-                      htmlFor="primaryRole"
+                      htmlFor="field-role"
                       className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
                     >
                       Primary role
                     </label>
                     <select
-                      id="primaryRole"
+                      id="field-role"
                       value={primaryRole}
                       onChange={(e) => setPrimaryRole(e.target.value)}
                       className={selectClasses}
@@ -606,7 +619,7 @@ export default function SettingsPage() {
                     Links
                   </h2>
 
-                  <div className="space-y-3">
+                  <div id="field-contact-links" className="space-y-3">
                     {linkRows.map((row, index) => (
                       <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <input
@@ -967,13 +980,13 @@ export default function SettingsPage() {
 
                   <div>
                     <label
-                      htmlFor="prefTimezone"
+                      htmlFor="field-timezone"
                       className="text-[13px] font-medium text-ink-secondary mb-1.5 block"
                     >
                       Timezone
                     </label>
                     <select
-                      id="prefTimezone"
+                      id="field-timezone"
                       value={timezone}
                       onChange={(e) => setTimezone(e.target.value)}
                       className={selectClasses}

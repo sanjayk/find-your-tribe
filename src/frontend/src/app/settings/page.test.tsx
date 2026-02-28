@@ -53,6 +53,8 @@ let mockQueryData: Record<string, unknown> | null = {
     skills: [],
     projects: [],
     tribes: [],
+    profileCompleteness: 0.75,
+    missingProfileFields: ['avatar'],
   },
 };
 let mockQueryLoading = false;
@@ -108,6 +110,8 @@ describe('SettingsPage', () => {
         skills: [],
         projects: [],
         tribes: [],
+        profileCompleteness: 0.75,
+        missingProfileFields: ['avatar'],
       },
     };
   });
@@ -1085,6 +1089,84 @@ describe('SettingsPage', () => {
       await user.click(screen.getByRole('button', { name: 'Preferences' }));
 
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
+    });
+  });
+
+  describe('CompletenessSection integration', () => {
+    it('renders CompletenessSection on the settings page', () => {
+      render(<SettingsPage />);
+      expect(screen.getByText('Profile Completeness')).toBeInTheDocument();
+    });
+
+    it('CompletenessSection receives correct completeness and missingFields from query data', () => {
+      mockQueryData = {
+        user: {
+          ...mockQueryData!.user as Record<string, unknown>,
+          profileCompleteness: 0.5,
+          missingProfileFields: ['bio', 'timezone'],
+        },
+      };
+      render(<SettingsPage />);
+      // 50% completeness shows "2 fields remaining"
+      expect(screen.getByText('2 fields remaining')).toBeInTheDocument();
+      // Both missing field links render
+      expect(screen.getByRole('button', { name: /Add a bio/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Set your timezone/ })).toBeInTheDocument();
+    });
+
+    it('when completeness is 1.0, CompletenessSection renders as complete without missing fields list', () => {
+      mockQueryData = {
+        user: {
+          ...mockQueryData!.user as Record<string, unknown>,
+          profileCompleteness: 1.0,
+          missingProfileFields: [],
+        },
+      };
+      render(<SettingsPage />);
+      expect(screen.getByText('Profile Complete')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Add a/ })).not.toBeInTheDocument();
+    });
+
+    it('profile section has id="field-avatar" scroll target', () => {
+      render(<SettingsPage />);
+      expect(document.getElementById('field-avatar')).toBeInTheDocument();
+    });
+
+    it('profile section has id="field-headline" on headline input', () => {
+      render(<SettingsPage />);
+      const el = document.getElementById('field-headline');
+      expect(el).toBeInTheDocument();
+      expect(el!.tagName).toBe('INPUT');
+    });
+
+    it('profile section has id="field-bio" on bio textarea', () => {
+      render(<SettingsPage />);
+      const el = document.getElementById('field-bio');
+      expect(el).toBeInTheDocument();
+      expect(el!.tagName).toBe('TEXTAREA');
+    });
+
+    it('profile section has id="field-role" on role select', () => {
+      render(<SettingsPage />);
+      const el = document.getElementById('field-role');
+      expect(el).toBeInTheDocument();
+      expect(el!.tagName).toBe('SELECT');
+    });
+
+    it('links section has id="field-contact-links"', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Links' }));
+      expect(document.getElementById('field-contact-links')).toBeInTheDocument();
+    });
+
+    it('preferences section has id="field-timezone" on timezone select', async () => {
+      const user = userEvent.setup();
+      render(<SettingsPage />);
+      await user.click(screen.getByRole('button', { name: 'Preferences' }));
+      const el = document.getElementById('field-timezone');
+      expect(el).toBeInTheDocument();
+      expect(el!.tagName).toBe('SELECT');
     });
   });
 });
