@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import strawberry
 
 from app.models.enums import AgentWorkflowStyle, AvailabilityStatus, UserRole
+from app.services.score_service import COMPLETENESS_FIELDS, _field_filled
 
 if TYPE_CHECKING:
     from app.graphql.types.project import ProjectType
@@ -61,6 +62,24 @@ class UserType:
     def tribes(self) -> list["TribeType"]:
         """Lazy resolver for tribes."""
         return self._tribes  # type: ignore[return-value]
+
+    @strawberry.field
+    def profile_completeness(self) -> float:
+        """Fraction of profile fields filled, in [0.0, 1.0]."""
+        filled = sum(
+            _field_filled(label, getattr(self, attr))
+            for label, attr in COMPLETENESS_FIELDS.items()
+        )
+        return filled / len(COMPLETENESS_FIELDS)
+
+    @strawberry.field
+    def missing_profile_fields(self) -> list[str]:
+        """API labels for profile fields that are empty or null."""
+        return [
+            label
+            for label, attr in COMPLETENESS_FIELDS.items()
+            if not _field_filled(label, getattr(self, attr))
+        ]
 
     @classmethod
     def from_model(

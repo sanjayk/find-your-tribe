@@ -38,17 +38,39 @@ def calculate_builder_score(
     return round(min(100, max(0, total)), 1)
 
 
+COMPLETENESS_FIELDS: dict[str, str] = {
+    "avatar": "avatar_url",
+    "headline": "headline",
+    "bio": "bio",
+    "role": "primary_role",
+    "timezone": "timezone",
+    "contact_links": "contact_links",
+}
+
+
+def _field_filled(label: str, value: object) -> bool:
+    """Check whether a completeness field value counts as filled.
+
+    Dispatch by label:
+      - role: ENUM(UserRole) nullable — filled when non-null
+      - contact_links: JSONB dict — filled when non-empty dict
+      - avatar, headline, bio, timezone: string — filled when non-blank
+    """
+    if label == "role":
+        return value is not None
+    if label == "contact_links":
+        return isinstance(value, dict) and len(value) > 0
+    # string fields: avatar, headline, bio, timezone
+    return bool(value and str(value).strip())
+
+
 def calculate_profile_completeness(user: User) -> float:
     """Calculate fraction of profile fields filled out."""
-    fields = {
-        "avatar_url": bool(user.avatar_url),
-        "headline": bool(user.headline),
-        "bio": bool(user.bio),
-        "primary_role": bool(user.primary_role),
-        "timezone": bool(user.timezone),
-        "contact_links": bool(user.contact_links),
-    }
-    return sum(fields.values()) / len(fields)
+    filled = sum(
+        _field_filled(label, getattr(user, attr))
+        for label, attr in COMPLETENESS_FIELDS.items()
+    )
+    return filled / len(COMPLETENESS_FIELDS)
 
 
 async def recalculate(session: AsyncSession, user_id: str) -> float:

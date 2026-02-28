@@ -1,12 +1,15 @@
 """Tests for score_service — calculate_builder_score, calculate_profile_completeness, recalculate."""
 
 import math
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from app.models.enums import ProjectStatus, UserRole
+from app.graphql.types.user import UserType
+from app.models.enums import AvailabilityStatus, ProjectStatus, UserRole
 from app.models.project import Project
 from app.models.user import User
 from app.services.score_service import (
+    COMPLETENESS_FIELDS,
     calculate_builder_score,
     calculate_profile_completeness,
     recalculate,
@@ -268,3 +271,192 @@ class TestRecalculate:
         # Recalculate
         new_score = await recalculate(async_session, user.id)
         assert new_score > base_score
+
+
+# ---------------------------------------------------------------------------
+# COMPLETENESS_FIELDS — constant tests
+# ---------------------------------------------------------------------------
+
+
+class TestCompletenessFields:
+    """Tests for the COMPLETENESS_FIELDS constant and its consistency."""
+
+    def test_completeness_fields_has_six_entries(self):
+        """COMPLETENESS_FIELDS must contain exactly 6 tracked fields."""
+        assert len(COMPLETENESS_FIELDS) == 6
+
+    def test_completeness_fields_matches_calculate_function(self):
+        """COMPLETENESS_FIELDS drives calculate_profile_completeness consistently."""
+        base_attrs = {
+            "avatar_url": "https://example.com/avatar.jpg",
+            "headline": "Builder",
+            "bio": "I build things",
+            "primary_role": UserRole.ENGINEER,
+            "timezone": "America/New_York",
+            "contact_links": {"github": "test"},
+        }
+        empty_values: dict[str, object] = {"contact_links": {}}
+
+        # All fields filled → 1.0
+        user = MagicMock(spec=User)
+        for attr, val in base_attrs.items():
+            setattr(user, attr, val)
+        assert calculate_profile_completeness(user) == 1.0
+
+        # Removing each individual field drops the score by exactly 1/6
+        for label, attr in COMPLETENESS_FIELDS.items():
+            user2 = MagicMock(spec=User)
+            for a, v in base_attrs.items():
+                setattr(user2, a, v)
+            setattr(user2, attr, empty_values.get(attr, None))
+            result = calculate_profile_completeness(user2)
+            assert abs(result - 5 / 6) < 1e-9, (
+                f"Dropping '{label}' should reduce completeness by 1/6"
+            )
+
+    def test_whitespace_string_not_filled(self):
+        """Whitespace-only strings are treated as empty by both implementations."""
+        now = datetime.now(UTC)
+
+        # calculate_profile_completeness via MagicMock
+        user = MagicMock(spec=User)
+        user.avatar_url = "https://example.com/avatar.jpg"
+        user.headline = "   "  # whitespace only — should not count
+        user.bio = "I build things"
+        user.primary_role = UserRole.ENGINEER
+        user.timezone = "America/New_York"
+        user.contact_links = {"github": "test"}
+        score_service_result = calculate_profile_completeness(user)
+        assert abs(score_service_result - 5 / 6) < 1e-9
+
+        # UserType resolver must agree
+        user_type = UserType(
+            id="01HQZXYZ123456789ABCDEFGH",
+            email="test@example.com",
+            username="testuser",
+            display_name="Test User",
+            avatar_url="https://example.com/avatar.jpg",
+            headline="   ",
+            primary_role=UserRole.ENGINEER,
+            timezone="America/New_York",
+            availability_status=AvailabilityStatus.JUST_BROWSING,
+            builder_score=0.0,
+            bio="I build things",
+            contact_links={"github": "test"},
+            preferences={},
+            github_username=None,
+            onboarding_completed=False,
+            agent_tools=[],
+            agent_workflow_style=None,
+            human_agent_ratio=None,
+            created_at=now,
+            _skills=[],
+            _owned_projects=[],
+            _tribes=[],
+        )
+        assert abs(user_type.profile_completeness() - 5 / 6) < 1e-9
+        assert "headline" in user_type.missing_profile_fields()
+
+
+# ---------------------------------------------------------------------------
+# UserType resolver tests
+# ---------------------------------------------------------------------------
+
+
+class TestProfileCompletenessResolver:
+    """Tests for UserType.profile_completeness() and missing_profile_fields()."""
+
+    def _now(self) -> datetime:
+        return datetime.now(UTC)
+
+    def test_profile_completeness_resolver_all_filled(self):
+        """UserType with all 6 fields populated returns 1.0 and no missing fields."""
+        now = self._now()
+        user = UserType(
+            id="01HQZXYZ123456789ABCDEFGH",
+            email="test@example.com",
+            username="testuser",
+            display_name="Test User",
+            avatar_url="https://example.com/avatar.jpg",
+            headline="Builder",
+            primary_role=UserRole.ENGINEER,
+            timezone="America/New_York",
+            availability_status=AvailabilityStatus.JUST_BROWSING,
+            builder_score=0.0,
+            bio="I build things",
+            contact_links={"github": "test"},
+            preferences={},
+            github_username=None,
+            onboarding_completed=False,
+            agent_tools=[],
+            agent_workflow_style=None,
+            human_agent_ratio=None,
+            created_at=now,
+            _skills=[],
+            _owned_projects=[],
+            _tribes=[],
+        )
+        assert user.profile_completeness() == 1.0
+        assert user.missing_profile_fields() == []
+
+    def test_profile_completeness_resolver_partial(self):
+        """UserType with 4/6 fields filled returns ~0.667 and 2 missing labels."""
+        now = self._now()
+        user = UserType(
+            id="01HQZXYZ123456789ABCDEFGH",
+            email="test@example.com",
+            username="testuser",
+            display_name="Test User",
+            avatar_url="https://example.com/avatar.jpg",
+            headline="Builder",
+            primary_role=None,
+            timezone="America/New_York",
+            availability_status=AvailabilityStatus.JUST_BROWSING,
+            builder_score=0.0,
+            bio="I build things",
+            contact_links={},
+            preferences={},
+            github_username=None,
+            onboarding_completed=False,
+            agent_tools=[],
+            agent_workflow_style=None,
+            human_agent_ratio=None,
+            created_at=now,
+            _skills=[],
+            _owned_projects=[],
+            _tribes=[],
+        )
+        assert abs(user.profile_completeness() - 4 / 6) < 1e-9
+        assert set(user.missing_profile_fields()) == {"role", "contact_links"}
+
+    def test_profile_completeness_resolver_empty(self):
+        """UserType with no fields filled returns 0.0 and all 6 labels missing."""
+        now = self._now()
+        user = UserType(
+            id="01HQZXYZ123456789ABCDEFGH",
+            email="test@example.com",
+            username="testuser",
+            display_name="Test User",
+            avatar_url=None,
+            headline=None,
+            primary_role=None,
+            timezone=None,
+            availability_status=AvailabilityStatus.JUST_BROWSING,
+            builder_score=0.0,
+            bio=None,
+            contact_links={},
+            preferences={},
+            github_username=None,
+            onboarding_completed=False,
+            agent_tools=[],
+            agent_workflow_style=None,
+            human_agent_ratio=None,
+            created_at=now,
+            _skills=[],
+            _owned_projects=[],
+            _tribes=[],
+        )
+        assert user.profile_completeness() == 0.0
+        missing = user.missing_profile_fields()
+        assert len(missing) == 6
+        assert set(missing) == set(COMPLETENESS_FIELDS.keys())
