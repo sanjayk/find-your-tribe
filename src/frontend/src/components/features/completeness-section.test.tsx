@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CompletenessSection } from './completeness-section';
 
@@ -76,6 +76,10 @@ describe('CompletenessSection', () => {
       vi.spyOn(document, 'getElementById').mockReturnValue(mockElement);
     });
 
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('calls scrollIntoView with smooth behavior on missing field click', async () => {
       const user = userEvent.setup({ delay: null });
       render(<CompletenessSection completeness={0.5} missingFields={['bio']} />);
@@ -85,6 +89,16 @@ describe('CompletenessSection', () => {
         behavior: 'smooth',
         block: 'center',
       });
+    });
+
+    it('calls focus on the field element after 300ms delay', () => {
+      vi.useFakeTimers();
+      render(<CompletenessSection completeness={0.5} missingFields={['bio']} />);
+      fireEvent.click(screen.getByRole('button'));
+      vi.advanceTimersByTime(300);
+      const el = document.getElementById('field-bio');
+      expect(el!.focus).toHaveBeenCalled();
+      vi.useRealTimers();
     });
   });
 });

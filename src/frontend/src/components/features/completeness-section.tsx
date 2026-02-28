@@ -63,7 +63,7 @@ export function CompletenessSection({ completeness, missingFields }: Completenes
                       onClick={() => scrollToField(meta.scrollId)}
                       className="flex items-center gap-2 text-accent text-[13px] font-medium hover:text-accent-hover transition-colors"
                     >
-                      <span aria-hidden="true">○</span>
+                      <span aria-hidden="true" className="text-ink-tertiary">○</span>
                       {meta.label}
                     </button>
                   </li>
