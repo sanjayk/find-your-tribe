@@ -295,6 +295,8 @@ describe('GraphQL types', () => {
         skills: [],
         projects: [],
         tribes: [],
+        profileCompleteness: 0.75,
+        missingProfileFields: ['bio'],
       };
       expect(builder.builderScore).toBe(85);
       expect(builder.agentTools).toHaveLength(2);
@@ -455,6 +457,8 @@ describe('GraphQL types', () => {
           createdAt: '',
           skills: [],
           projects: [],
+          profileCompleteness: 0,
+          missingProfileFields: [],
         },
       };
       const withoutBuilder: GetBuilderData = { user: null };

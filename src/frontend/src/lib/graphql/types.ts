@@ -199,6 +199,8 @@ export interface Builder {
   skills: Skill[];
   projects: Project[];
   tribes?: Tribe[];
+  profileCompleteness: number;
+  missingProfileFields: string[];
 }
 
 export interface GetBuilderData {
