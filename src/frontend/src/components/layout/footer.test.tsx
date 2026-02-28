@@ -17,25 +17,9 @@ describe('Footer', () => {
     expect(screen.getByText('Clout through building, not posting.')).toBeInTheDocument();
   });
 
-  it('renders About link', () => {
+  it('renders copyright with current year', () => {
     render(<Footer />);
-    const aboutLink = screen.getByRole('link', { name: 'About' });
-    expect(aboutLink).toBeInTheDocument();
-    expect(aboutLink).toHaveAttribute('href', '#');
-  });
-
-  it('renders GitHub link', () => {
-    render(<Footer />);
-    const githubLink = screen.getByRole('link', { name: 'GitHub' });
-    expect(githubLink).toBeInTheDocument();
-    expect(githubLink).toHaveAttribute('href', '#');
-  });
-
-  it('renders Twitter link', () => {
-    render(<Footer />);
-    const twitterLink = screen.getByRole('link', { name: 'Twitter' });
-    expect(twitterLink).toBeInTheDocument();
-    expect(twitterLink).toHaveAttribute('href', '#');
+    expect(screen.getByText(/© \d{4} Find Your Tribe/)).toBeInTheDocument();
   });
 
   it('has correct responsive layout classes', () => {

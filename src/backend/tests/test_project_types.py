@@ -187,12 +187,17 @@ def test_project_type_instantiation():
         links={"repo": "https://github.com/test/repo"},
         tech_stack=["Python", "React"],
         impact_metrics={"users": 100},
+        domains=["devtools"],
+        ai_tools=["Claude Code"],
+        build_style=["agent-driven"],
+        services=["Vercel"],
         github_repo_full_name="test/repo",
         github_stars=50,
         created_at=now,
         updated_at=now,
         _owner=None,
         _collaborators=[],
+        _milestones=[],
     )
 
     assert project.id == "01HQZXYZ123456789ABCDEFGH"
@@ -224,12 +229,17 @@ def test_project_type_with_minimal_fields():
         links={},
         tech_stack=[],
         impact_metrics={},
+        domains=[],
+        ai_tools=[],
+        build_style=[],
+        services=[],
         github_repo_full_name=None,
         github_stars=None,
         created_at=now,
         updated_at=now,
         _owner=None,
         _collaborators=[],
+        _milestones=[],
     )
 
     assert project.id == "01HQZXYZ123456789ABCDEFGH"
@@ -348,12 +358,17 @@ def test_project_type_collaborators_returns_empty_list():
         links={},
         tech_stack=[],
         impact_metrics={},
+        domains=[],
+        ai_tools=[],
+        build_style=[],
+        services=[],
         github_repo_full_name=None,
         github_stars=None,
         created_at=now,
         updated_at=now,
         _owner=None,
         _collaborators=[],
+        _milestones=[],
     )
 
     # The collaborators field should return an empty list
@@ -375,12 +390,17 @@ def test_project_type_owner_returns_none_when_not_loaded():
         links={},
         tech_stack=[],
         impact_metrics={},
+        domains=[],
+        ai_tools=[],
+        build_style=[],
+        services=[],
         github_repo_full_name=None,
         github_stars=None,
         created_at=now,
         updated_at=now,
         _owner=None,
         _collaborators=[],
+        _milestones=[],
     )
 
     # The owner field returns the stored _owner value (None when not loaded)
