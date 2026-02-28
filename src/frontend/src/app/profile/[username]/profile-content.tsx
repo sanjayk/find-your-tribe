@@ -26,6 +26,7 @@ import type { BurnReceiptProps } from '@/components/features/burn-receipt';
 import { WitnessCredits, type Witness } from '@/components/features/witness-credits';
 import { ProfileFooter, type TribeItem, type LinkItem, type InfoItem } from '@/components/features/profile-footer';
 import { DomainTags } from '@/components/features/domain-tags';
+import { CompletenessNudge } from '@/components/features/completeness-nudge';
 import { Package, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
@@ -501,6 +502,9 @@ function ProfileContent({ builder, isOwnProfile }: { builder: Builder; isOwnProf
               <span className={`w-1.5 h-1.5 rounded-full ${available ? 'bg-shipped' : 'bg-ink-tertiary'}`} />
               {availability}
             </span>
+            {isOwnProfile && builder.profileCompleteness < 1.0 && (
+              <CompletenessNudge completeness={builder.profileCompleteness} />
+            )}
           </div>
 
           {/* Domain tags */}
