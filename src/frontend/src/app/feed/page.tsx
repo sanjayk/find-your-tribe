@@ -2,23 +2,28 @@
 
 import { useState } from 'react';
 import { useQuery } from '@apollo/client/react';
+import Link from 'next/link';
 import { GET_FEED } from '@/lib/graphql/queries/feed';
 import type { GetFeedData, FeedEvent, EventType } from '@/lib/graphql/types';
+import {
+  getInitials,
+  getAvatarColor,
+  getGradientClasses,
+  getActionText,
+  getLinkTarget,
+  getActorDisplayName,
+} from './feed-utils';
+import type { FeedEventMetadata } from './feed-utils';
 
 /* ─── Constants ─── */
 
 const PAGE_SIZE = 20;
 
-const EVENT_LABELS: Record<EventType, string> = {
-  PROJECT_SHIPPED: 'Shipped',
-  PROJECT_CREATED: 'Started Building',
-  PROJECT_UPDATE: 'Project Update',
-  TRIBE_CREATED: 'Tribe Formed',
-  TRIBE_ANNOUNCEMENT: 'Tribe Announcement',
-  COLLABORATION_CONFIRMED: 'Collaborator Joined',
-  MEMBER_JOINED_TRIBE: 'Member Joined',
-  BUILDER_JOINED: 'Builder Joined',
-};
+const ACTIVITY_TYPES: Set<EventType> = new Set([
+  'MEMBER_JOINED_TRIBE',
+  'COLLABORATION_CONFIRMED',
+  'BUILDER_JOINED',
+]);
 
 /* ─── Helpers ─── */
 
@@ -46,100 +51,299 @@ function relativeTime(iso: string): string {
   return `${years}y ago`;
 }
 
-function eventLabelColor(eventType: EventType): string {
-  switch (eventType) {
-    case 'PROJECT_SHIPPED':
-      return 'text-shipped';
-    case 'PROJECT_CREATED':
-    case 'COLLABORATION_CONFIRMED':
-      return 'text-in-progress';
-    case 'PROJECT_UPDATE':
-    case 'TRIBE_ANNOUNCEMENT':
-      return 'text-accent';
+/* ─── MilestoneCard (PROJECT_SHIPPED) ─── */
+
+function MilestoneCard({ event }: { event: FeedEvent }) {
+  const meta = event.metadata as FeedEventMetadata;
+  const title = meta.project_title || 'Untitled project';
+  const techStack = meta.tech_stack ?? [];
+  const gradient = getGradientClasses(meta.project_title);
+
+  return (
+    <div className="bg-surface-elevated rounded-lg shadow-sm overflow-hidden hover:bg-surface-secondary/50 transition-colors duration-150 ease-in-out mt-2">
+      <div
+        className={`aspect-[3/1] bg-gradient-to-r ${gradient.from} ${gradient.via} ${gradient.to}`}
+      />
+      <div className="p-4">
+        <p className="font-serif text-[16px] text-ink">{title}</p>
+        {techStack.length > 0 && (
+          <p className="font-mono text-[10px] text-ink-tertiary mt-2">
+            {techStack.join(' \u00b7 ')}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── ContentEmbed (PROJECT_CREATED, TRIBE_CREATED) ─── */
+
+function ContentEmbed({ event }: { event: FeedEvent }) {
+  const meta = event.metadata as FeedEventMetadata;
+
+  if (event.eventType === 'TRIBE_CREATED') {
+    const tribeName = meta.tribe_name || 'Untitled tribe';
+    const mission = meta.mission;
+
+    return (
+      <div className="hover:bg-surface-secondary/50 transition-colors duration-150 ease-in-out rounded-lg mt-2 py-1">
+        <p className="font-serif text-[15px] text-ink">{tribeName}</p>
+        {mission && (
+          <p className="text-[12px] text-ink-secondary mt-1">{mission}</p>
+        )}
+      </div>
+    );
+  }
+
+  // PROJECT_CREATED
+  const title = meta.project_title || 'Untitled project';
+  const techStack = meta.tech_stack ?? [];
+  const gradient = getGradientClasses(meta.project_title);
+
+  return (
+    <div className="bg-surface-secondary rounded-lg p-4 hover:bg-surface-secondary/50 transition-colors duration-150 ease-in-out mt-2 flex items-start gap-3">
+      <div
+        className={`w-10 h-10 rounded-lg shrink-0 bg-gradient-to-r ${gradient.from} ${gradient.via} ${gradient.to}`}
+      />
+      <div>
+        <p className="font-serif text-[15px] text-ink">{title}</p>
+        {techStack.length > 0 && (
+          <p className="font-mono text-[10px] text-ink-tertiary mt-1">
+            {techStack.join(' \u00b7 ')}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── TextCard (PROJECT_UPDATE, TRIBE_ANNOUNCEMENT) ─── */
+
+function TextCard({ event }: { event: FeedEvent }) {
+  const meta = event.metadata as FeedEventMetadata;
+  const content = meta.content;
+  const attribution =
+    event.eventType === 'PROJECT_UPDATE'
+      ? meta.project_title
+        ? `on ${meta.project_title}`
+        : null
+      : meta.tribe_name
+        ? `in ${meta.tribe_name}`
+        : null;
+
+  return (
+    <div className="hover:bg-surface-secondary/50 transition-colors duration-150 ease-in-out rounded-lg mt-2 py-1">
+      {content && (
+        <p className="text-[13px] text-ink-secondary italic">
+          &ldquo;{content}&rdquo;
+        </p>
+      )}
+      {attribution && (
+        <p className="text-[11px] text-ink-tertiary mt-2">{attribution}</p>
+      )}
+    </div>
+  );
+}
+
+/* ─── ActivityLine (MEMBER_JOINED_TRIBE, COLLABORATION_CONFIRMED, BUILDER_JOINED) ─── */
+
+function ActivityLine({ event }: { event: FeedEvent }) {
+  const meta = event.metadata as FeedEventMetadata;
+  const actorName = getActorDisplayName(meta);
+
+  switch (event.eventType) {
+    case 'MEMBER_JOINED_TRIBE': {
+      const tribeName = meta.tribe_name || 'Untitled tribe';
+      return (
+        <p className="text-[13px] text-ink-secondary">
+          <span className="actor group-hover/node:underline transition-all duration-150 ease-in-out">
+            {actorName}
+          </span>{' '}
+          joined {tribeName}
+        </p>
+      );
+    }
+    case 'COLLABORATION_CONFIRMED': {
+      const projectTitle = meta.project_title || 'Untitled project';
+      return (
+        <p className="text-[13px] text-ink-secondary">
+          <span className="actor group-hover/node:underline transition-all duration-150 ease-in-out">
+            {actorName}
+          </span>{' '}
+          joined {projectTitle}
+        </p>
+      );
+    }
+    case 'BUILDER_JOINED': {
+      const skills = meta.skills ?? [];
+      return (
+        <p className="text-[13px] text-ink-secondary">
+          <span className="actor group-hover/node:underline transition-all duration-150 ease-in-out">
+            {actorName}
+          </span>{' '}
+          joined
+          {skills.length > 0 && (
+            <>
+              {' \u00b7 '}
+              <span className="font-mono text-[11px] text-ink-tertiary">
+                {skills.join(' / ')}
+              </span>
+            </>
+          )}
+        </p>
+      );
+    }
     default:
-      return 'text-ink-tertiary';
+      return null;
   }
 }
 
-function eventDescription(event: FeedEvent): string {
-  const meta = event.metadata;
+/* ─── TimelineNode ─── */
 
-  switch (event.eventType) {
-    case 'PROJECT_SHIPPED': {
-      const actor = (meta.actor_name as string) || '';
-      const project = (meta.project_title as string) || '';
-      if (actor && project) return `${actor} shipped ${project}`;
-      if (project) return `Shipped ${project}`;
-      return 'A project was shipped';
+function TimelineNode({ event }: { event: FeedEvent }) {
+  const meta = event.metadata as FeedEventMetadata;
+  const initials = getInitials(meta);
+  const avatarColor = getAvatarColor(
+    meta.actor_name ?? meta.user_name ?? meta.member_name ?? meta.actor_username,
+  );
+  const actionText = getActionText(event.eventType);
+  const time = relativeTime(event.createdAt);
+  const linkTarget = getLinkTarget(
+    event.targetType.toLowerCase(),
+    event.targetId,
+  );
+  const isActivity = ACTIVITY_TYPES.has(event.eventType);
+
+  function renderBody() {
+    switch (event.eventType) {
+      case 'PROJECT_SHIPPED':
+        return <MilestoneCard event={event} />;
+      case 'PROJECT_CREATED':
+      case 'TRIBE_CREATED':
+        return <ContentEmbed event={event} />;
+      case 'PROJECT_UPDATE':
+      case 'TRIBE_ANNOUNCEMENT':
+        return <TextCard event={event} />;
+      case 'MEMBER_JOINED_TRIBE':
+      case 'COLLABORATION_CONFIRMED':
+      case 'BUILDER_JOINED':
+        return <ActivityLine event={event} />;
+      default:
+        return null;
     }
-    case 'PROJECT_CREATED': {
-      const actor = (meta.actor_name as string) || '';
-      const project = (meta.project_title as string) || '';
-      if (actor && project) return `${actor} started building ${project}`;
-      if (project) return `Started building ${project}`;
-      return 'A new project was created';
-    }
-    case 'PROJECT_UPDATE': {
-      const content = (meta.content as string) || '';
-      if (content) return content;
-      const project = (meta.project_title as string) || '';
-      return project ? `Update on ${project}` : 'Project update';
-    }
-    case 'TRIBE_CREATED': {
-      const actor = (meta.actor_name as string) || '';
-      const tribe = (meta.tribe_name as string) || '';
-      if (actor && tribe) return `${actor} formed ${tribe}`;
-      if (tribe) return `Tribe formed: ${tribe}`;
-      return 'A new tribe was formed';
-    }
-    case 'TRIBE_ANNOUNCEMENT': {
-      const content = (meta.content as string) || '';
-      if (content) return content;
-      const tribe = (meta.tribe_name as string) || '';
-      return tribe ? `Announcement from ${tribe}` : 'Tribe announcement';
-    }
-    case 'COLLABORATION_CONFIRMED': {
-      const actor = (meta.actor_name as string) || '';
-      const project = (meta.project_title as string) || '';
-      if (actor && project) return `${actor} joined ${project} as collaborator`;
-      if (actor) return `${actor} joined a project`;
-      return 'A collaborator joined a project';
-    }
-    case 'MEMBER_JOINED_TRIBE': {
-      const member = (meta.member_name as string) || '';
-      const tribe = (meta.tribe_name as string) || '';
-      if (member && tribe) return `${member} joined ${tribe}`;
-      if (tribe) return `New member joined ${tribe}`;
-      return 'A member joined a tribe';
-    }
-    case 'BUILDER_JOINED': {
-      const actor = (meta.actor_name as string) || '';
-      if (actor) return `${actor} joined Find Your Tribe`;
-      return 'A new builder joined';
-    }
-    default:
-      return 'Activity recorded';
   }
+
+  const content = (
+    <article className={`relative pl-12 ${isActivity ? 'py-2' : 'py-5'} group/node`}>
+      {/* Avatar */}
+      <div
+        className={`absolute left-0 ${isActivity ? 'top-2' : 'top-5'} w-9 h-9 rounded-full flex items-center justify-center ${avatarColor.bg} ${avatarColor.text} text-[12px] font-medium`}
+        aria-hidden="true"
+      >
+        {initials}
+      </div>
+
+      {/* Thread connector */}
+      <div
+        className="absolute left-[18px] top-0 bottom-0 w-px"
+        aria-hidden="true"
+      />
+
+      {/* Actor header row */}
+      <div className="flex items-baseline gap-2">
+        <span className="text-ink text-[14px] font-medium">
+          {getActorDisplayName(meta)}
+        </span>
+        <span className="text-ink-tertiary text-[12px]">{actionText}</span>
+        <time
+          dateTime={event.createdAt}
+          className="text-ink-tertiary text-[11px] ml-auto"
+        >
+          {time}
+        </time>
+      </div>
+
+      {/* Body */}
+      {renderBody()}
+    </article>
+  );
+
+  if (linkTarget) {
+    return (
+      <Link href={linkTarget} className="block no-underline text-inherit">
+        {content}
+      </Link>
+    );
+  }
+
+  return content;
+}
+
+/* ─── FeedTimeline ─── */
+
+function FeedTimeline({ events }: { events: FeedEvent[] }) {
+  return (
+    <div className="relative" data-testid="feed-timeline">
+      {/* Thread line */}
+      <div
+        className="absolute left-[18px] top-0 bottom-0 w-px bg-ink-tertiary/20"
+        aria-hidden="true"
+      />
+
+      {events.map((event) => (
+        <TimelineNode key={event.id} event={event} />
+      ))}
+    </div>
+  );
 }
 
 /* ─── Skeleton ─── */
 
 function FeedSkeleton() {
   return (
-    <div className="space-y-3 animate-pulse" data-testid="feed-skeleton">
-      {[1, 2, 3, 4].map((i) => (
-        <div
-          key={i}
-          className="bg-surface-elevated rounded-xl shadow-xs p-5"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="h-3 w-24 bg-surface-secondary rounded" />
-            <div className="h-3 w-16 bg-surface-secondary rounded" />
-          </div>
-          <div className="h-4 w-3/4 bg-surface-secondary rounded mb-2" />
-          <div className="h-3 w-1/3 bg-surface-secondary rounded" />
+    <div className="relative animate-pulse" data-testid="feed-skeleton">
+      {/* Thread line */}
+      <div className="absolute left-[18px] top-0 bottom-0 w-px bg-ink-tertiary/20" />
+
+      {/* Expanded node */}
+      <div className="relative pl-12 py-5">
+        <div className="absolute left-0 top-5 w-9 h-9 rounded-full bg-surface-secondary" />
+        <div className="flex items-center gap-2 mb-2">
+          <div className="h-3 w-20 bg-surface-secondary rounded" />
+          <div className="h-2.5 w-14 bg-surface-secondary rounded" />
+          <div className="h-2.5 w-10 bg-surface-secondary rounded ml-auto" />
         </div>
-      ))}
+        <div className="h-24 w-full bg-surface-secondary rounded-lg" />
+      </div>
+
+      {/* Compact node */}
+      <div className="relative pl-12 py-2">
+        <div className="absolute left-0 top-2 w-9 h-9 rounded-full bg-surface-secondary" />
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-20 bg-surface-secondary rounded" />
+          <div className="h-2.5 w-32 bg-surface-secondary rounded" />
+        </div>
+      </div>
+
+      {/* Expanded node */}
+      <div className="relative pl-12 py-5">
+        <div className="absolute left-0 top-5 w-9 h-9 rounded-full bg-surface-secondary" />
+        <div className="flex items-center gap-2 mb-2">
+          <div className="h-3 w-24 bg-surface-secondary rounded" />
+          <div className="h-2.5 w-12 bg-surface-secondary rounded" />
+          <div className="h-2.5 w-8 bg-surface-secondary rounded ml-auto" />
+        </div>
+        <div className="h-16 w-3/4 bg-surface-secondary rounded-lg" />
+      </div>
+
+      {/* Compact node */}
+      <div className="relative pl-12 py-2">
+        <div className="absolute left-0 top-2 w-9 h-9 rounded-full bg-surface-secondary" />
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-16 bg-surface-secondary rounded" />
+          <div className="h-2.5 w-28 bg-surface-secondary rounded" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -167,35 +371,6 @@ function FeedError() {
         Something went wrong fetching recent activity. Try refreshing the page.
       </p>
     </div>
-  );
-}
-
-/* ─── Event Card ─── */
-
-function EventCard({ event }: { event: FeedEvent }) {
-  const label = EVENT_LABELS[event.eventType];
-  const labelColor = eventLabelColor(event.eventType);
-  const description = eventDescription(event);
-  const time = relativeTime(event.createdAt);
-
-  return (
-    <article className="bg-surface-elevated rounded-xl shadow-xs p-5 mb-3">
-      {/* Header: type label + timestamp */}
-      <div className="flex items-center justify-between mb-2.5">
-        <span className={`overline ${labelColor}`}>{label}</span>
-        <span className="text-[11px] text-ink-tertiary">{time}</span>
-      </div>
-
-      {/* Content */}
-      <p className="text-[14px] text-ink-secondary leading-relaxed">
-        {description}
-      </p>
-
-      {/* Target reference */}
-      <p className="font-mono text-[11px] text-ink-tertiary mt-2.5">
-        {event.targetType.toLowerCase()} / {event.targetId}
-      </p>
-    </article>
   );
 }
 
@@ -246,11 +421,7 @@ export default function FeedPage() {
         <FeedEmpty />
       ) : (
         <>
-          <div>
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+          <FeedTimeline events={events} />
 
           {/* Load More */}
           {hasMore && (
