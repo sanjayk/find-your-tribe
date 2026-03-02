@@ -428,3 +428,60 @@ async def test_seed_feed_events_specific_actors():
         # Clean up
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.mark.asyncio
+async def test_seed_feed_events_actor_metadata_fields():
+    """Test that all feed events have actor identity fields in metadata.
+
+    Every event must have actor_username. Every event except BUILDER_JOINED
+    must have actor_name. BUILDER_JOINED uses user_name instead of actor_name.
+    """
+    from app.db.engine import async_session_factory, engine
+
+    # Create tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    try:
+        async with async_session_factory() as session:
+            # Seed dependencies first
+            skills_dict = await seed_skills(session)
+            users_dict = await seed_users(session, skills_dict)
+            projects_dict = await seed_projects(session, users_dict)
+            tribes_dict = await seed_tribes(session, users_dict)
+
+            # Seed feed events
+            await seed_feed_events(session, users_dict, projects_dict, tribes_dict)
+
+            # Fetch all events
+            stmt = select(FeedEvent)
+            result = await session.execute(stmt)
+            events = result.scalars().all()
+
+            for event in events:
+                metadata = event.event_metadata
+
+                # Every event must have actor_username
+                assert "actor_username" in metadata, (
+                    f"Event {event.event_type} missing actor_username in metadata"
+                )
+                assert isinstance(metadata["actor_username"], str)
+                assert len(metadata["actor_username"]) > 0
+
+                if event.event_type == EventType.BUILDER_JOINED:
+                    # BUILDER_JOINED uses user_name for the display name
+                    assert "user_name" in metadata, (
+                        "BUILDER_JOINED event missing user_name in metadata"
+                    )
+                else:
+                    # All other event types must have actor_name
+                    assert "actor_name" in metadata, (
+                        f"Event {event.event_type} missing actor_name in metadata"
+                    )
+                    assert isinstance(metadata["actor_name"], str)
+                    assert len(metadata["actor_name"]) > 0
+    finally:
+        # Clean up
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)

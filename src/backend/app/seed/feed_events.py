@@ -47,6 +47,8 @@ async def seed_feed_events(
                 "project_title": "AI Resume Builder",
                 "tech_stack": ["React", "Python", "OpenAI", "PostgreSQL"],
                 "github_stars": 340,
+                "actor_name": "Maya Chen",
+                "actor_username": "mayachen",
             },
         },
         {
@@ -58,6 +60,8 @@ async def seed_feed_events(
             "metadata": {
                 "tribe_name": "Hospitality OS",
                 "mission": "Building the operating system for independent hotels",
+                "actor_name": "Tom Nakamura",
+                "actor_username": "tomnakamura",
             },
         },
         {
@@ -69,6 +73,8 @@ async def seed_feed_events(
             "metadata": {
                 "project_title": "Open Source CRM",
                 "tech_stack": ["React", "Node.js", "PostgreSQL"],
+                "actor_name": "Alex Rivera",
+                "actor_username": "alexrivera",
             },
         },
         {
@@ -80,6 +86,8 @@ async def seed_feed_events(
             "metadata": {
                 "tribe_name": "Hospitality OS",
                 "member_name": "James Okafor",
+                "actor_name": "James Okafor",
+                "actor_username": "jamesokafor",
             },
         },
         {
@@ -92,6 +100,8 @@ async def seed_feed_events(
                 "project_title": "ML Pipeline Framework",
                 "tech_stack": ["Python", "TensorFlow", "Docker"],
                 "github_stars": 2100,
+                "actor_name": "Sarah Kim",
+                "actor_username": "sarahkim",
             },
         },
         {
@@ -103,6 +113,8 @@ async def seed_feed_events(
             "metadata": {
                 "project_title": "Growth Analytics Dashboard",
                 "tech_stack": ["Next.js", "Python", "Grafana"],
+                "actor_name": "David Morales",
+                "actor_username": "davidmorales",
             },
         },
         {
@@ -115,6 +127,8 @@ async def seed_feed_events(
                 "project_title": "Growth Analytics Dashboard",
                 "collaborator_name": "Elena Volkov",
                 "owner_name": "David Morales",
+                "actor_name": "Elena Volkov",
+                "actor_username": "elenavolkov",
             },
         },
         {
@@ -126,6 +140,8 @@ async def seed_feed_events(
             "metadata": {
                 "tribe_name": "Hospitality OS",
                 "mission": "Building the operating system for independent hotels",
+                "actor_name": "Tom Nakamura",
+                "actor_username": "tomnakamura",
             },
         },
         {
@@ -137,6 +153,8 @@ async def seed_feed_events(
             "metadata": {
                 "tribe_name": "Creator Economy Tools",
                 "member_name": "Marcus Johnson",
+                "actor_name": "Marcus Johnson",
+                "actor_username": "marcusjohnson",
             },
         },
         {
@@ -148,6 +166,8 @@ async def seed_feed_events(
             "metadata": {
                 "project_title": "Tribe Finder",
                 "tech_stack": ["Next.js", "Go", "PostgreSQL"],
+                "actor_name": "Maya Chen",
+                "actor_username": "mayachen",
             },
         },
         {
@@ -160,6 +180,8 @@ async def seed_feed_events(
                 "project_title": "Tribe Finder",
                 "collaborator_name": "Priya Sharma",
                 "owner_name": "Maya Chen",
+                "actor_name": "Priya Sharma",
+                "actor_username": "priyasharma",
             },
         },
         {
@@ -171,6 +193,8 @@ async def seed_feed_events(
             "metadata": {
                 "tribe_name": "AI for Education",
                 "mission": "Making personalized learning accessible to every student",
+                "actor_name": "Sarah Kim",
+                "actor_username": "sarahkim",
             },
         },
         {
@@ -182,6 +206,8 @@ async def seed_feed_events(
             "metadata": {
                 "tribe_name": "AI for Education",
                 "member_name": "Alex Rivera",
+                "actor_name": "Alex Rivera",
+                "actor_username": "alexrivera",
             },
         },
         {
@@ -194,6 +220,8 @@ async def seed_feed_events(
                 "project_title": "Design System Kit",
                 "tech_stack": ["Figma", "React", "Storybook"],
                 "github_stars": 520,
+                "actor_name": "James Okafor",
+                "actor_username": "jamesokafor",
             },
         },
         {
@@ -205,6 +233,7 @@ async def seed_feed_events(
             "metadata": {
                 "user_name": "Aisha Patel",
                 "skills": ["User Research", "Prototyping", "Analytics"],
+                "actor_username": "aishapatel",
             },
         },
     ]
