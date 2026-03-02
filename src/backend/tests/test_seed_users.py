@@ -366,3 +366,30 @@ async def test_seed_users_all_have_skills():
         # Clean up
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.mark.asyncio
+async def test_seed_users_all_have_onboarding_completed():
+    """Test that all seed users have onboarding_completed set to True."""
+    from app.db.engine import async_session_factory, engine
+
+    # Create table
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    try:
+        async with async_session_factory() as session:
+            skills_dict = await seed_skills(session)
+            await seed_users(session, skills_dict)
+
+            result = await session.execute(select(User))
+            users = result.scalars().all()
+
+            for user in users:
+                assert user.onboarding_completed is True, (
+                    f"User {user.username} has onboarding_completed={user.onboarding_completed}, expected True"
+                )
+    finally:
+        # Clean up
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)

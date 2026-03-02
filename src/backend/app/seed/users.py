@@ -243,6 +243,7 @@ async def seed_users(session: AsyncSession, skills_dict: dict[str, str]) -> dict
             "agent_tools": user_data.get("agent_tools", []),
             "agent_workflow_style": user_data.get("agent_workflow_style"),
             "human_agent_ratio": user_data.get("human_agent_ratio"),
+            "onboarding_completed": True,
         }
         users_for_insert.append(user_dict)
 
